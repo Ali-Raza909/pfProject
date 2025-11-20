@@ -101,7 +101,7 @@ int main()
 	float player_x = 500;
 	float player_y = 150;
 
-	float speed = 5;
+	float speed = 6;
 
 	const float jumpStrength = -20; // Initial jump velocity
 	const float gravity = 1;  // Gravity acceleration

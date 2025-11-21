@@ -41,6 +41,7 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
 
 void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGround, const float &gravity, float &terminal_Velocity, float &player_x, float &player_y, const int cell_size, int &Pheight, int &Pwidth, int height, int width)
 {
+   
     float new_y = player_y + velocityY;
 
     // --- 1. Ceiling Collision (Moving Up) ---
@@ -175,10 +176,10 @@ int main()
     float player_x = 650;
     float player_y = 450;
 
-    float speed = 1;
+    float speed = 1.5f; //0.5
 
     const float jumpStrength = -14;
-    const float gravity = 0.6f;
+    const float gravity = 0.6f; //0.6
 
     bool isJumping = false;
 
@@ -189,7 +190,7 @@ int main()
 
     float offset_y = 0;
     float velocityY = 0;
-    float terminal_Velocity = 1;
+    float terminal_Velocity = 5.0f; // 1
 
     int PlayerHeight = 102;
     int PlayerWidth = 96;

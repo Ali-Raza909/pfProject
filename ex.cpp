@@ -1,5 +1,5 @@
 // fahad boss zindabad
-// ali boss saari speeds change krdi hain. ab wo pixels/sec k hisab se move krengi chill scene he
+// butt sahab check line no. 302, 303
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -12,6 +12,7 @@ using namespace std;
 
 int screen_x = 1200;
 int screen_y = 950;
+
 
 // Safety check to prevent crashing if player goes off-screen
 char get_tile(char **lvl, int row, int col, int height, int width)
@@ -43,7 +44,7 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
 
 void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGround, const float &gravity, float &terminal_Velocity, float &player_x, float &player_y, const int cell_size, int &Pheight, int &Pwidth, int height, int width, float dt)
 {
-   
+
     float new_y = player_y + velocityY * dt;
 
     // --- 1. Ceiling Collision (Moving Up) ---
@@ -102,7 +103,7 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
         onGround = false;
         player_y = new_y;
 
-        velocityY += gravity * dt; //this is dt. To smoothen out things
+        velocityY += gravity * dt; // this is dt. To smoothen out things
         if (velocityY >= terminal_Velocity)
             velocityY = terminal_Velocity;
     }
@@ -152,7 +153,7 @@ void playerCollision_x(char **lvl, float &player_x, float player_y, const float 
 int main()
 {
 
-    const float dt = 0.0167f; //dt to smooth everything
+    const float dt = 0.018f; // dt to smooth everything
     RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
 
     const int cell_size = 64;
@@ -177,18 +178,30 @@ int main()
     lvlMusic.setVolume(20);
     lvlMusic.setLoop(true);
 
-    float player_x = 650;
-    float player_y = 450;
+    float player_x = 650.0f;
+    float player_y = 450.f;
 
-    float speed = 140.f; //0.5 
+    float speed = 140.f; // 0.5
 
     const float jumpStrength = -150.0f;
-    const float gravity = 90.f; //0.6
+    const float gravity = 90.f; // 0.6
 
     bool isJumping = false;
 
     Texture PlayerTexture;
     Sprite PlayerSprite;
+
+    int enemyCount = 0;
+    int maxEnemyCount = 6;
+    float enemiesX[enemyCount];
+    float enemiesY[enemyCount];
+
+    Texture EnemyTexture;
+    Sprite EnemySprite;
+
+    EnemyTexture.loadFromFile("Data/player.png"); // replace with enemy.png
+    EnemySprite.setTexture(EnemyTexture);
+    EnemySprite.setScale(3, 3);
 
     bool onGround = false;
 
@@ -209,74 +222,143 @@ int main()
     {
         lvl[i] = new char[width];
         // IMPORTANT: Fill with empty space first to remove garbage data!
-        for(int j=0; j<width; j++) lvl[i][j] = ' ';
+        for (int j = 0; j < width; j++)
+            lvl[i][j] = ' ';
     }
 
     // Paste of your original level layout
-    lvl[1][3]= '-'; lvl[1][4]= '-'; lvl[1][5]= '-'; lvl[1][6]= '-'; lvl[1][7]= '-';
-    lvl[1][8]= '-'; lvl[1][9]= '-'; lvl[1][10]= '-'; lvl[1][11]= '-'; lvl[1][12]= '-';
-    lvl[1][13]= '-'; lvl[1][14]= '-';
-   
-    lvl[9][3]= '-'; lvl[9][4]= '-'; lvl[9][5]= '-'; lvl[9][6]= '-'; lvl[9][7]= '-';
-    lvl[9][8]= '-'; lvl[9][9]= '-'; lvl[9][10]= '-'; lvl[9][11]= '-'; lvl[9][12]= '-';
-    lvl[9][13]= '-'; lvl[9][14]= '-';
-   
-    lvl[8][8]= '-'; lvl[8][9]= '-';
-   
-    lvl[7][1]= '-'; lvl[7][2]= '-'; lvl[7][3]= '-'; lvl[7][9]= '-'; lvl[7][8]= '-';
-    lvl[7][7]= '-'; lvl[7][10]= '-'; lvl[7][14]= '-'; lvl[7][15]= '-'; lvl[7][16]= '-';
-   
-    lvl[6][7]= '-'; lvl[6][10]= '-';
-   
+    lvl[1][3] = '-';
+    lvl[1][4] = '-';
+    lvl[1][5] = '-';
+    lvl[1][6] = '-';
+    lvl[1][7] = '-';
+    lvl[1][8] = '-';
+    lvl[1][9] = '-';
+    lvl[1][10] = '-';
+    lvl[1][11] = '-';
+    lvl[1][12] = '-';
+    lvl[1][13] = '-';
+    lvl[1][14] = '-';
+
+    lvl[9][3] = '-';
+    lvl[9][4] = '-';
+    lvl[9][5] = '-';
+    lvl[9][6] = '-';
+    lvl[9][7] = '-';
+    lvl[9][8] = '-';
+    lvl[9][9] = '-';
+    lvl[9][10] = '-';
+    lvl[9][11] = '-';
+    lvl[9][12] = '-';
+    lvl[9][13] = '-';
+    lvl[9][14] = '-';
+
+    lvl[8][8] = '-';
+    lvl[8][9] = '-';
+
+    lvl[7][1] = '-';
+    lvl[7][2] = '-';
+    lvl[7][3] = '-';
+    lvl[7][9] = '-';
+    lvl[7][8] = '-';
+    lvl[7][7] = '-';
+    lvl[7][10] = '-';
+    lvl[7][14] = '-';
+    lvl[7][15] = '-';
+    lvl[7][16] = '-';
+
+    lvl[6][7] = '-';
+    lvl[6][10] = '-';
+
     // --- MODIFICATION: I changed these two to '-' so you can test jumping through them ---
-    lvl[5][7]= '-'; lvl[5][10]= '-';
-   
-    lvl[5][3]= '-'; lvl[5][4]= '-'; lvl[5][5]= '-'; lvl[5][6]= '-'; lvl[5][11]= '-';
-    lvl[5][12]= '-'; lvl[5][13]= '-'; lvl[5][14]= '-';
-   
-    lvl[4][7]= '-'; lvl[4][10]= '-';
-    lvl[3][7]= '-'; lvl[3][10]= '-'; lvl[3][8]= '-'; lvl[3][9]= '-';
-    lvl[3][1]= '-'; lvl[3][2]= '-'; lvl[3][3]= '-'; lvl[3][16]= '-'; lvl[3][15]= '-'; lvl[3][14]= '-';
-   
-    lvl[2][8]= '-'; lvl[2][9]= '-';
+    lvl[5][7] = '-';
+    lvl[5][10] = '-';
+
+    lvl[5][3] = '-';
+    lvl[5][4] = '-';
+    lvl[5][5] = '-';
+    lvl[5][6] = '-';
+    lvl[5][11] = '-';
+    lvl[5][12] = '-';
+    lvl[5][13] = '-';
+    lvl[5][14] = '-';
+
+    lvl[4][7] = '-';
+    lvl[4][10] = '-';
+    lvl[3][7] = '-';
+    lvl[3][10] = '-';
+    lvl[3][8] = '-';
+    lvl[3][9] = '-';
+    lvl[3][1] = '-';
+    lvl[3][2] = '-';
+    lvl[3][3] = '-';
+    lvl[3][16] = '-';
+    lvl[3][15] = '-';
+    lvl[3][14] = '-';
+
+    lvl[2][8] = '-';
+    lvl[2][9] = '-';
+
+    lvl[3][3] = 'e';
+    // lvl[5][2] = 'e';
 
     // Floor and Sides (Restored from your code)
-    for(int j=0; j<=17; j++) lvl[11][j] = '#';
-    for(int i=0; i<=10; i++) { lvl[i][0] = '#'; lvl[i][17] = '#'; }
-    lvl[2][8]='#';
-    lvl[2][9]='#';
-    lvl[8][8]='#';
-    lvl[8][9]='#';
-    lvl[7][7]='#';
-    lvl[7][8]='#';
-    lvl[7][9]='#';
-    lvl[7][10]='#';
-    lvl[6][7]='#';
-    lvl[6][10]='#';
-    lvl[5][7]='#';
-    lvl[5][10]='#';
-    lvl[4][7]='#';
-    lvl[4][10]='#';
-    lvl[3][7]='#';
-    lvl[3][8]='#';
-    lvl[3][9]='#';
-    lvl[3][10]='#';
-    
+    for (int j = 0; j <= 17; j++)
+        lvl[11][j] = '#';
+    for (int i = 0; i <= 10; i++)
+    {
+        lvl[i][0] = '#';
+        lvl[i][17] = '#';
+    }
+    lvl[2][8] = '#';
+    lvl[2][9] = '#';
+    lvl[8][8] = '#';
+    lvl[8][9] = '#';
+    lvl[7][7] = '#';
+    lvl[7][8] = '#';
+    lvl[7][9] = '#';
+    lvl[7][10] = '#';
+    lvl[6][7] = '#';
+    lvl[6][10] = '#';
+    lvl[5][7] = '#';
+    lvl[5][10] = '#';
+    lvl[4][7] = '#';
+    lvl[4][10] = '#';
+    lvl[3][7] = '#';
+    lvl[3][8] = '#';
+    lvl[3][9] = '#';
+    lvl[3][10] = '#';
+
+    for (int r = 0; r < height; r++)
+    {
+        for (int c = 0; c < width; c++)
+        {
+            if (lvl[r][c] == 'e')
+            {
+                enemiesX[enemyCount] = c* cell_size + cell_size; //it will convert row/col number to position value
+                enemiesY[enemyCount] = r* cell_size + cell_size/2 - 8.f; //like that of the player
+                enemyCount++;
+            }
+        }
+    }
+
     // End of original map paste
 
     Event ev;
-   
+
     while (window.isOpen())
     {
         while (window.pollEvent(ev))
         {
-            if (ev.type == Event::Closed) window.close();
+            if (ev.type == Event::Closed)
+                window.close();
         }
-        if (Keyboard::isKeyPressed(Keyboard::Escape)) window.close();
+        if (Keyboard::isKeyPressed(Keyboard::Escape))
+            window.close();
 
         // Movement (Now allows air control)
         playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
-       
+
         if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
         {
             velocityY = jumpStrength;
@@ -289,6 +371,14 @@ int main()
         display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
         player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
         PlayerSprite.setPosition(player_x, player_y);
+
+        EnemySprite.setPosition(220, 450);
+        //Enemy drawing code here
+        for(int i = 0; i < enemyCount; i++) {
+            EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
+            window.draw(EnemySprite);
+            EnemySprite.move(50.f, 0);
+        }
         window.draw(PlayerSprite);
 
         window.display();

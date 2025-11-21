@@ -1,5 +1,5 @@
 // fahad boss zindabad
-
+// ali boss saari speeds change krdi hain. ab wo pixels/sec k hisab se move krengi chill scene he
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -108,10 +108,10 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
     }
 }
 
-void playerCollision_x(char **lvl, float &player_x, float player_y, const float &speed, const int cell_size, const int Pheight, const int Pwidth, int height, int width)
+void playerCollision_x(char **lvl, float &player_x, float player_y, const float &speed, const int cell_size, const int Pheight, const int Pwidth, int height, int width, float dt)
 {
-    float offsetX_right = player_x + speed;
-    float offsetX_left = player_x - speed;
+    float offsetX_right = player_x + speed * dt;
+    float offsetX_left = player_x - speed * dt;
 
     // --- Right Movement ---
     if (Keyboard::isKeyPressed(Keyboard::Right))
@@ -127,7 +127,7 @@ void playerCollision_x(char **lvl, float &player_x, float player_y, const float 
         }
         else
         {
-            player_x += speed;
+            player_x += speed * dt;
         }
     }
 
@@ -144,7 +144,7 @@ void playerCollision_x(char **lvl, float &player_x, float player_y, const float 
         }
         else
         {
-            player_x -= speed;
+            player_x -= speed * dt;
         }
     }
 }
@@ -180,7 +180,7 @@ int main()
     float player_x = 650;
     float player_y = 450;
 
-    float speed = 1.5f; //0.5
+    float speed = 140.f; //0.5 
 
     const float jumpStrength = -150.0f;
     const float gravity = 90.f; //0.6
@@ -275,7 +275,7 @@ int main()
         if (Keyboard::isKeyPressed(Keyboard::Escape)) window.close();
 
         // Movement (Now allows air control)
-        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight, PlayerWidth, height, width);
+        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
        
         if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
         {

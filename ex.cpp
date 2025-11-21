@@ -241,6 +241,25 @@ int main()
     // Floor and Sides (Restored from your code)
     for(int j=0; j<=17; j++) lvl[11][j] = '#';
     for(int i=0; i<=10; i++) { lvl[i][0] = '#'; lvl[i][17] = '#'; }
+    lvl[2][8]='#';
+    lvl[2][9]='#';
+    lvl[8][8]='#';
+    lvl[8][9]='#';
+    lvl[7][7]='#';
+    lvl[7][8]='#';
+    lvl[7][9]='#';
+    lvl[7][10]='#';
+    lvl[6][7]='#';
+    lvl[6][10]='#';
+    lvl[5][7]='#';
+    lvl[5][10]='#';
+    lvl[4][7]='#';
+    lvl[4][10]='#';
+    lvl[3][7]='#';
+    lvl[3][8]='#';
+    lvl[3][9]='#';
+    lvl[3][10]='#';
+    
     // End of original map paste
 
     Event ev;

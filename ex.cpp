@@ -41,10 +41,10 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
     }
 }
 
-void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGround, const float &gravity, float &terminal_Velocity, float &player_x, float &player_y, const int cell_size, int &Pheight, int &Pwidth, int height, int width)
+void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGround, const float &gravity, float &terminal_Velocity, float &player_x, float &player_y, const int cell_size, int &Pheight, int &Pwidth, int height, int width, float dt)
 {
    
-    float new_y = player_y + velocityY;
+    float new_y = player_y + velocityY * dt;
 
     // --- 1. Ceiling Collision (Moving Up) ---
     if (velocityY < 0)
@@ -102,7 +102,7 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
         onGround = false;
         player_y = new_y;
 
-        velocityY += gravity;
+        velocityY += gravity * dt; //this is dt. To smoothen out things
         if (velocityY >= terminal_Velocity)
             velocityY = terminal_Velocity;
     }
@@ -151,6 +151,8 @@ void playerCollision_x(char **lvl, float &player_x, float player_y, const float 
 
 int main()
 {
+
+    const float dt = 0.0167f; //dt to smooth everything
     RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
 
     const int cell_size = 64;
@@ -180,8 +182,8 @@ int main()
 
     float speed = 1.5f; //0.5
 
-    const float jumpStrength = -14;
-    const float gravity = 0.6f; //0.6
+    const float jumpStrength = -150.0f;
+    const float gravity = 90.f; //0.6
 
     bool isJumping = false;
 
@@ -192,7 +194,7 @@ int main()
 
     float offset_y = 0;
     float velocityY = 0;
-    float terminal_Velocity = 5.0f; // 1
+    float terminal_Velocity = 300.f; // 1
 
     int PlayerHeight = 102;
     int PlayerWidth = 96;
@@ -285,7 +287,7 @@ int main()
         window.clear();
 
         display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
-        player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width);
+        player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
         PlayerSprite.setPosition(player_x, player_y);
         window.draw(PlayerSprite);
 

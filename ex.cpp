@@ -1,3 +1,5 @@
+// fahad boss zindabad
+
 #include <iostream>
 #include <fstream>
 #include <cmath>

@@ -192,16 +192,21 @@ int main()
     Sprite PlayerSprite;
 
     int enemyCount = 0;
-    int maxEnemyCount = 6;
-    float enemiesX[enemyCount];
-    float enemiesY[enemyCount];
+const int maxEnemyCount = 8;
+
+float enemiesX[maxEnemyCount];
+float enemiesY[maxEnemyCount];
+float enemySpeed[maxEnemyCount];
+int enemyDirection[maxEnemyCount];
+float platformLeftEdge[maxEnemyCount];
+float platformRightEdge[maxEnemyCount];
 
     Texture EnemyTexture;
     Sprite EnemySprite;
 
-    EnemyTexture.loadFromFile("Data/player.png"); // replace with enemy.png
+    EnemyTexture.loadFromFile("Data/ghost.png"); // replace with enemy.png
     EnemySprite.setTexture(EnemyTexture);
-    EnemySprite.setScale(3, 3);
+    EnemySprite.setScale(1.5, 1.5);
 
     bool onGround = false;
 
@@ -299,9 +304,8 @@ int main()
     lvl[2][8] = '-';
     lvl[2][9] = '-';
 
-    lvl[3][3] = 'e';
-    // lvl[5][2] = 'e';
-
+    
+    
     // Floor and Sides (Restored from your code)
     for (int j = 0; j <= 17; j++)
         lvl[11][j] = '#';
@@ -328,61 +332,118 @@ int main()
     lvl[3][8] = '#';
     lvl[3][9] = '#';
     lvl[3][10] = '#';
+    
+    lvl[0][5] = 'e';    
+    lvl[0][12] = 'e';   
+    lvl[2][2] = 'e';    
+    lvl[2][15] = 'e';   
+    lvl[4][4] = 'e';    
+    lvl[4][13] = 'e';   
+    lvl[8][6] = 'e';    
+    lvl[8][10] = 'e';   
 
-    for (int r = 0; r < height; r++)
+
+  for (int r = 0; r < height; r++)
+{
+    for (int c = 0; c < width; c++)
     {
-        for (int c = 0; c < width; c++)
-        {
-            if (lvl[r][c] == 'e')
-            {
-                enemiesX[enemyCount] = c* cell_size + cell_size; //it will convert row/col number to position value
-                enemiesY[enemyCount] = r* cell_size + cell_size/2 - 8.f; //like that of the player
-                enemyCount++;
-            }
+    
+ if (lvl[r][c] == 'e' && enemyCount < maxEnemyCount)
+{
+    int platformRow = r + 1;
+    char below = get_tile(lvl, platformRow, c, height, width);
+
+    // Enemy must stand on a platform or wall
+    if (below == '-' || below == '#')
+    {
+        enemiesX[enemyCount] = c * cell_size;
+        enemiesY[enemyCount] = r * cell_size;
+
+        // Detect edges of THAT platform
+        int leftEdge = c;
+        int rightEdge = c;
+
+        while (leftEdge > 0 && (lvl[platformRow][leftEdge - 1] == '-' || lvl[platformRow][leftEdge - 1] == '#'))
+            leftEdge--;
+
+        while (rightEdge < width - 1 && (lvl[platformRow][rightEdge + 1] == '-' || lvl[platformRow][rightEdge + 1] == '#'))
+            rightEdge++;
+
+        platformLeftEdge[enemyCount] = leftEdge * cell_size + 10;
+        platformRightEdge[enemyCount] = (rightEdge + 1) * cell_size - 48 - 10;
+
+        enemySpeed[enemyCount] = 40.f;
+        enemyDirection[enemyCount] = 1;
+
+        enemyCount++;
+    }
+    
+     lvl[r][c] = ' ';  // Clear the 'e' marker so it doesn't interfere with rendering
+}
+
+      
         }
     }
+      cout << "Total enemies: " << enemyCount << endl;
+
+   
 
     // End of original map paste
 
     Event ev;
 
-    while (window.isOpen())
+ while (window.isOpen())
+{
+    while (window.pollEvent(ev))
     {
-        while (window.pollEvent(ev))
-        {
-            if (ev.type == Event::Closed)
-                window.close();
-        }
-        if (Keyboard::isKeyPressed(Keyboard::Escape))
+        if (ev.type == Event::Closed)
             window.close();
-
-        // Movement (Now allows air control)
-        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
-
-        if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
-        {
-            velocityY = jumpStrength;
-            onGround = false;
-            isJumping = true;
-        }
-
-        window.clear();
-
-        display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
-        player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
-        PlayerSprite.setPosition(player_x, player_y);
-
-        EnemySprite.setPosition(220, 450);
-        //Enemy drawing code here
-        for(int i = 0; i < enemyCount; i++) {
-            EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
-            window.draw(EnemySprite);
-            EnemySprite.move(50.f, 0);
-        }
-        window.draw(PlayerSprite);
-
-        window.display();
     }
+    if (Keyboard::isKeyPressed(Keyboard::Escape))
+        window.close();
+
+    // Movement - Make sure this is OUTSIDE the event loop
+    playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
+
+    if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
+    {
+        velocityY = jumpStrength;
+        onGround = false;
+        isJumping = true;
+    }
+
+    // Apply gravity
+    player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
+
+    // NOW update enemies AFTER gravity
+    for (int i = 0; i < enemyCount; i++) {
+        enemiesX[i] += enemySpeed[i] * enemyDirection[i] * dt;
+        
+        // Check boundaries and reverse direction
+        if (enemiesX[i] <= platformLeftEdge[i]) {
+            enemiesX[i] = platformLeftEdge[i];
+            enemyDirection[i] = 1; // Move right
+        }
+        else if (enemiesX[i] >= platformRightEdge[i]) {
+            enemiesX[i] = platformRightEdge[i];
+            enemyDirection[i] = -1; // Move left
+        }
+    }
+
+    window.clear();
+    display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
+    
+    PlayerSprite.setPosition(player_x, player_y);
+    window.draw(PlayerSprite);
+
+    // Draw enemies
+    for(int i = 0; i < enemyCount; i++) {
+        EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
+        window.draw(EnemySprite);
+    }
+
+    window.display();
+}
 
     lvlMusic.stop();
     for (int i = 0; i < height; i++)

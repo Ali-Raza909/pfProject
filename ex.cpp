@@ -372,7 +372,7 @@ float platformRightEdge[maxEnemyCount];
         platformLeftEdge[enemyCount] = leftEdge * cell_size + 10;
         platformRightEdge[enemyCount] = (rightEdge + 1) * cell_size - 48 - 10;
 
-        enemySpeed[enemyCount] = 40.f;
+        enemySpeed[enemyCount] = 15.f;  //40.f
         enemyDirection[enemyCount] = 1;
 
         enemyCount++;

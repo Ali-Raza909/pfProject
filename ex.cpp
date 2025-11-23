@@ -14,6 +14,54 @@ using namespace std;
 int screen_x = 1200;
 int screen_y = 950;
 
+void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool onGround,
+                           Texture &idleTex, Texture walkTex[], Texture &jumpTex,
+                           int &animFrame, int &animCounter, int animSpeed)
+{
+    int texW = 0;
+    int texH = 0;
+
+    if (!onGround) // Priority 1: Jumping
+    {
+        PlayerSprite.setTexture(jumpTex, true);
+        texW = jumpTex.getSize().x;
+        texH = jumpTex.getSize().y;
+    }
+    else if (isMoving == 1) // Priority 2: Walking
+    {
+        animCounter++;
+        if (animCounter >= animSpeed)
+        {
+            animCounter = 0;
+            animFrame++;
+            if (animFrame >= 6)
+                animFrame = 0;
+        }
+
+        PlayerSprite.setTexture(walkTex[animFrame], true);
+        texW = walkTex[animFrame].getSize().x;
+        texH = walkTex[animFrame].getSize().y;
+    }
+    else // Priority 3: Idle
+    {
+        animFrame = 0;
+        PlayerSprite.setTexture(idleTex, true);
+        texW = idleTex.getSize().x;
+        texH = idleTex.getSize().y;
+    }
+
+    // --- 2. FLIP LOGIC (THE FIX) ---
+    if (facing == 1) // Facing LEFT (Flipped)
+    {
+        PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+    }
+    else // Facing RIGHT (Normal)
+    {
+        // Start at 0 and draw normally
+        PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
+    }
+}
+
 bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH)
 {
     if ((playerX < enemyX + enemyW) && (playerX + playerW > enemyX) && (playerY < enemyY + enemyH) && (playerY + playerH > enemyY))
@@ -120,7 +168,9 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
     }
 }
 
-void playerCollision_x(char **lvl, float &player_x, float player_y, const float &speed, const int cell_size, const int Pheight, const int Pwidth, int height, int width, float dt)
+void playerCollision_x(char **lvl, float &player_x, float player_y,
+                       const float &speed, const int cell_size, const int Pheight,
+                       const int Pwidth, int height, int width, float dt, int &isMoving, int &facing)
 {
     float offsetX_right = player_x + speed * dt;
     float offsetX_left = player_x - speed * dt;
@@ -128,6 +178,9 @@ void playerCollision_x(char **lvl, float &player_x, float player_y, const float 
     // --- Right Movement ---
     if (Keyboard::isKeyPressed(Keyboard::Right))
     {
+        isMoving = 1;
+        facing = 1;
+
         char top_right = get_tile(lvl, (int)player_y / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
         char mid_right = get_tile(lvl, (int)(player_y + Pheight / 2) / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
         char bot_right = get_tile(lvl, (int)(player_y + Pheight - 5) / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
@@ -146,6 +199,9 @@ void playerCollision_x(char **lvl, float &player_x, float player_y, const float 
     // --- Left Movement ---
     if (Keyboard::isKeyPressed(Keyboard::Left))
     {
+        isMoving = 1;
+        facing = 0;
+
         char top_left = get_tile(lvl, (int)player_y / cell_size, (int)(offsetX_left) / cell_size, height, width);
         char mid_left = get_tile(lvl, (int)(player_y + Pheight / 2) / cell_size, (int)(offsetX_left) / cell_size, height, width);
         char bot_left = get_tile(lvl, (int)(player_y + Pheight - 5) / cell_size, (int)(offsetX_left) / cell_size, height, width);
@@ -165,61 +221,69 @@ int main()
 {
 
     const float dt = 0.018f; // dt to smooth everything 0.018
-    srand(time(0));  //  Initialize random seed for skeleton jump timing
+    srand(time(0));          //  Initialize random seed for skeleton jump timing
     RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
 
     const int cell_size = 64;
     const int height = 14;
-    const int width = 20;//18
+    const int width = 20; // 18
     char **lvl;
-    
-       float speedMultiplier = 1.0f;
+
+    float speedMultiplier = 1.0f;
     float vacuumPower = 1.0f;
-    
+
     Texture PlayerTexture;
     Sprite PlayerSprite;
-   
-   // ------------------------------------
-// INTRO SCREEN (BEFORE CHARACTER MENU)
-// ------------------------------------
 
-Texture introTex;
-Sprite introSprite;
+    int PlayerWidth, PlayerHeight;
+    float scale = 2.8f;
 
-if (!introTex.loadFromFile("Data/intro.png"))
-    cout << "intro.png missing!\n";
+    int facing = 1;
+    int isMoving = 0;
+    Texture idleTex, walkTex[6], jumpTex;
 
-introSprite.setTexture(introTex);
-introSprite.setPosition(0, 0);  // adjust if needed
-introSprite.setScale(1.8,1.8);
-// Press Enter to Start text
-Font fontIntro;
-fontIntro.loadFromFile("Data/font.ttf");
+    int animFrame = 0, animCounter = 0, animSpeed = 5;
 
-Text startText("PRESS ENTER TO START", fontIntro, 50);
-startText.setFillColor(Color::White);
-startText.setPosition(300, 800); // adjust to fit your screen
+    // ------------------------------------
+    // INTRO SCREEN (BEFORE CHARACTER MENU)
+    // ------------------------------------
 
-bool startGame = false;
+    Texture introTex;
+    Sprite introSprite;
 
-while (window.isOpen() && !startGame)
-{
-    Event e;
-    while (window.pollEvent(e))
+    if (!introTex.loadFromFile("Data/intro.png"))
+        cout << "intro.png missing!\n";
+
+    introSprite.setTexture(introTex);
+    introSprite.setPosition(0, 0); // adjust if needed
+    introSprite.setScale(1.8, 1.8);
+    // Press Enter to Start text
+    Font fontIntro;
+    fontIntro.loadFromFile("Data/font.ttf");
+
+    Text startText("PRESS ENTER TO START", fontIntro, 50);
+    startText.setFillColor(Color::White);
+    startText.setPosition(300, 800); // adjust to fit your screen
+
+    bool startGame = false;
+
+    while (window.isOpen() && !startGame)
     {
-        if (e.type == Event::Closed)
-            window.close();
+        Event e;
+        while (window.pollEvent(e))
+        {
+            if (e.type == Event::Closed)
+                window.close();
 
-        if (e.type == Event::KeyPressed && e.key.code == Keyboard::Enter)
-            startGame = true;
+            if (e.type == Event::KeyPressed && e.key.code == Keyboard::Enter)
+                startGame = true;
+        }
+
+        window.clear();
+        window.draw(introSprite);
+        window.draw(startText);
+        window.display();
     }
-
-    window.clear();
-    window.draw(introSprite);
-    window.draw(startText);
-    window.display();
-}
-
 
     // font
     Font font;
@@ -232,78 +296,109 @@ while (window.isOpen() && !startGame)
     infoText.setPosition(20, 20);
 
     // menu screen
-    
+
     Texture menuBGTexture;
-Sprite menuBGSprite;
+    Sprite menuBGSprite;
 
-if (!menuBGTexture.loadFromFile("Data/menuBG.png"))   // <-- your image
-    cout << "Menu background missing!\n";
+    if (!menuBGTexture.loadFromFile("Data/menuBG.png")) // <-- your image
+        cout << "Menu background missing!\n";
 
-menuBGSprite.setTexture(menuBGTexture);
+    menuBGSprite.setTexture(menuBGTexture);
 
-// OPTIONAL — make image fill the whole window
-menuBGSprite.setScale(
-    float(screen_x) / menuBGTexture.getSize().x,
-    float(screen_y) / menuBGTexture.getSize().y
-);
+    // OPTIONAL — make image fill the whole window
+    menuBGSprite.setScale(
+        float(screen_x) / menuBGTexture.getSize().x,
+        float(screen_y) / menuBGTexture.getSize().y);
 
-    
     Text title("Game Menu", font, 100);
     title.setFillColor(Color::Magenta);
-    title.setPosition(400, 200);  //250
+    title.setPosition(400, 200); // 250
 
     Text subtitle("Press 1 for Yellow (Fast) ", font, 50);
     subtitle.setFillColor(Color::Yellow);
-    subtitle.setPosition(120, 400); //120
-    
+    subtitle.setPosition(120, 400); // 120
+
     Text subtitle2(" Press 2 for Green (Strong Vacuum)", font, 50);
     subtitle2.setFillColor(Color::Green);
-    subtitle2.setPosition(100, 500); //120
-    
+    subtitle2.setPosition(100, 500); // 120
+
     Text subtitle3(" Press Esc to EXIT", font, 50);
     subtitle3.setFillColor(Color::Red);
-    subtitle3.setPosition(100, 600); //120
+    subtitle3.setPosition(100, 600); // 120
 
     bool characterSelected = false;
-    while (window.isOpen() && !characterSelected) {
+    while (window.isOpen() && !characterSelected)
+    {
         Event e;
-        while (window.pollEvent(e)) {
-            if (e.type == Event::Closed) window.close();
-            if (e.type == Event::KeyPressed) {
-                if (e.key.code == Keyboard::Num1) {
-                   
-                   
-                    PlayerTexture.loadFromFile("Data/player2.png");
-                     PlayerSprite.setTexture(PlayerTexture);
-                    PlayerSprite.setScale(2, 2);
+        while (window.pollEvent(e))
+        {
+            if (e.type == Event::Closed)
+                window.close();
+            if (e.type == Event::KeyPressed)
+            {
+                if (e.key.code == Keyboard::Num1)
+                {
+
+                    PlayerTexture.loadFromFile("Data/player.png");
+                    PlayerSprite.setTexture(PlayerTexture);
+                    PlayerSprite.setScale(scale, scale);
+
+                    idleTex.loadFromFile("Data/yellowPlayer/idle1.png");
+                    jumpTex.loadFromFile("Data/yellowPlayer/jump1.png");
+                    walkTex[0].loadFromFile("Data/yellowPlayer/walk1.png");
+                    walkTex[1].loadFromFile("Data/yellowPlayer/walk2.png");
+                    walkTex[2].loadFromFile("Data/yellowPlayer/walk3.png");
+                    walkTex[3].loadFromFile("Data/yellowPlayer/walk4.png");
+                    walkTex[4].loadFromFile("Data/yellowPlayer/walk5.png");
+                    walkTex[5].loadFromFile("Data/yellowPlayer/walk6.png");                    
+
+                    PlayerWidth = 31 * scale;
+                    PlayerHeight = 42 * scale;
+
                     speedMultiplier = 1.5f;
                     vacuumPower = 1.0f;
                     characterSelected = true;
                 }
-                if (e.key.code == Keyboard::Num2) {
-                   
-                   PlayerTexture.loadFromFile("Data/player.png");
+                if (e.key.code == Keyboard::Num2)
+                {
+
+                    PlayerTexture.loadFromFile("Data/greenPlayer/idle1.png");
                     PlayerSprite.setTexture(PlayerTexture);
-                    
-                    PlayerSprite.setScale(3, 3);
+
+                    PlayerSprite.setScale(scale, scale);
+
+                    idleTex.loadFromFile("Data/greenPlayer/idle1.png");
+                    jumpTex.loadFromFile("Data/greenPlayer/jump1.png");
+                    walkTex[0].loadFromFile("Data/greenPlayer/walk1.png");
+                    walkTex[1].loadFromFile("Data/greenPlayer/walk2.png");
+                    walkTex[2].loadFromFile("Data/greenPlayer/walk3.png");
+                    walkTex[3].loadFromFile("Data/greenPlayer/walk4.png");
+                    walkTex[4].loadFromFile("Data/greenPlayer/walk5.png");
+                    walkTex[5].loadFromFile("Data/greenPlayer/walk6.png");
+
+                    PlayerWidth = 31*scale;
+                    PlayerHeight = 42*scale;
+
                     speedMultiplier = 1.0f;
                     vacuumPower = 1.2f;
                     characterSelected = true;
                 }
-                if (e.key.code == Keyboard::Escape)window.close();
+                if (e.key.code == Keyboard::Escape)
+                    window.close();
             }
         }
         window.clear(Color::Black);
         window.draw(menuBGSprite);
         window.draw(title);
-        
+
         window.draw(subtitle);
         window.draw(subtitle2);
         window.draw(subtitle3);
         window.display();
     }
 
-    if (!characterSelected) return 0;
+    if (!characterSelected)
+        return 0;
 
     Texture bgTex;
     Sprite bgSprite;
@@ -313,7 +408,7 @@ menuBGSprite.setScale(
     bgTex.loadFromFile("Data/bg.png");
     bgSprite.setTexture(bgTex);
     bgSprite.setPosition(0, 0);
-   bgSprite.setScale(2.0f, 2.0f);
+    bgSprite.setScale(2.0f, 2.0f);
 
     blockTexture.loadFromFile("Data/block1.png");
     blockSprite.setTexture(blockTexture);
@@ -328,12 +423,10 @@ menuBGSprite.setScale(
 
     float speed = 140.0f; // 140
 
-    const float jumpStrength = -150.0f;//150
-    const float gravity = 90.f; // 90
+    const float jumpStrength = -150.0f; // 150
+    const float gravity = 90.f;         // 90
 
     bool isJumping = false;
-
-    
 
     int enemyCount = 0;
     const int maxEnemyCount = 8;
@@ -351,35 +444,34 @@ menuBGSprite.setScale(
     Texture EnemyTexture;
     Sprite EnemySprite;
 
-    EnemyTexture.loadFromFile("Data/ghost.png"); 
+    EnemyTexture.loadFromFile("Data/ghost.png");
     EnemySprite.setTexture(EnemyTexture);
     EnemySprite.setScale(2, 2);
-    
+
     // Skeleton enemies (can move between platforms)
-int skeletonCount = 0;
-const int maxSkeletonCount = 4;
+    int skeletonCount = 0;
+    const int maxSkeletonCount = 4;
 
-float skeletonsX[maxSkeletonCount];
-float skeletonsY[maxSkeletonCount];
-float skeletonSpeed[maxSkeletonCount];
-int skeletonDirection[maxSkeletonCount];
-float skeletonVelocityY[maxSkeletonCount];
-bool skeletonOnGround[maxSkeletonCount];
-float skeletonJumpTimer[maxSkeletonCount];  //  Timer for jump intervals
-float skeletonJumpCooldown[maxSkeletonCount];  //  Random cooldown between jumps
-bool skeletonShouldJump[maxSkeletonCount];  //  Flag to control when to attempt jump
-int skeletonStableFrames[maxSkeletonCount];  //  Count frames on ground before allowing jump
+    float skeletonsX[maxSkeletonCount];
+    float skeletonsY[maxSkeletonCount];
+    float skeletonSpeed[maxSkeletonCount];
+    int skeletonDirection[maxSkeletonCount];
+    float skeletonVelocityY[maxSkeletonCount];
+    bool skeletonOnGround[maxSkeletonCount];
+    float skeletonJumpTimer[maxSkeletonCount];    //  Timer for jump intervals
+    float skeletonJumpCooldown[maxSkeletonCount]; //  Random cooldown between jumps
+    bool skeletonShouldJump[maxSkeletonCount];    //  Flag to control when to attempt jump
+    int skeletonStableFrames[maxSkeletonCount];   //  Count frames on ground before allowing jump
 
+    int SkeletonHeight = 92; // 60
+    int SkeletonWidth = 72;
 
-int SkeletonHeight = 92;//60
-int SkeletonWidth = 72;
+    Texture SkeletonTexture;
+    Sprite SkeletonSprite;
 
-Texture SkeletonTexture;
-Sprite SkeletonSprite;
-
-SkeletonTexture.loadFromFile("Data/skeleton.png"); 
-SkeletonSprite.setTexture(SkeletonTexture);
-SkeletonSprite.setScale(2, 2);
+    SkeletonTexture.loadFromFile("Data/skeleton.png");
+    SkeletonSprite.setTexture(SkeletonTexture);
+    SkeletonSprite.setScale(2, 2);
 
     bool onGround = false;
 
@@ -387,10 +479,9 @@ SkeletonSprite.setScale(2, 2);
     float velocityY = 0;
     float terminal_Velocity = 300.f; // 300
 
-    int PlayerHeight = 102;
-    int PlayerWidth = 96;
+    // int PlayerHeight = 102;
+    // int PlayerWidth = 96;
 
-    
     // --- LEVEL CREATION (YOUR ORIGINAL MAP) ---
     lvl = new char *[height];
     for (int i = 0; i < height; i += 1)
@@ -511,12 +602,12 @@ SkeletonSprite.setScale(2, 2);
     lvl[4][13] = 'e';
     lvl[8][6] = 'e';
     lvl[8][10] = 'e';
-    
+
     // Skeleton spawn points (marked with 's') - TOP PLATFORMS
-lvl[0][7] = 's';    // Top middle platform
-lvl[0][10] = 's';   // Top middle platform
-lvl[2][4] = 's';    // Upper left platform
-lvl[2][13] = 's';   // Upper right platform
+    lvl[0][7] = 's';  // Top middle platform
+    lvl[0][10] = 's'; // Top middle platform
+    lvl[2][4] = 's';  // Upper left platform
+    lvl[2][13] = 's'; // Upper right platform
 
     for (int r = 0; r < height; r++)
     {
@@ -558,31 +649,31 @@ lvl[2][13] = 's';   // Upper right platform
         }
     }
     cout << "Total enemies: " << enemyCount << endl;
-    
+
     // Initialize skeletons
-for (int r = 0; r < height; r++)
-{
-    for (int c = 0; c < width; c++)
+    for (int r = 0; r < height; r++)
     {
-        if (lvl[r][c] == 's' && skeletonCount < maxSkeletonCount)
+        for (int c = 0; c < width; c++)
         {
-            skeletonsX[skeletonCount] = c * cell_size;
-            skeletonsY[skeletonCount] = r * cell_size;
-            skeletonSpeed[skeletonCount] = 40.f;//40
-            skeletonDirection[skeletonCount] = 1;
-            skeletonVelocityY[skeletonCount] = 0;
-            skeletonOnGround[skeletonCount] = false;
-            skeletonJumpTimer[skeletonCount] = 0.f;  
-            skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;  // Random 1.5-3.5s
-            skeletonShouldJump[skeletonCount] = false;  
-            skeletonStableFrames[skeletonCount] = 0;    
-            
-            skeletonCount++;
-            lvl[r][c] = ' '; // Clear the marker
+            if (lvl[r][c] == 's' && skeletonCount < maxSkeletonCount)
+            {
+                skeletonsX[skeletonCount] = c * cell_size;
+                skeletonsY[skeletonCount] = r * cell_size;
+                skeletonSpeed[skeletonCount] = 40.f; // 40
+                skeletonDirection[skeletonCount] = 1;
+                skeletonVelocityY[skeletonCount] = 0;
+                skeletonOnGround[skeletonCount] = false;
+                skeletonJumpTimer[skeletonCount] = 0.f;
+                skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f; // Random 1.5-3.5s
+                skeletonShouldJump[skeletonCount] = false;
+                skeletonStableFrames[skeletonCount] = 0;
+
+                skeletonCount++;
+                lvl[r][c] = ' '; // Clear the marker
+            }
         }
     }
-}
-cout << "Total skeletons: " << skeletonCount << endl;
+    cout << "Total skeletons: " << skeletonCount << endl;
 
     // End of original map paste
 
@@ -598,9 +689,12 @@ cout << "Total skeletons: " << skeletonCount << endl;
         if (Keyboard::isKeyPressed(Keyboard::Escape))
             window.close();
 
+        isMoving = 0;
         // Movement - Make sure this is OUTSIDE the event loop
-        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
-
+        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
+                          PlayerWidth, height, width, dt, isMoving, facing);
+        updatePlayerAnimation(PlayerSprite, facing, isMoving, onGround, idleTex,
+                              walkTex, jumpTex, animFrame, animCounter, animSpeed);
         if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
         {
             velocityY = jumpStrength;
@@ -630,108 +724,124 @@ cout << "Total skeletons: " << skeletonCount << endl;
 
             collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i], PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight);
         }
-        
-       
-// Update skeletons with gravity, platform movement, and intelligent jumping
-for (int i = 0; i < skeletonCount; i++)
-{
-    // *** HORIZONTAL MOVEMENT (WORKS IN AIR AND ON GROUND) ***
-    float newX = skeletonsX[i] + skeletonSpeed[i] * skeletonDirection[i] * dt;
-    
-    // Check wall collision for horizontal movement
-    char right_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight/2) / cell_size, 
-                                (int)(newX + SkeletonWidth) / cell_size, height, width);
-    char left_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight/2) / cell_size, 
-                               (int)newX / cell_size, height, width);
-    
-    // Reverse direction if hitting wall
-    if ((skeletonDirection[i] == 1 && right_check == '#') || 
-        (skeletonDirection[i] == -1 && left_check == '#'))
-    {
-        skeletonDirection[i] *= -1;
-    }
-    else
-    {
-        skeletonsX[i] = newX;  // Move horizontally whether jumping or not
-    }
-    
-    // Apply gravity to skeletons (AFTER horizontal movement)
-    player_gravity(lvl, offset_y, skeletonVelocityY[i], skeletonOnGround[i], 
-                   gravity, terminal_Velocity, skeletonsX[i], skeletonsY[i], 
-                   cell_size, SkeletonHeight, SkeletonWidth, height, width, dt);
-    
-    // Track how long skeleton has been stable on ground
-    if (skeletonOnGround[i])
-    {
-        skeletonStableFrames[i]++;
-    }
-    else
-    {
-        skeletonStableFrames[i] = 0;
-    }
-    
-    // *** INTELLIGENT JUMPING LOGIC ***
-    skeletonJumpTimer[i] += dt;
-    
-    // Only check for new jump opportunity if skeleton has been stable for a bit
-    if (skeletonOnGround[i] && skeletonStableFrames[i] > 350 && !skeletonShouldJump[i])
-    {
-        // Random chance to decide to jump (8% chance per frame for more frequent jumps)
-        if (rand() % 100 < 1)
+
+        // Update skeletons with gravity, platform movement, and intelligent jumping
+        for (int i = 0; i < skeletonCount; i++)
         {
-            // Check if there's a platform above to jump to
-            int currentRow = (int)(skeletonsY[i] + SkeletonHeight) / cell_size;
-            int skeletonCol = (int)(skeletonsX[i] + SkeletonWidth/2) / cell_size;
-            
-            bool platformAbove = false;
-            
-            // Look for platforms 2-5 rows above (wider search range)
-            for (int checkRow = currentRow - 5; checkRow < currentRow - 1; checkRow++)
+            // *** HORIZONTAL MOVEMENT (WORKS IN AIR AND ON GROUND) ***
+            float newX = skeletonsX[i] + skeletonSpeed[i] * skeletonDirection[i] * dt;
+
+            // Check wall collision for horizontal movement
+            char right_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
+                                        (int)(newX + SkeletonWidth) / cell_size, height, width);
+            char left_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
+                                       (int)newX / cell_size, height, width);
+
+            // Reverse direction if hitting wall
+            if ((skeletonDirection[i] == 1 && right_check == '#') ||
+                (skeletonDirection[i] == -1 && left_check == '#'))
             {
-                if (checkRow >= 0)
+                skeletonDirection[i] *= -1;
+            }
+            else
+            {
+                skeletonsX[i] = newX; // Move horizontally whether jumping or not
+            }
+
+            // Apply gravity to skeletons (AFTER horizontal movement)
+            player_gravity(lvl, offset_y, skeletonVelocityY[i], skeletonOnGround[i],
+                           gravity, terminal_Velocity, skeletonsX[i], skeletonsY[i],
+                           cell_size, SkeletonHeight, SkeletonWidth, height, width, dt);
+
+            // Track how long skeleton has been stable on ground
+            if (skeletonOnGround[i])
+            {
+                skeletonStableFrames[i]++;
+            }
+            else
+            {
+                skeletonStableFrames[i] = 0;
+            }
+
+            // *** INTELLIGENT JUMPING LOGIC ***
+            skeletonJumpTimer[i] += dt;
+
+            // Only check for new jump opportunity if skeleton has been stable for a bit
+            if (skeletonOnGround[i] && skeletonStableFrames[i] > 350 && !skeletonShouldJump[i])
+            {
+                // Random chance to decide to jump (8% chance per frame for more frequent jumps)
+                if (rand() % 100 < 1)
                 {
-                    // Check if there's a platform within jumping range
-                    for (int checkCol = skeletonCol - 3; checkCol <= skeletonCol + 3; checkCol++)
+                    // Check if there's a platform above to jump to
+                    int currentRow = (int)(skeletonsY[i] + SkeletonHeight) / cell_size;
+                    int skeletonCol = (int)(skeletonsX[i] + SkeletonWidth / 2) / cell_size;
+
+                    bool platformAbove = false;
+
+                    // Look for platforms 2-5 rows above (wider search range)
+                    for (int checkRow = currentRow - 5; checkRow < currentRow - 1; checkRow++)
                     {
-                        char tile = get_tile(lvl, checkRow, checkCol, height, width);
-                        if (tile == '-' || tile == '#')
+                        if (checkRow >= 0)
                         {
-                            platformAbove = true;
-                            break;
+                            // Check if there's a platform within jumping range
+                            for (int checkCol = skeletonCol - 3; checkCol <= skeletonCol + 3; checkCol++)
+                            {
+                                char tile = get_tile(lvl, checkRow, checkCol, height, width);
+                                if (tile == '-' || tile == '#')
+                                {
+                                    platformAbove = true;
+                                    break;
+                                }
+                            }
                         }
+                        if (platformAbove)
+                            break;
+                    }
+
+                    // Only set jump flag if there's actually a platform to jump to
+                    if (platformAbove)
+                    {
+                        skeletonShouldJump[i] = true;
+                        skeletonJumpTimer[i] = 0.f;
                     }
                 }
-                if (platformAbove) break;
             }
-            
-            // Only set jump flag if there's actually a platform to jump to
-            if (platformAbove)
+
+            // Execute the jump if flagged and on ground
+            if (skeletonShouldJump[i] && skeletonOnGround[i] && skeletonStableFrames[i] > 30)
             {
-                skeletonShouldJump[i] = true;
-                skeletonJumpTimer[i] = 0.f;
+                skeletonVelocityY[i] = jumpStrength; // Full player jump strength
+                skeletonOnGround[i] = false;
+                skeletonShouldJump[i] = false; // Reset flag
+                skeletonStableFrames[i] = 0;
             }
+
+            // Collision detection with player
+            collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
+                               PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight);
         }
-    }
-    
-    // Execute the jump if flagged and on ground
-    if (skeletonShouldJump[i] && skeletonOnGround[i] && skeletonStableFrames[i] > 30)
-    {
-        skeletonVelocityY[i] = jumpStrength;  // Full player jump strength
-        skeletonOnGround[i] = false;
-        skeletonShouldJump[i] = false;  // Reset flag
-        skeletonStableFrames[i] = 0;
-    }
-    
-    // Collision detection with player
-    collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i], 
-                      PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight);
-}
 
         window.clear();
         display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 
-        PlayerSprite.setPosition(player_x, player_y);
+        //2.8 x 64 player's png width is 64
+        //2.8 x 64 player's png height is 64
+        float Xoffset = (64*scale - PlayerWidth) / 2.0f; // sprite is drawn slightly above b/c the animation frames
+        float Yoffset = (64*scale - PlayerHeight);  // I used were of size 64, 64 that is differnt from player height
+        
+        PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
+
         window.draw(PlayerSprite);
+
+        //collision box start
+        RectangleShape collBox;
+        collBox.setSize(Vector2f(PlayerWidth, PlayerHeight));
+        collBox.setPosition(player_x, player_y); // This is where the physics thinks you are
+        collBox.setFillColor(Color::Transparent);
+        collBox.setOutlineColor(Color::Red);
+        collBox.setOutlineThickness(2);
+        window.draw(collBox);
+        //collision box end
 
         // Draw enemies
         for (int i = 0; i < enemyCount; i++)
@@ -739,13 +849,13 @@ for (int i = 0; i < skeletonCount; i++)
             EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
             window.draw(EnemySprite);
         }
-        
+
         // Draw skeletons
-for (int i = 0; i < skeletonCount; i++)
-{
-    SkeletonSprite.setPosition(skeletonsX[i], skeletonsY[i]);
-    window.draw(SkeletonSprite);
-}
+        for (int i = 0; i < skeletonCount; i++)
+        {
+            SkeletonSprite.setPosition(skeletonsX[i], skeletonsY[i]);
+            window.draw(SkeletonSprite);
+        }
 
         window.display();
     }

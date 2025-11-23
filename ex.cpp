@@ -170,7 +170,7 @@ int main()
 
     const int cell_size = 64;
     const int height = 14;
-    const int width = 18;
+    const int width = 20;//18
     char **lvl;
     
        float speedMultiplier = 1.0f;
@@ -232,8 +232,24 @@ while (window.isOpen() && !startGame)
     infoText.setPosition(20, 20);
 
     // menu screen
-    Text title("TUMBLE-POP", font, 100);
-    title.setFillColor(Color::White);
+    
+    Texture menuBGTexture;
+Sprite menuBGSprite;
+
+if (!menuBGTexture.loadFromFile("Data/menuBG.png"))   // <-- your image
+    cout << "Menu background missing!\n";
+
+menuBGSprite.setTexture(menuBGTexture);
+
+// OPTIONAL — make image fill the whole window
+menuBGSprite.setScale(
+    float(screen_x) / menuBGTexture.getSize().x,
+    float(screen_y) / menuBGTexture.getSize().y
+);
+
+    
+    Text title("Game Menu", font, 100);
+    title.setFillColor(Color::Magenta);
     title.setPosition(400, 200);  //250
 
     Text subtitle("Press 1 for Yellow (Fast) ", font, 50);
@@ -243,6 +259,10 @@ while (window.isOpen() && !startGame)
     Text subtitle2(" Press 2 for Green (Strong Vacuum)", font, 50);
     subtitle2.setFillColor(Color::Green);
     subtitle2.setPosition(100, 500); //120
+    
+    Text subtitle3(" Press Esc to EXIT", font, 50);
+    subtitle3.setFillColor(Color::Red);
+    subtitle3.setPosition(100, 600); //120
 
     bool characterSelected = false;
     while (window.isOpen() && !characterSelected) {
@@ -270,12 +290,16 @@ while (window.isOpen() && !startGame)
                     vacuumPower = 1.2f;
                     characterSelected = true;
                 }
+                if (e.key.code == Keyboard::Escape)window.close();
             }
         }
         window.clear(Color::Black);
+        window.draw(menuBGSprite);
         window.draw(title);
+        
         window.draw(subtitle);
         window.draw(subtitle2);
+        window.draw(subtitle3);
         window.display();
     }
 
@@ -289,6 +313,7 @@ while (window.isOpen() && !startGame)
     bgTex.loadFromFile("Data/bg.png");
     bgSprite.setTexture(bgTex);
     bgSprite.setPosition(0, 0);
+   bgSprite.setScale(2.0f, 2.0f);
 
     blockTexture.loadFromFile("Data/block1.png");
     blockSprite.setTexture(blockTexture);
@@ -450,13 +475,15 @@ SkeletonSprite.setScale(2, 2);
     lvl[2][9] = '-';
 
     // Floor and Sides (Restored from your code)
-    for (int j = 0; j <= 17; j++)
+    for (int j = 0; j <= 18; j++)
         lvl[11][j] = '#';
     for (int i = 0; i <= 10; i++)
     {
         lvl[i][0] = '#';
-        lvl[i][17] = '#';
+        lvl[i][18] = '#';
     }
+    lvl[7][17] = '#';
+    lvl[3][17] = '#';
     lvl[2][8] = '#';
     lvl[2][9] = '#';
     lvl[8][8] = '#';

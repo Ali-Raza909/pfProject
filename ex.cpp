@@ -14,60 +14,87 @@ using namespace std;
 int screen_x = 1200;
 int screen_y = 950;
 
-void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool onGround,
-                           Texture &idleTex, Texture walkTex[], Texture &jumpTex,
-                           int &animFrame, int &animCounter, int animSpeed)
+void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool isDead, bool onGround,
+                           Texture &idleTex, Texture walkTex[], Texture &jumpTex, Texture deadTex[],
+                           int &animFrame, int &deadAnimFrame, int &animCounter, int &deadAnimCounter, int animSpeed, int deadAnimSpeed)
 {
     int texW = 0;
     int texH = 0;
 
-    if (!onGround) // Priority 1: Jumping
+    if (!isDead)
     {
-        PlayerSprite.setTexture(jumpTex, true);
-        texW = jumpTex.getSize().x;
-        texH = jumpTex.getSize().y;
-    }
-    else if (isMoving == 1) // Priority 2: Walking
-    {
-        animCounter++;
-        if (animCounter >= animSpeed)
+        // Reset death animation if we somehow come back to life
+        deadAnimFrame = 0; 
+
+        if (!onGround) // Priority 1: Jumping
         {
-            animCounter = 0;
-            animFrame++;
-            if (animFrame >= 6)
-                animFrame = 0;
+            PlayerSprite.setTexture(jumpTex, true);
+            texW = jumpTex.getSize().x;
+            texH = jumpTex.getSize().y;
+        }
+        else if (isMoving == 1) // Priority 2: Walking
+        {
+            animCounter++;
+            if (animCounter >= animSpeed)
+            {
+                animCounter = 0;
+                animFrame++;
+                if (animFrame >= 6)
+                    animFrame = 0;
+            }
+
+            PlayerSprite.setTexture(walkTex[animFrame], true);
+            texW = walkTex[animFrame].getSize().x;
+            texH = walkTex[animFrame].getSize().y;
+        }
+        else // Priority 3: Idle
+        {
+            animFrame = 0;
+            PlayerSprite.setTexture(idleTex, true);
+            texW = idleTex.getSize().x;
+            texH = idleTex.getSize().y;
         }
 
-        PlayerSprite.setTexture(walkTex[animFrame], true);
-        texW = walkTex[animFrame].getSize().x;
-        texH = walkTex[animFrame].getSize().y;
+        // --- FLIP LOGIC ---
+        if (facing == 1) // Facing LEFT (Flipped)
+        {
+            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+        }
+        else // Facing RIGHT (Normal)
+        {
+            PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
+        }
     }
-    else // Priority 3: Idle
+    else if (isDead)
     {
-        animFrame = 0;
-        PlayerSprite.setTexture(idleTex, true);
-        texW = idleTex.getSize().x;
-        texH = idleTex.getSize().y;
-    }
+        deadAnimCounter++; 
+        if (deadAnimCounter >= deadAnimSpeed)
+        {
+            deadAnimCounter = 0;
+            if (deadAnimFrame < 7) 
+            {
+                deadAnimFrame++;
+            }
+        }
 
-    // --- 2. FLIP LOGIC (THE FIX) ---
-    if (facing == 1) // Facing LEFT (Flipped)
-    {
-        PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-    }
-    else // Facing RIGHT (Normal)
-    {
-        // Start at 0 and draw normally
-        PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
+        PlayerSprite.setTexture(deadTex[deadAnimFrame], true);
+        
+        texW = deadTex[deadAnimFrame].getSize().x;
+        texH = deadTex[deadAnimFrame].getSize().y;
+
+        if (facing == 1) 
+            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+        else 
+            PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
     }
 }
 
-bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH)
+bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH, bool &isDead)
 {
     if ((playerX < enemyX + enemyW) && (playerX + playerW > enemyX) && (playerY < enemyY + enemyH) && (playerY + playerH > enemyY))
     {
-        cout << "Collision Detected";
-        window.close();
+        // cout << "Collision Detected";
+        isDead = true;
         return true;
     }
     return false;
@@ -240,10 +267,12 @@ int main()
 
     int facing = 1;
     int isMoving = 0;
-    Texture idleTex, walkTex[6], jumpTex;
+    Texture idleTex, walkTex[6], jumpTex, deadTex[8];
 
-    int animFrame = 0, animCounter = 0, animSpeed = 5;
-
+    int animFrame = 0, animCounter = 0, animSpeed = 5,
+    deadAnimCounter = 0, deadAnimFrame = 0, deadAnimSpeed = 60;
+    bool isDead = false;
+    
     // ------------------------------------
     // INTRO SCREEN (BEFORE CHARACTER MENU)
     // ------------------------------------
@@ -350,7 +379,17 @@ int main()
                     walkTex[2].loadFromFile("Data/yellowPlayer/walk3.png");
                     walkTex[3].loadFromFile("Data/yellowPlayer/walk4.png");
                     walkTex[4].loadFromFile("Data/yellowPlayer/walk5.png");
-                    walkTex[5].loadFromFile("Data/yellowPlayer/walk6.png");                    
+                    walkTex[5].loadFromFile("Data/yellowPlayer/walk6.png");
+
+                    deadTex[0].loadFromFile("Data/yellowPlayerDying/dying1.png");
+                    deadTex[1].loadFromFile("Data/yellowPlayerDying/dying2.png");
+                    deadTex[2].loadFromFile("Data/yellowPlayerDying/dying3.png");
+                    deadTex[3].loadFromFile("Data/yellowPlayerDying/dying4.png");
+                    deadTex[4].loadFromFile("Data/yellowPlayerDying/dying5.png");
+                    deadTex[5].loadFromFile("Data/yellowPlayerDying/dying6.png");
+                    deadTex[6].loadFromFile("Data/yellowPlayerDying/dying7.png");
+                    deadTex[7].loadFromFile("Data/yellowPlayerDying/dying8.png");
+
 
                     PlayerWidth = 31 * scale;
                     PlayerHeight = 42 * scale;
@@ -375,9 +414,20 @@ int main()
                     walkTex[3].loadFromFile("Data/greenPlayer/walk4.png");
                     walkTex[4].loadFromFile("Data/greenPlayer/walk5.png");
                     walkTex[5].loadFromFile("Data/greenPlayer/walk6.png");
+                    
 
-                    PlayerWidth = 31*scale;
-                    PlayerHeight = 42*scale;
+                    deadTex[0].loadFromFile("Data/greenPlayerDying/dying1.png");
+                    deadTex[1].loadFromFile("Data/greenPlayerDying/dying2.png");
+                    deadTex[2].loadFromFile("Data/greenPlayerDying/dying3.png");
+                    deadTex[3].loadFromFile("Data/greenPlayerDying/dying4.png");
+                    deadTex[4].loadFromFile("Data/greenPlayerDying/dying5.png");
+                    deadTex[5].loadFromFile("Data/greenPlayerDying/dying6.png");
+                    deadTex[6].loadFromFile("Data/greenPlayerDying/dying7.png");
+                    deadTex[7].loadFromFile("Data/greenPlayerDying/dying8.png");
+
+
+                    PlayerWidth = 31 * scale;
+                    PlayerHeight = 42 * scale;
 
                     speedMultiplier = 1.0f;
                     vacuumPower = 1.2f;
@@ -693,8 +743,11 @@ int main()
         // Movement - Make sure this is OUTSIDE the event loop
         playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
                           PlayerWidth, height, width, dt, isMoving, facing);
-        updatePlayerAnimation(PlayerSprite, facing, isMoving, onGround, idleTex,
-                              walkTex, jumpTex, animFrame, animCounter, animSpeed);
+        updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
+                              walkTex, jumpTex, deadTex, animFrame, deadAnimFrame, animCounter, deadAnimCounter, animSpeed, deadAnimSpeed);
+        //Sprite &PlayerSprite, int facing, int isMoving, bool isDead, bool onGround,
+            //               Texture &idleTex, Texture walkTex[], Texture &jumpTex, Texture &deadTex[],
+              //             int &animFrame, int &deadAnimFrame, int &animCounter, int deadAnimCounter, int animSpeed
         if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
         {
             velocityY = jumpStrength;
@@ -722,7 +775,7 @@ int main()
                 enemyDirection[i] = -1; // Move left
             }
 
-            collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i], PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight);
+            collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i], PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight, isDead);
         }
 
         // Update skeletons with gravity, platform movement, and intelligent jumping
@@ -818,22 +871,22 @@ int main()
 
             // Collision detection with player
             collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
-                               PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight);
+                               PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight, isDead);
         }
 
         window.clear();
         display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 
-        //2.8 x 64 player's png width is 64
-        //2.8 x 64 player's png height is 64
-        float Xoffset = (64*scale - PlayerWidth) / 2.0f; // sprite is drawn slightly above b/c the animation frames
-        float Yoffset = (64*scale - PlayerHeight);  // I used were of size 64, 64 that is differnt from player height
-        
+        // 2.8 x 64 player's png width is 64
+        // 2.8 x 64 player's png height is 64
+        float Xoffset = (64 * scale - PlayerWidth) / 2.0f; // sprite is drawn slightly above b/c the animation frames
+        float Yoffset = (64 * scale - PlayerHeight);       // I used were of size 64, 64 that is differnt from player height
+
         PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
 
         window.draw(PlayerSprite);
 
-        //collision box start
+        // collision box start
         RectangleShape collBox;
         collBox.setSize(Vector2f(PlayerWidth, PlayerHeight));
         collBox.setPosition(player_x, player_y); // This is where the physics thinks you are
@@ -841,7 +894,7 @@ int main()
         collBox.setOutlineColor(Color::Red);
         collBox.setOutlineThickness(2);
         window.draw(collBox);
-        //collision box end
+        // collision box end
 
         // Draw enemies
         for (int i = 0; i < enemyCount; i++)

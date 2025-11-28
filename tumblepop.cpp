@@ -1,361 +1,1115 @@
+// PF project
+// collision detection closes the window
 #include <iostream>
+#include <fstream>
 #include <cmath>
+#include <ctime>
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+#include <SFML/Window.hpp>
+
 using namespace sf;
 using namespace std;
 
-// ---------------- CONSTANTS ----------------
-const int SCREEN_X = 1136;
-const int SCREEN_Y = 896;
-const int CELL_SIZE = 64;
-const int LEVEL_HEIGHT = 14;
-const int LEVEL_WIDTH = 18;
+int screen_x = 1200;
+int screen_y = 950;
 
-// ---------------- FUNCTION DECLARATIONS ----------------
-void load_level1(char** lvl);
-void load_level2(char** lvl);
-void display_level(RenderWindow& window, char** lvl, Sprite& bgSprite, Sprite& blockSprite);
-void apply_gravity(char** lvl, float& player_x, float& player_y, float& velocityY, bool& onGround,
-                   float gravity, float terminal_Velocity, int PlayerHeight, int PlayerWidth);
-void show_game_over(RenderWindow& window, Font& font);
-void show_level_complete(RenderWindow& window, Font& font);
+void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool isDead, bool onGround,
+                           Texture &idleTex, Texture walkTex[], Texture &jumpTex, Texture deadTex[],
+                           int &animFrame, int &deadAnimFrame, int &animCounter, int &deadAnimCounter, int animSpeed, int deadAnimSpeed)
+{
+    int texW = 0;
+    int texH = 0;
 
-// ============================================================
-int main() {
-    RenderWindow window(VideoMode(SCREEN_X, SCREEN_Y), "Tumble-POP", Style::Close);
-    window.setFramerateLimit(60);
+    if (!isDead)
+    {
+        // Reset death animation if we somehow come back to life
+        deadAnimFrame = 0; 
 
-    // ---------------- VARIABLES ----------------
-    float player_x = 500, player_y = 150;
-    float velocityY = 0;
-    float speed = 5;
-    const float jumpStrength = -20;
-    const float gravity = 1.0f;
-    const float terminal_Velocity = 20;
-    bool onGround = false;
-    int PlayerHeight = 102, PlayerWidth = 96;
-    int health = 3, score = 0, level = 1;
-    bool gameOver = false, levelComplete = false;
+        if (!onGround) // Priority 1: Jumping
+        {
+            PlayerSprite.setTexture(jumpTex, true);
+            texW = jumpTex.getSize().x;
+            texH = jumpTex.getSize().y;
+        }
+        else if (isMoving == 1) // Priority 2: Walking
+        {
+            animCounter++;
+            if (animCounter >= animSpeed)
+            {
+                animCounter = 0;
+                animFrame++;
+                if (animFrame >= 6)
+                    animFrame = 0;
+            }
+
+            PlayerSprite.setTexture(walkTex[animFrame], true);
+            texW = walkTex[animFrame].getSize().x;
+            texH = walkTex[animFrame].getSize().y;
+        }
+        else // Priority 3: Idle
+        {
+            animFrame = 0;
+            PlayerSprite.setTexture(idleTex, true);
+            texW = idleTex.getSize().x;
+            texH = idleTex.getSize().y;
+        }
+
+        // --- FLIP LOGIC ---
+        if (facing == 1) // Facing LEFT (Flipped)
+        {
+            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+        }
+        else // Facing RIGHT (Normal)
+        {
+            PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
+        }
+    }
+    else if (isDead)
+    {
+        deadAnimCounter++; 
+        if (deadAnimCounter >= deadAnimSpeed)
+        {
+            deadAnimCounter = 0;
+            if (deadAnimFrame < 7) 
+            {
+                deadAnimFrame++;
+            }
+        }
+
+        PlayerSprite.setTexture(deadTex[deadAnimFrame], true);
+        
+        texW = deadTex[deadAnimFrame].getSize().x;
+        texH = deadTex[deadAnimFrame].getSize().y;
+
+        if (facing == 1) 
+            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+        else 
+            PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
+    }
+}
+
+bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH, bool &isDead)
+{
+    if ((playerX < enemyX + enemyW) && (playerX + playerW > enemyX) && (playerY < enemyY + enemyH) && (playerY + playerH > enemyY))
+    {
+        // cout << "Collision Detected";
+        isDead = true;
+        return true;
+    }
+    return false;
+}
+
+// Safety check to prevent crashing if player goes off-screen
+char get_tile(char **lvl, int row, int col, int height, int width)
+{
+    if (row < 0 || row >= height || col < 0 || col >= width)
+    {
+        return ' '; // Outside the map is empty air
+    }
+    return lvl[row][col];
+}
+
+void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgSprite, Texture &blockTexture, Sprite &blockSprite, const int height, const int width, const int cell_size)
+{
+    window.draw(bgSprite);
+
+    for (int i = 0; i < height; i += 1)
+    {
+        for (int j = 0; j < width; j += 1)
+        {
+            // Draw walls '#' AND platforms '-'
+            if (lvl[i][j] == '#' || lvl[i][j] == '-')
+            {
+                blockSprite.setPosition(j * cell_size, i * cell_size);
+                window.draw(blockSprite);
+            }
+        }
+    }
+}
+
+void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGround, const float &gravity, float &terminal_Velocity, float &player_x, float &player_y, const int cell_size, int &Pheight, int &Pwidth, int height, int width, float dt)
+{
+
+    float new_y = player_y + velocityY * dt;
+
+    // --- 1. Ceiling Collision (Moving Up) ---
+    if (velocityY < 0)
+    {
+        char top_left = get_tile(lvl, (int)new_y / cell_size, (int)player_x / cell_size, height, width);
+        char top_right = get_tile(lvl, (int)new_y / cell_size, (int)(player_x + Pwidth) / cell_size, height, width);
+
+        // Only stop if hitting a SOLID WALL '#'
+        if (top_left == '#' || top_right == '#')
+        {
+            velocityY = 0;
+            new_y = ((int)new_y / cell_size + 1) * cell_size;
+        }
+    }
+
+    // --- 2. Floor Collision (Moving Down) ---
+    int feet_row = (int)(new_y + Pheight) / cell_size;
+    int feet_col_left = (int)(player_x) / cell_size;
+    int feet_col_right = (int)(player_x + Pwidth) / cell_size;
+
+    bool landed = false;
+
+    if (velocityY >= 0)
+    {
+        char block_left = get_tile(lvl, feet_row, feet_col_left, height, width);
+        char block_right = get_tile(lvl, feet_row, feet_col_right, height, width);
+
+        // TYPE A: Solid Wall '#' (Always land)
+        if (block_left == '#' || block_right == '#')
+        {
+            landed = true;
+        }
+        // TYPE B: Platform '-' (Land only if crossing the top edge)
+        else if (block_left == '-' || block_right == '-')
+        {
+            float block_top_pixel = feet_row * cell_size;
+            const float tolerance = 4.0f;
+
+            // Check if we are crossing the line downwards or standing on it
+            if ((player_y + Pheight <= block_top_pixel + tolerance) && (new_y + Pheight >= block_top_pixel))
+            {
+                landed = true;
+            }
+        }
+    }
+
+    if (landed)
+    {
+        onGround = true;
+        velocityY = 0;
+        player_y = (feet_row * cell_size) - Pheight;
+    }
+    else
+    {
+        onGround = false;
+        player_y = new_y;
+
+        velocityY += gravity * dt; // this is dt. To smoothen out things
+        if (velocityY >= terminal_Velocity)
+            velocityY = terminal_Velocity;
+    }
+}
+
+void playerCollision_x(char **lvl, float &player_x, float player_y,
+                       const float &speed, const int cell_size, const int Pheight,
+                       const int Pwidth, int height, int width, float dt, int &isMoving, int &facing)
+{
+    float offsetX_right = player_x + speed * dt;
+    float offsetX_left = player_x - speed * dt;
+
+    // --- Right Movement ---
+    if (Keyboard::isKeyPressed(Keyboard::Right))
+    {
+        isMoving = 1;
+        facing = 1;
+
+        char top_right = get_tile(lvl, (int)player_y / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
+        char mid_right = get_tile(lvl, (int)(player_y + Pheight / 2) / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
+        char bot_right = get_tile(lvl, (int)(player_y + Pheight - 5) / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
+
+        // Only stop if solid wall '#'
+        if (top_right == '#' || mid_right == '#' || bot_right == '#')
+        {
+            player_x = ((int)(offsetX_right + Pwidth) / cell_size) * cell_size - Pwidth - 1;
+        }
+        else
+        {
+            player_x += speed * dt;
+        }
+    }
+
+    // --- Left Movement ---
+    if (Keyboard::isKeyPressed(Keyboard::Left))
+    {
+        isMoving = 1;
+        facing = 0;
+
+        char top_left = get_tile(lvl, (int)player_y / cell_size, (int)(offsetX_left) / cell_size, height, width);
+        char mid_left = get_tile(lvl, (int)(player_y + Pheight / 2) / cell_size, (int)(offsetX_left) / cell_size, height, width);
+        char bot_left = get_tile(lvl, (int)(player_y + Pheight - 5) / cell_size, (int)(offsetX_left) / cell_size, height, width);
+
+        if (top_left == '#' || mid_left == '#' || bot_left == '#')
+        {
+            player_x = ((int)(offsetX_left) / cell_size + 1) * cell_size;
+        }
+        else
+        {
+            player_x -= speed * dt;
+        }
+    }
+}
+
+int main()
+{
+    bool playagain=true;
+    while(playagain)
+    {
+    const float dt = 0.018f; // dt to smooth everything 0.018
+    srand(time(0));          //  Initialize random seed for skeleton jump timing
+    RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
+
+    const int cell_size = 64;
+    const int height = 14;
+    const int width = 20; // 18
+    char **lvl;
+
     float speedMultiplier = 1.0f;
     float vacuumPower = 1.0f;
+    
+    
 
-    // ---------------- FONT ----------------
+    Texture PlayerTexture;
+    Sprite PlayerSprite;
+
+    int PlayerWidth, PlayerHeight;
+    float scale = 2.8f;
+
+    int facing = 1;
+    int isMoving = 0;
+    Texture idleTex, walkTex[6], jumpTex, deadTex[8];
+
+    int animFrame = 0, animCounter = 0, animSpeed = 5,
+    deadAnimCounter = 0, deadAnimFrame = 0, deadAnimSpeed = 60;
+    bool isDead = false;
+    
+    // ------------------------------------
+    // INTRO SCREEN (BEFORE CHARACTER MENU)
+    // ------------------------------------
+
+    Texture introTex;
+    Sprite introSprite;
+
+    if (!introTex.loadFromFile("Data/intro.png"))
+        cout << "intro.png missing!\n";
+
+    introSprite.setTexture(introTex);
+    introSprite.setPosition(0, 0); // adjust if needed
+    introSprite.setScale(1.8, 1.8);
+    // Press Enter to Start text
+    Font fontIntro;
+    fontIntro.loadFromFile("Data/font.ttf");
+
+    Text startText("PRESS ENTER TO START", fontIntro, 50);
+    startText.setFillColor(Color::White);
+    startText.setPosition(300, 800); // adjust to fit your screen
+
+    bool startGame = false;
+
+    while (window.isOpen() && !startGame)
+    {
+        Event e;
+        while (window.pollEvent(e))
+        {
+            if (e.type == Event::Closed)
+                window.close();
+
+            if (e.type == Event::KeyPressed && e.key.code == Keyboard::Enter)
+                startGame = true;
+        }
+
+        window.clear();
+        window.draw(introSprite);
+        window.draw(startText);
+        window.display();
+    }
+
+    // font
     Font font;
     if (!font.loadFromFile("Data/font.ttf"))
-        cout << "⚠️ font.ttf missing\n";
+        cout << " font.ttf missing\n";
 
     Text infoText("", font, 30);
 
     infoText.setFillColor(Color::White);
     infoText.setPosition(20, 20);
+    
+    Text gameOverText("GAME OVER", font, 120);
+gameOverText.setFillColor(Color::Red);
+gameOverText.setPosition(350, 300);
 
-    // ---------------- MENU SCREEN ----------------
-    Text title("TUMBLE-POP", font, 80);
-    title.setFillColor(Color::Yellow);
-    title.setPosition(250, 200);
+Text livesRemainingText("", font, 40);
+livesRemainingText.setFillColor(Color::White);
+livesRemainingText.setPosition(400, 500);
 
-    Text subtitle("Press 1 for Yellow (Fast) | Press 2 for Green (Strong Vacuum)", font, 30);
-    subtitle.setFillColor(Color::White);
-    subtitle.setPosition(120, 400);
+Text restartText("Press ENTER to continue...", font, 50);
+restartText.setFillColor(Color::Yellow);
+restartText.setPosition(300, 650);
+
+    // menu screen
+
+    Texture menuBGTexture;
+    Sprite menuBGSprite;
+
+    if (!menuBGTexture.loadFromFile("Data/menuBG.png")) // <-- your image
+        cout << "Menu background missing!\n";
+
+    menuBGSprite.setTexture(menuBGTexture);
+
+    // OPTIONAL — make image fill the whole window
+    menuBGSprite.setScale(
+        float(screen_x) / menuBGTexture.getSize().x,
+        float(screen_y) / menuBGTexture.getSize().y);
+
+    Text title("Game Menu", font, 100);
+    title.setFillColor(Color::Magenta);
+    title.setPosition(400, 200); // 250
+
+    Text subtitle("Press 1 for Yellow (Fast) ", font, 50);
+    subtitle.setFillColor(Color::Yellow);
+    subtitle.setPosition(120, 400); // 120
+
+    Text subtitle2(" Press 2 for Green (Strong Vacuum)", font, 50);
+    subtitle2.setFillColor(Color::Green);
+    subtitle2.setPosition(100, 500); // 120
+
+    Text subtitle3(" Press Esc to EXIT", font, 50);
+    subtitle3.setFillColor(Color::Red);
+    subtitle3.setPosition(100, 600); // 120
+    
+   
 
     bool characterSelected = false;
-    while (window.isOpen() && !characterSelected) {
+    while (window.isOpen() && !characterSelected)
+    {
         Event e;
-        while (window.pollEvent(e)) {
-            if (e.type == Event::Closed) window.close();
-            if (e.type == Event::KeyPressed) {
-                if (e.key.code == Keyboard::Num1) {
+        while (window.pollEvent(e))
+        {
+            if (e.type == Event::Closed)
+                window.close();
+            if (e.type == Event::KeyPressed)
+            {
+                if (e.key.code == Keyboard::Num1)
+                {
+
+                    PlayerTexture.loadFromFile("Data/player.png");
+                    PlayerSprite.setTexture(PlayerTexture);
+                    PlayerSprite.setScale(scale, scale);
+
+                    idleTex.loadFromFile("Data/yellowPlayer/idle1.png");
+                    jumpTex.loadFromFile("Data/yellowPlayer/jump1.png");
+                    walkTex[0].loadFromFile("Data/yellowPlayer/walk1.png");
+                    walkTex[1].loadFromFile("Data/yellowPlayer/walk2.png");
+                    walkTex[2].loadFromFile("Data/yellowPlayer/walk3.png");
+                    walkTex[3].loadFromFile("Data/yellowPlayer/walk4.png");
+                    walkTex[4].loadFromFile("Data/yellowPlayer/walk5.png");
+                    walkTex[5].loadFromFile("Data/yellowPlayer/walk6.png");
+
+                    deadTex[0].loadFromFile("Data/yellowPlayerDying/dying1.png");
+                    deadTex[1].loadFromFile("Data/yellowPlayerDying/dying2.png");
+                    deadTex[2].loadFromFile("Data/yellowPlayerDying/dying3.png");
+                    deadTex[3].loadFromFile("Data/yellowPlayerDying/dying4.png");
+                    deadTex[4].loadFromFile("Data/yellowPlayerDying/dying5.png");
+                    deadTex[5].loadFromFile("Data/yellowPlayerDying/dying6.png");
+                    deadTex[6].loadFromFile("Data/yellowPlayerDying/dying7.png");
+                    deadTex[7].loadFromFile("Data/yellowPlayerDying/dying8.png");
+
+
+                    PlayerWidth = 31 * scale;
+                    PlayerHeight = 42 * scale;
+
                     speedMultiplier = 1.5f;
                     vacuumPower = 1.0f;
                     characterSelected = true;
                 }
-                if (e.key.code == Keyboard::Num2) {
+                if (e.key.code == Keyboard::Num2)
+                {
+
+                    PlayerTexture.loadFromFile("Data/greenPlayer/idle1.png");
+                    PlayerSprite.setTexture(PlayerTexture);
+
+                    PlayerSprite.setScale(scale, scale);
+
+                    idleTex.loadFromFile("Data/greenPlayer/idle1.png");
+                    jumpTex.loadFromFile("Data/greenPlayer/jump1.png");
+                    walkTex[0].loadFromFile("Data/greenPlayer/walk1.png");
+                    walkTex[1].loadFromFile("Data/greenPlayer/walk2.png");
+                    walkTex[2].loadFromFile("Data/greenPlayer/walk3.png");
+                    walkTex[3].loadFromFile("Data/greenPlayer/walk4.png");
+                    walkTex[4].loadFromFile("Data/greenPlayer/walk5.png");
+                    walkTex[5].loadFromFile("Data/greenPlayer/walk6.png");
+                    
+
+                    deadTex[0].loadFromFile("Data/greenPlayerDying/dying1.png");
+                    deadTex[1].loadFromFile("Data/greenPlayerDying/dying2.png");
+                    deadTex[2].loadFromFile("Data/greenPlayerDying/dying3.png");
+                    deadTex[3].loadFromFile("Data/greenPlayerDying/dying4.png");
+                    deadTex[4].loadFromFile("Data/greenPlayerDying/dying5.png");
+                    deadTex[5].loadFromFile("Data/greenPlayerDying/dying6.png");
+                    deadTex[6].loadFromFile("Data/greenPlayerDying/dying7.png");
+                    deadTex[7].loadFromFile("Data/greenPlayerDying/dying8.png");
+
+
+                    PlayerWidth = 31 * scale;
+                    PlayerHeight = 42 * scale;
+
                     speedMultiplier = 1.0f;
                     vacuumPower = 1.2f;
                     characterSelected = true;
                 }
+                if (e.key.code == Keyboard::Escape)
+                    window.close();
             }
         }
         window.clear(Color::Black);
+        window.draw(menuBGSprite);
         window.draw(title);
+
         window.draw(subtitle);
+        window.draw(subtitle2);
+        window.draw(subtitle3);
         window.display();
     }
 
-    if (!characterSelected) return 0;
+    if (!characterSelected)
+        return 0;
 
-    // ---------------- LOAD ASSETS ----------------
-    Texture bgTex, blockTex, playerTex, ghostTex;
+    Texture bgTex;
+    Sprite bgSprite;
+    Texture blockTexture;
+    Sprite blockSprite;
+
     bgTex.loadFromFile("Data/bg.png");
-    blockTex.loadFromFile("Data/block1.png");
-    playerTex.loadFromFile("Data/player.png");
-    if (!ghostTex.loadFromFile("Data/ghost.png")) ghostTex = playerTex;
+    bgSprite.setTexture(bgTex);
+    bgSprite.setPosition(0, 0);
+    bgSprite.setScale(2.0f, 2.0f);
 
-    Sprite bgSprite(bgTex), blockSprite(blockTex), playerSprite(playerTex), ghostSprite(ghostTex);
-    playerSprite.setScale(3,3);
-    ghostSprite.setScale(3,3);
+    blockTexture.loadFromFile("Data/block1.png");
+    blockSprite.setTexture(blockTexture);
 
-    // Music & Sound
-    Music music;
-    if (music.openFromFile("Data/mus.ogg")) {
-        music.setLoop(true);
-        music.setVolume(30);
-        music.play();
+    Music lvlMusic;
+    lvlMusic.openFromFile("Data/mus.ogg");
+    lvlMusic.setVolume(20);
+    lvlMusic.setLoop(true);
+
+    float player_x = 850.0f; // 650.f
+    float player_y = 450.f;
+    
+    
+
+    float speed = 140.0f; // 140
+
+    const float jumpStrength = -150.0f; // 150
+    const float gravity = 90.f;         // 90
+
+    bool isJumping = false;
+
+    int enemyCount = 0;
+    const int maxEnemyCount = 8;
+
+    float enemiesX[maxEnemyCount];
+    float enemiesY[maxEnemyCount];
+    float enemySpeed[maxEnemyCount];
+    int enemyDirection[maxEnemyCount];
+    float platformLeftEdge[maxEnemyCount];
+    float platformRightEdge[maxEnemyCount];
+
+    int EnemyHeight = 60;
+    int EnemyWidth = 72;
+
+    Texture EnemyTexture;
+    Sprite EnemySprite;
+
+    EnemyTexture.loadFromFile("Data/ghost.png");
+    EnemySprite.setTexture(EnemyTexture);
+    EnemySprite.setScale(2, 2);
+
+    // Skeleton enemies (can move between platforms)
+    int skeletonCount = 0;
+    const int maxSkeletonCount = 4;
+
+    float skeletonsX[maxSkeletonCount];
+    float skeletonsY[maxSkeletonCount];
+    float skeletonSpeed[maxSkeletonCount];
+    int skeletonDirection[maxSkeletonCount];
+    float skeletonVelocityY[maxSkeletonCount];
+    bool skeletonOnGround[maxSkeletonCount];
+    float skeletonJumpTimer[maxSkeletonCount];    //  Timer for jump intervals
+    float skeletonJumpCooldown[maxSkeletonCount]; //  Random cooldown between jumps
+    bool skeletonShouldJump[maxSkeletonCount];    //  Flag to control when to attempt jump
+    int skeletonStableFrames[maxSkeletonCount];   //  Count frames on ground before allowing jump
+    
+    Texture skeletonWalkTex[4];  // Array for 4 walking frames
+    int skeletonAnimFrame[maxSkeletonCount];
+    int skeletonAnimCounter[maxSkeletonCount];
+    int skeletonAnimSpeed = 8;  // Adjust this to control animation speed
+
+    int SkeletonHeight = 92; // 60
+    int SkeletonWidth = 72;
+
+    Texture SkeletonTexture;
+    Sprite SkeletonSprite;
+
+    SkeletonTexture.loadFromFile("Data/skeleton.png");
+    SkeletonSprite.setTexture(SkeletonTexture);
+    SkeletonSprite.setScale(2, 2);
+    
+    skeletonWalkTex[0].loadFromFile("Data/skeletonWalk/walk1.png");  
+skeletonWalkTex[1].loadFromFile("Data/skeletonWalk/walk2.png");
+skeletonWalkTex[2].loadFromFile("Data/skeletonWalk/walk3.png");
+skeletonWalkTex[3].loadFromFile("Data/skeletonWalk/walk4.png");
+
+    bool onGround = false;
+    
+    int playerLives = 3;
+float respawnX = 850.0f;
+float respawnY = 450.0f;
+bool showGameOver = false;
+float deathDelayCounter = 0.0f;
+float deathDelayTime = 2.0f;
+bool waitingToRespawn = false;
+
+    float offset_y = 0;
+    float velocityY = 0;
+    float terminal_Velocity = 300.f; // 300
+
+    // int PlayerHeight = 102;
+    // int PlayerWidth = 96;
+
+    // --- LEVEL CREATION (YOUR ORIGINAL MAP) ---
+    lvl = new char *[height];
+    for (int i = 0; i < height; i += 1)
+    {
+        lvl[i] = new char[width];
+        // IMPORTANT: Fill with empty space first to remove garbage data!
+        for (int j = 0; j < width; j++)
+            lvl[i][j] = ' ';
     }
 
-    SoundBuffer suckBuf, shootBuf, hitBuf;
-    Sound suckSound, shootSound, hitSound;
-    if (suckBuf.loadFromFile("Data/suck.wav")) suckSound.setBuffer(suckBuf);
-    if (shootBuf.loadFromFile("Data/shoot.wav")) shootSound.setBuffer(shootBuf);
-    if (hitBuf.loadFromFile("Data/hit.wav")) hitSound.setBuffer(hitBuf);
+    // Paste of your original level layout
+    lvl[1][3] = '-';
+    lvl[1][4] = '-';
+    lvl[1][5] = '-';
+    lvl[1][6] = '-';
+    lvl[1][7] = '-';
+    lvl[1][8] = '-';
+    lvl[1][9] = '-';
+    lvl[1][10] = '-';
+    lvl[1][11] = '-';
+    lvl[1][12] = '-';
+    lvl[1][13] = '-';
+    lvl[1][14] = '-';
 
-    // Level
-    char** lvl = new char*[LEVEL_HEIGHT];
-    for (int i=0;i<LEVEL_HEIGHT;i++) lvl[i]=new char[LEVEL_WIDTH];
-    load_level1(lvl);
+    lvl[9][3] = '-';
+    lvl[9][4] = '-';
+    lvl[9][5] = '-';
+    lvl[9][6] = '-';
+    lvl[9][7] = '-';
+    lvl[9][8] = '-';
+    lvl[9][9] = '-';
+    lvl[9][10] = '-';
+    lvl[9][11] = '-';
+    lvl[9][12] = '-';
+    lvl[9][13] = '-';
+    lvl[9][14] = '-';
 
-    // Enemies
-    const int NUM_GHOSTS = 6;
-    float ghost_x[NUM_GHOSTS] = {200,600,800,300,900,500};
-    float ghost_y[NUM_GHOSTS] = {700,700,700,400,400,500};
-    int ghost_dir[NUM_GHOSTS] = {1,-1,1,-1,1,-1};
-    bool ghost_alive[NUM_GHOSTS] = {true,true,true,true,true,true};
+    lvl[8][8] = '-';
+    lvl[8][9] = '-';
 
-    // Vacuum
-    int capturedEnemies = 0;
-    bool ghost_captured[NUM_GHOSTS] = {false};
-    const int maxCapacity = 3;
+    lvl[7][1] = '-';
+    lvl[7][2] = '-';
+    lvl[7][3] = '-';
+    lvl[7][9] = '-';
+    lvl[7][8] = '-';
+    lvl[7][7] = '-';
+    lvl[7][10] = '-';
+    lvl[7][14] = '-';
+    lvl[7][15] = '-';
+    lvl[7][16] = '-';
 
-    // Projectiles
-    bool projectile_active[NUM_GHOSTS] = {false};
-    float projectile_x[NUM_GHOSTS];
-    float projectile_y[NUM_GHOSTS];
-    int projectile_dir[NUM_GHOSTS];
+    lvl[6][7] = '-';
+    lvl[6][10] = '-';
 
-    // ---------------- MAIN LOOP ----------------
-    while (window.isOpen()) {
-        bool pressSpace = false, pressQ = false, pressE = false;
+    // --- MODIFICATION: I changed these two to '-' so you can test jumping through them ---
+    lvl[5][7] = '-';
+    lvl[5][10] = '-';
 
-        Event e;
-        while (window.pollEvent(e)) {
-            if (e.type == Event::Closed)
+    lvl[5][3] = '-';
+    lvl[5][4] = '-';
+    lvl[5][5] = '-';
+    lvl[5][6] = '-';
+    lvl[5][11] = '-';
+    lvl[5][12] = '-';
+    lvl[5][13] = '-';
+    lvl[5][14] = '-';
+
+    lvl[4][7] = '-';
+    lvl[4][10] = '-';
+    lvl[3][7] = '-';
+    lvl[3][10] = '-';
+    lvl[3][8] = '-';
+    lvl[3][9] = '-';
+    lvl[3][1] = '-';
+    lvl[3][2] = '-';
+    lvl[3][3] = '-';
+    lvl[3][16] = '-';
+    lvl[3][15] = '-';
+    lvl[3][14] = '-';
+
+    lvl[2][8] = '-';
+    lvl[2][9] = '-';
+
+    // Floor and Sides (Restored from your code)
+    for (int j = 0; j <= 18; j++)
+        lvl[11][j] = '#';
+    for (int i = 0; i <= 10; i++)
+    {
+        lvl[i][0] = '#';
+        lvl[i][18] = '#';
+    }
+    lvl[7][17] = '#';
+    lvl[3][17] = '#';
+    lvl[2][8] = '#';
+    lvl[2][9] = '#';
+    lvl[8][8] = '#';
+    lvl[8][9] = '#';
+    lvl[7][7] = '#';
+    lvl[7][8] = '#';
+    lvl[7][9] = '#';
+    lvl[7][10] = '#';
+    lvl[6][7] = '#';
+    lvl[6][10] = '#';
+    lvl[5][7] = '#';
+    lvl[5][10] = '#';
+    lvl[4][7] = '#';
+    lvl[4][10] = '#';
+    lvl[3][7] = '#';
+    lvl[3][8] = '#';
+    lvl[3][9] = '#';
+    lvl[3][10] = '#';
+
+    lvl[0][5] = 'e';
+    lvl[0][12] = 'e';
+    lvl[2][2] = 'e';
+    lvl[2][15] = 'e';
+    lvl[4][4] = 'e';
+    lvl[4][13] = 'e';
+    lvl[8][6] = 'e';
+    lvl[8][10] = 'e';
+
+    // Skeleton spawn points (marked with 's') - TOP PLATFORMS
+    lvl[0][7] = 's';  // Top middle platform
+    lvl[0][10] = 's'; // Top middle platform
+    lvl[2][4] = 's';  // Upper left platform
+    lvl[2][13] = 's'; // Upper right platform
+
+    for (int r = 0; r < height; r++)
+    {
+        for (int c = 0; c < width; c++)
+        {
+
+            if (lvl[r][c] == 'e' && enemyCount < maxEnemyCount)
+            {
+                int platformRow = r + 1;
+                char below = get_tile(lvl, platformRow, c, height, width);
+
+                // Enemy must stand on a platform or wall
+                if (below == '-' || below == '#')
+                {
+                    enemiesX[enemyCount] = c * cell_size;
+                    enemiesY[enemyCount] = r * cell_size;
+
+                    // Detect edges of THAT platform
+                    int leftEdge = c + 1;
+                    int rightEdge = c + 1;
+
+                    while (leftEdge > 0 && (lvl[platformRow][leftEdge - 1] == '-' || lvl[platformRow][leftEdge - 1] == '#'))
+                        leftEdge--;
+
+                    while (rightEdge < width - 1 && (lvl[platformRow][rightEdge + 1] == '-' || lvl[platformRow][rightEdge + 1] == '#'))
+                        rightEdge++;
+
+                    platformLeftEdge[enemyCount] = leftEdge * cell_size + 10;
+                    platformRightEdge[enemyCount] = (rightEdge + 1) * cell_size - 48 - 10;
+
+                    enemySpeed[enemyCount] = 15.f; // 15.f
+                    enemyDirection[enemyCount] = 1;
+
+                    enemyCount++;
+                }
+
+                lvl[r][c] = ' '; // Clear the 'e' marker so it doesn't interfere with rendering
+            }
+        }
+    }
+    cout << "Total enemies: " << enemyCount << endl;
+
+    // Initialize skeletons
+    for (int r = 0; r < height; r++)
+    {
+        for (int c = 0; c < width; c++)
+        {
+            if (lvl[r][c] == 's' && skeletonCount < maxSkeletonCount)
+            {
+                skeletonsX[skeletonCount] = c * cell_size;
+                skeletonsY[skeletonCount] = r * cell_size;
+                skeletonSpeed[skeletonCount] = 40.f; // 40
+                skeletonDirection[skeletonCount] = 1;
+                skeletonVelocityY[skeletonCount] = 0;
+                skeletonOnGround[skeletonCount] = false;
+                skeletonJumpTimer[skeletonCount] = 0.f;
+                skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f; // Random 1.5-3.5s
+                skeletonShouldJump[skeletonCount] = false;
+                skeletonStableFrames[skeletonCount] = 0;
+                
+                skeletonAnimFrame[skeletonCount] = 0;
+                skeletonAnimCounter[skeletonCount] = 0;
+
+                skeletonCount++;
+                lvl[r][c] = ' '; // Clear the marker
+            }
+        }
+    }
+    cout << "Total skeletons: " << skeletonCount << endl;
+
+    // End of original map paste
+
+    Event ev;
+
+    while (window.isOpen())
+    {
+        while (window.pollEvent(ev))
+        {
+            if (ev.type == Event::Closed)
                 window.close();
+        }
+        if (Keyboard::isKeyPressed(Keyboard::Escape))
+            window.close();
 
-            if (e.type == Event::KeyPressed) {
-                if (e.key.code == Keyboard::Escape)
-                    window.close();
-                if (e.key.code == Keyboard::Space)
-                    pressSpace = true;
-                if (e.key.code == Keyboard::Q)
-                    pressQ = true;
-                if (e.key.code == Keyboard::E)
-                    pressE = true;
-                if (e.key.code == Keyboard::Up && onGround) {
-                    velocityY = jumpStrength;
-                    onGround = false;
-                }
-            }
+        isMoving = 0;
+        // Movement - Make sure this is OUTSIDE the event loop
+        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
+                          PlayerWidth, height, width, dt, isMoving, facing);
+        updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
+                              walkTex, jumpTex, deadTex, animFrame, deadAnimFrame, animCounter, deadAnimCounter, animSpeed, deadAnimSpeed);
+        //Sprite &PlayerSprite, int facing, int isMoving, bool isDead, bool onGround,
+            //               Texture &idleTex, Texture walkTex[], Texture &jumpTex, Texture &deadTex[],
+              //             int &animFrame, int &deadAnimFrame, int &animCounter, int deadAnimCounter, int animSpeed
+        if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
+        {
+            velocityY = jumpStrength;
+            onGround = false;
+            isJumping = true;
         }
 
-        if (!gameOver && !levelComplete) {
-            // MOVEMENT
-            if (Keyboard::isKeyPressed(Keyboard::Left)) player_x -= speed * speedMultiplier;
-            if (Keyboard::isKeyPressed(Keyboard::Right)) player_x += speed * speedMultiplier;
+        // Apply gravity
+        player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
 
-            // GRAVITY
-            apply_gravity(lvl, player_x, player_y, velocityY, onGround, gravity, terminal_Velocity, PlayerHeight, PlayerWidth);
-            playerSprite.setPosition(player_x, player_y);
+        // NOW update enemies AFTER gravity
+        for (int i = 0; i < enemyCount; i++)
+        {
+            enemiesX[i] += enemySpeed[i] * enemyDirection[i] * dt;
 
-            // ENEMY BEHAVIOR
-            for (int i=0;i<NUM_GHOSTS;i++) {
-                if (!ghost_alive[i]) continue;
-                ghost_x[i]+=ghost_dir[i]*2;
-                char next = lvl[(int)ghost_y[i]/CELL_SIZE][(int)(ghost_x[i]+48*ghost_dir[i])/CELL_SIZE];
-                if (next=='#') ghost_dir[i]*=-1;
-                float dx=fabs((player_x+48)-(ghost_x[i]+48));
-                float dy=fabs((player_y+48)-(ghost_y[i]+48));
-                if (dx<64 && dy<80) {
-                    health--;
-                    ghost_alive[i]=false;
-                    if (hitSound.getBuffer()) hitSound.play();
-                    if (health<=0) gameOver=true;
-                }
+            // Check boundaries and reverse direction
+            if (enemiesX[i] <= platformLeftEdge[i])
+            {
+                enemiesX[i] = platformLeftEdge[i];
+                enemyDirection[i] = 1; // Move right
+            }
+            else if (enemiesX[i] >= platformRightEdge[i])
+            {
+                enemiesX[i] = platformRightEdge[i];
+                enemyDirection[i] = -1; // Move left
             }
 
-            // VACUUM
-            if (pressSpace) {
-                for (int i=0;i<NUM_GHOSTS;i++) {
-                    if (ghost_alive[i] && capturedEnemies<maxCapacity) {
-                        float dx=fabs((player_x+48)-(ghost_x[i]+48));
-                        float dy=fabs((player_y+48)-(ghost_y[i]+48));
-                        if (dx<150*vacuumPower && dy<150*vacuumPower) {
-                            ghost_alive[i]=false; ghost_captured[i]=true;
-                            capturedEnemies++; score+=50;
-                            if (suckSound.getBuffer()) suckSound.play();
+           if (collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i], 
+                      PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight, isDead))
+{
+    if (!waitingToRespawn)
+    {
+        playerLives--;
+        waitingToRespawn = true;
+        deathDelayCounter = 0.0f;
+    }
+}
+
+        // Update skeletons with gravity, platform movement, and intelligent jumping
+        for (int i = 0; i < skeletonCount; i++)
+        {
+            // *** HORIZONTAL MOVEMENT (WORKS IN AIR AND ON GROUND) ***
+            float newX = skeletonsX[i] + skeletonSpeed[i] * skeletonDirection[i] * dt;
+
+            // Check wall collision for horizontal movement
+            char right_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
+                                        (int)(newX + SkeletonWidth) / cell_size, height, width);
+            char left_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
+                                       (int)newX / cell_size, height, width);
+
+            // Reverse direction if hitting wall
+            if ((skeletonDirection[i] == 1 && right_check == '#') ||
+                (skeletonDirection[i] == -1 && left_check == '#'))
+            {
+                skeletonDirection[i] *= -1;
+            }
+            else
+            {
+                skeletonsX[i] = newX; // Move horizontally whether jumping or not
+            }
+
+            // Apply gravity to skeletons (AFTER horizontal movement)
+            player_gravity(lvl, offset_y, skeletonVelocityY[i], skeletonOnGround[i],
+                           gravity, terminal_Velocity, skeletonsX[i], skeletonsY[i],
+                           cell_size, SkeletonHeight, SkeletonWidth, height, width, dt);
+
+            // Track how long skeleton has been stable on ground
+            if (skeletonOnGround[i])
+            {
+                skeletonStableFrames[i]++;
+            }
+            else
+            {
+                skeletonStableFrames[i] = 0;
+            }
+
+            // *** INTELLIGENT JUMPING LOGIC ***
+            skeletonJumpTimer[i] += dt;
+
+            // Only check for new jump opportunity if skeleton has been stable for a bit
+            if (skeletonOnGround[i] && skeletonStableFrames[i] > 350 && !skeletonShouldJump[i])
+            {
+                // Random chance to decide to jump (8% chance per frame for more frequent jumps)
+                if (rand() % 100 < 1)
+                {
+                    // Check if there's a platform above to jump to
+                    int currentRow = (int)(skeletonsY[i] + SkeletonHeight) / cell_size;
+                    int skeletonCol = (int)(skeletonsX[i] + SkeletonWidth / 2) / cell_size;
+
+                    bool platformAbove = false;
+
+                    // Look for platforms 2-5 rows above (wider search range)
+                    for (int checkRow = currentRow - 5; checkRow < currentRow - 1; checkRow++)
+                    {
+                        if (checkRow >= 0)
+                        {
+                            // Check if there's a platform within jumping range
+                            for (int checkCol = skeletonCol - 3; checkCol <= skeletonCol + 3; checkCol++)
+                            {
+                                char tile = get_tile(lvl, checkRow, checkCol, height, width);
+                                if (tile == '-' || tile == '#')
+                                {
+                                    platformAbove = true;
+                                    break;
+                                }
+                            }
                         }
+                        if (platformAbove)
+                            break;
+                    }
+
+                    // Only set jump flag if there's actually a platform to jump to
+                    if (platformAbove)
+                    {
+                        skeletonShouldJump[i] = true;
+                        skeletonJumpTimer[i] = 0.f;
                     }
                 }
             }
 
-            // SHOOT ONE
-            if (pressQ && capturedEnemies>0) {
-                capturedEnemies--;
-                for (int i=0;i<NUM_GHOSTS;i++) {
-                    if (ghost_captured[i]) {
-                        ghost_captured[i]=false;
-                        projectile_active[i]=true;
-                        projectile_x[i]=player_x+PlayerWidth/2;
-                        projectile_y[i]=player_y+PlayerHeight/2;
-                        projectile_dir[i]=1;
-                        if (shootSound.getBuffer()) shootSound.play();
-                        break;
-                    }
-                }
+            // Execute the jump if flagged and on ground
+            if (skeletonShouldJump[i] && skeletonOnGround[i] && skeletonStableFrames[i] > 30)
+            {
+                skeletonVelocityY[i] = jumpStrength; // Full player jump strength
+                skeletonOnGround[i] = false;
+                skeletonShouldJump[i] = false; // Reset flag
+                skeletonStableFrames[i] = 0;
             }
 
-            // BURST ALL
-            if (pressE && capturedEnemies>0) {
-                for (int i=0;i<NUM_GHOSTS;i++) {
-                    if (ghost_captured[i]) {
-                        ghost_captured[i]=false;
-                        projectile_active[i]=true;
-                        projectile_x[i]=player_x+PlayerWidth/2;
-                        projectile_y[i]=player_y+PlayerHeight/2;
-                        projectile_dir[i]=1;
-                    }
+            
+           // Collision detection with player
+if (collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
+                       PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight, isDead))
+{
+    if (!waitingToRespawn)
+    {
+        playerLives--;
+        waitingToRespawn = true;
+        deathDelayCounter = 0.0f;
+    }
+}
+        
+        // Handle death and respawn
+        if (waitingToRespawn)
+        {
+            deathDelayCounter += dt;
+            
+            if (deathDelayCounter >= deathDelayTime)
+            {
+                if (playerLives > 0)
+                {
+                    // Respawn player
+                    isDead = false;
+                    player_x = respawnX;
+                    player_y = respawnY;
+                    velocityY = 0;
+                    onGround = false;
+                    waitingToRespawn = false;
+                    deadAnimFrame = 0;
+                    deadAnimCounter = 0;
+                    deathDelayCounter = 0.0f;
                 }
-                capturedEnemies=0;
-                score+=300;
-                if (shootSound.getBuffer()) shootSound.play();
-            }
-
-            // PROJECTILES
-            for (int i=0;i<NUM_GHOSTS;i++) {
-                if (projectile_active[i]) {
-                    projectile_x[i]+=10*projectile_dir[i];
-                    if (projectile_x[i]>SCREEN_X) projectile_active[i]=false;
+                else
+                {
+                    // Game Over
+                    showGameOver = true;
+                    waitingToRespawn = false;
                 }
-            }
-
-            // LEVEL TRANSITION
-            bool allDead=true;
-            for (int i=0;i<NUM_GHOSTS;i++) if (ghost_alive[i]) allDead=false;
-
-            if (allDead && level==1) {
-                levelComplete=true;
-                show_level_complete(window, font);
-                load_level2(lvl);
-                level=2;
-                for (int i=0;i<NUM_GHOSTS;i++){
-                    ghost_alive[i]=true;
-                    ghost_x[i]=200+100*i;
-                    ghost_y[i]=500-30*i;
-                }
-                player_x=400; player_y=200;
-                levelComplete=false;
-            }
-            else if (allDead && level==2) {
-                levelComplete=true;
-                show_level_complete(window, font);
-                gameOver=true;
             }
         }
 
-        // RENDER
+        // Display Game Over screen
+        if (showGameOver)
+        {
+            bool waitingForRestart = true;
+            while (waitingForRestart && window.isOpen())
+            {
+                Event gameOverEvent;
+                while (window.pollEvent(gameOverEvent))
+                {
+                    if (gameOverEvent.type == Event::Closed)
+                    {
+                        window.close();
+                        return 0;
+                    }
+                    
+                    if (gameOverEvent.type == Event::KeyPressed && 
+                        gameOverEvent.key.code == Keyboard::Enter)
+                    {
+                        waitingForRestart = false;
+                        showGameOver = false;
+                        playagain = false; 
+                        
+                        // Reset ALL game state completely
+                        playerLives = 3;
+                        isDead = false;
+                        deadAnimFrame = 0;
+                        deadAnimCounter = 0;
+                        deathDelayCounter = 0.0f;
+                        player_x = respawnX;
+                        player_y = respawnY;
+                        velocityY = 0;
+                        onGround = false;
+                        
+                        // Reset all enemies to their starting positions
+                        int enemyIndex = 0;
+                        int skeletonIndex = 0;
+                        
+                        for (int r = 0; r < height && enemyIndex < enemyCount; r++)
+                        {
+                            for (int c = 0; c < width && enemyIndex < enemyCount; c++)
+                            {
+                                // You'll need to respawn enemies here if you want them reset
+                                // For now, they'll stay where they are
+                            }
+                        }
+                        
+                        // Close the window to restart
+                        window.close();
+                    }
+                    
+                    if (gameOverEvent.type == Event::KeyPressed && 
+                        gameOverEvent.key.code == Keyboard::Escape)
+                    {
+                        window.close();
+                        return 0;
+                    }
+                }
+                
+                window.clear();
+                window.draw(gameOverText);
+                livesRemainingText.setString("You ran out of lives!");
+                window.draw(livesRemainingText);
+                window.draw(restartText);
+                window.display();
+            }
+        }
+        
         window.clear();
-        display_level(window, lvl, bgSprite, blockSprite);
-        window.draw(playerSprite);
+        display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 
-        for (int i=0;i<NUM_GHOSTS;i++) {
-            if (ghost_alive[i]) {
-                ghostSprite.setPosition(ghost_x[i], ghost_y[i]);
-                window.draw(ghostSprite);
-            }
-            if (projectile_active[i]) {
-                ghostSprite.setPosition(projectile_x[i], projectile_y[i]);
-                window.draw(ghostSprite);
-            }
+        // 2.8 x 64 player's png width is 64
+        // 2.8 x 64 player's png height is 64
+        float Xoffset = (64 * scale - PlayerWidth) / 2.0f; // sprite is drawn slightly above b/c the animation frames
+        float Yoffset = (64 * scale - PlayerHeight);       // I used were of size 64, 64 that is differnt from player height
+
+        PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
+
+        window.draw(PlayerSprite);
+
+        // collision box start
+        RectangleShape collBox;
+        collBox.setSize(Vector2f(PlayerWidth, PlayerHeight));
+        collBox.setPosition(player_x, player_y); // This is where the physics thinks you are
+        collBox.setFillColor(Color::Transparent);
+        collBox.setOutlineColor(Color::Red);
+        collBox.setOutlineThickness(2);
+        window.draw(collBox);
+        // collision box end
+
+        // Draw enemies
+        for (int i = 0; i < enemyCount; i++)
+        {
+            EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
+            window.draw(EnemySprite);
         }
 
-        infoText.setString("Level: "+to_string(level)+"  Score: "+to_string(score)+"  Health: "+to_string(health));
-        window.draw(infoText);
-        if (gameOver) show_game_over(window, font);
+        // Draw skeletons
+       // Draw skeletons with animation
+// Draw skeletons with animation
+for (int i = 0; i < skeletonCount; i++)
+{
+    // Update animation frame
+    skeletonAnimCounter[i]++;
+    if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
+    {
+        skeletonAnimCounter[i] = 0;
+        skeletonAnimFrame[i]++;
+        if (skeletonAnimFrame[i] >= 4)  // 4 frames total
+            skeletonAnimFrame[i] = 0;
+    }
+    
+    // Set the current animation frame texture
+    SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
+    
+    // Flip sprite based on direction
+    int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
+    int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
+    
+    if (skeletonDirection[i] == 1)  // Facing right - FLIP IT
+    {
+        SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+    }
+    else  // Facing left - NORMAL
+    {
+        SkeletonSprite.setTextureRect(IntRect(0, 0, texW, texH));
+    }
+    
+    // ADD OFFSETS to align sprite with collision box (same as player)
+    float skeletonScale = 2.0f;  // Same scale as SkeletonSprite.setScale(2, 2)
+    float XoffsetSkeleton = (64 * skeletonScale - SkeletonWidth) / 2.0f;
+    float YoffsetSkeleton = (64 * skeletonScale - SkeletonHeight);
+    
+    SkeletonSprite.setPosition(skeletonsX[i] - XoffsetSkeleton, skeletonsY[i] - YoffsetSkeleton);
+    window.draw(SkeletonSprite);
+}
+        Text livesDisplay("Lives: " + to_string(playerLives), font, 40);
+        livesDisplay.setFillColor(Color::White);
+        livesDisplay.setPosition(20, 20);
+        window.draw(livesDisplay);
         window.display();
     }
-
-    for (int i=0;i<LEVEL_HEIGHT;i++) delete[] lvl[i];
-    delete[] lvl;
-    return 0;
-}
-
-// ============================================================
-//                  HELPER FUNCTIONS
-// ============================================================
-void display_level(RenderWindow& window, char** lvl, Sprite& bgSprite, Sprite& blockSprite) {
-    window.draw(bgSprite);
-    for (int i=0;i<LEVEL_HEIGHT;i++)
-        for (int j=0;j<LEVEL_WIDTH;j++)
-            if (lvl[i][j]=='#') {
-                blockSprite.setPosition(j*CELL_SIZE, i*CELL_SIZE);
-                window.draw(blockSprite);
-            }
-}
-
-void load_level1(char** lvl) {
-    for (int i=0;i<LEVEL_HEIGHT;i++)
-        for (int j=0;j<LEVEL_WIDTH;j++)
-            lvl[i][j]=' ';
-    for (int j=0;j<LEVEL_WIDTH;j++)
-        lvl[13][j]='#';
-    lvl[7][7]='#'; lvl[7][8]='#'; lvl[7][9]='#';
-}
-
-void load_level2(char** lvl) {
-    for (int i=0;i<LEVEL_HEIGHT;i++)
-        for (int j=0;j<LEVEL_WIDTH;j++)
-            lvl[i][j]=' ';
-    for (int j=0;j<LEVEL_WIDTH;j++)
-        lvl[13][j]='#';
-    lvl[10][5]='#'; lvl[9][6]='#'; lvl[8][7]='#'; lvl[7][8]='#';
-}
-
-void apply_gravity(char** lvl, float& player_x, float& player_y, float& velocityY, bool& onGround,
-                   float gravity, float terminal_Velocity, int PlayerHeight, int PlayerWidth) {
-    float offset_y = player_y;
-    offset_y += velocityY;
-    int cellY = (int)(offset_y + PlayerHeight) / CELL_SIZE;
-    int leftX = (int)(player_x) / CELL_SIZE;
-    int rightX = (int)(player_x + PlayerWidth) / CELL_SIZE;
-    char bottom_left  = lvl[cellY][leftX];
-    char bottom_right = lvl[cellY][rightX];
-    if (bottom_left=='#' || bottom_right=='#') {
-        onGround=true; velocityY=0;
-    } else {
-        onGround=false;
-        player_y=offset_y;
-        velocityY+=gravity;
-        if (velocityY>=terminal_Velocity) velocityY=terminal_Velocity;
     }
-}
 
-void show_game_over(RenderWindow& window, Font& font) {
-    Text over("GAME OVER!\nPress ESC to Exit", font, 70);
-    over.setFillColor(Color::Red);
-    over.setPosition(250, 400);
-    window.clear(Color::Black);
-    window.draw(over);
-    window.display();
-    sf::sleep(seconds(3));
-}
+    lvlMusic.stop();
+    for (int i = 0; i < height; i++)
+    {
+        delete[] lvl[i];
+    }
+    delete[] lvl;
 
-void show_level_complete(RenderWindow& window, Font& font) {
-    Text comp("LEVEL COMPLETE!", font, 60);
-    comp.setFillColor(Color::Green);
-    comp.setPosition(300, 400);
-    window.clear(Color::Black);
-    window.draw(comp);
-    window.display();
-    sf::sleep(seconds(2));
+    return 0;
 }
 

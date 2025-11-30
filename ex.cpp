@@ -11,122 +11,169 @@
 using namespace sf;
 using namespace std;
 
-int screen_x = 1200;
-int screen_y = 950;
-
-void handleVacuum(RenderWindow &window, Sprite &vacSprite,
-                  Texture &texHorz, Texture &texVert,
-                  float player_x, float player_y,
-                  int PlayerWidth, int PlayerHeight, int vacDir, bool isActive,
-                  float *enemiesX, float *enemiesY, int &enemyCount,
-                  int *inventory, int &capturedCount, int maxCap, int enemyType,
-                  float &flickerTimer, bool &showSprite, float dt)
+// Helper to spawn a projectile
+void fireProjectile(float startX, float startY, int direction,
+                    float *pX, float *pY, int *pDir, bool *pActive,
+                    float *pVelX, float *pVelY, int *pAnimFrame, int *pAnimCounter,
+                    int maxProj)
 {
-    if (!isActive)
-        return;
-    if (capturedCount >= maxCap)
-        return;
-
-    // --- 1. FLICKER ANIMATION ---
-    flickerTimer += dt;
-    if (flickerTimer >= 0.05f)
+    int slot = -1;
+    for (int i = 0; i < maxProj; i++)
     {
-        showSprite = !showSprite;
-        flickerTimer = 0;
-    }
-
-    // --- 2. SETUP DIMENSIONS ---
-    int pX = (int)player_x;
-    int pY = (int)player_y;
-    int pCenterX = pX + PlayerWidth / 2;
-    int pCenterY = pY + PlayerHeight / 2;
-
-    // UPDATED DIMENSIONS per your request
-    int beamReach = 72; // Length
-    int beamThick = 30; // Thickness
-
-    // Variable for the Hitbox
-    IntRect vacHitbox;
-
-    // --- 3. DIRECTION LOGIC ---
-    // Note: Dimensions are multiplied by 2 because Sprite Scale is 2.0
-
-    if (vacDir == 0) // RIGHT
-    {
-        vacSprite.setTexture(texHorz, true);
-        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); // Centered Y roughly
-        vacSprite.setTextureRect(IntRect(0, 0, beamReach, beamThick));
-
-        // Hitbox: 72x30 (scaled by 2)
-        vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick, beamReach * 2, beamThick * 2);
-    }
-    else if (vacDir == 1) // LEFT
-    {
-        vacSprite.setTexture(texHorz, true);
-        vacSprite.setPosition(pX, pCenterY - beamThick);
-        vacSprite.setTextureRect(IntRect(beamReach, 0, -beamReach, beamThick));
-
-        // Hitbox: Left of Player
-        vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick, beamReach * 2, beamThick * 2);
-    }
-    else if (vacDir == 2) // UP
-    {
-        vacSprite.setTexture(texVert, true);
-        vacSprite.setPosition(pCenterX - beamThick, pY - (beamReach * 2));
-        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
-
-        // Hitbox: 30x72 (scaled by 2) -> 60 width, 144 height
-        vacHitbox = IntRect(pCenterX - beamThick, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
-    }
-    else if (vacDir == 3) // DOWN
-    {
-        vacSprite.setTexture(texVert, true);
-        vacSprite.setPosition(pCenterX - beamThick, pY + PlayerHeight);
-        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
-
-        // Hitbox: Below Player
-        vacHitbox = IntRect(pCenterX - beamThick, pY + PlayerHeight, beamThick * 2, beamReach * 2);
-    }
-
-    // --- 4. DRAWING ---
-    if (showSprite)
-    {
-        window.draw(vacSprite);
-    }
-
-    // --- 5. COLLISION ---
-    for (int i = 0; i < enemyCount; i++)
-    {
-        IntRect enemyRect((int)enemiesX[i], (int)enemiesY[i], 60, 60);
-
-        if (vacHitbox.intersects(enemyRect))
+        if (!pActive[i])
         {
-            // PULL LOGIC
-            float pullSpeed = 250.0f * dt;
-            if (enemiesX[i] < pCenterX)
-                enemiesX[i] += pullSpeed;
-            else
-                enemiesX[i] -= pullSpeed;
-            if (enemiesY[i] < pCenterY)
-                enemiesY[i] += pullSpeed;
-            else
-                enemiesY[i] -= pullSpeed;
+            slot = i;
+            break;
+        }
+    }
+    if (slot == -1) return; // No space
 
-            // CAPTURE LOGIC
-            float dx = (float)(pCenterX - (enemiesX[i] + 30));
-            float dy = (float)(pCenterY - (enemiesY[i] + 30));
-            float dist = sqrt(dx * dx + dy * dy);
+    pActive[slot] = true;
+    pX[slot] = startX;
+    pY[slot] = startY;
+    pDir[slot] = direction;
+    pAnimFrame[slot] = 0;
+    pAnimCounter[slot] = 0;
 
-            if (dist < 50.0f)
+    // --- CHANGE: REDUCED SPEED HERE ---
+    float speed = 100.0f; // Speed of projectile (Was 600.0f)
+
+    if (direction == 0) // Right
+    {
+        pVelX[slot] = speed;
+        pVelY[slot] = 0;
+    }
+    else if (direction == 1) // Left
+    {
+        pVelX[slot] = -speed;
+        pVelY[slot] = 0;
+    }
+    else if (direction == 2) // Up
+    {
+        pVelX[slot] = 0;
+        pVelY[slot] = -speed;
+    }
+    else if (direction == 3) // Down
+    {
+        pVelX[slot] = 0;
+        pVelY[slot] = speed;
+    }
+}
+
+// Safety check to prevent crashing if player goes off-screen
+char get_tile(char **lvl, int row, int col, int height, int width)
+{
+    if (row < 0 || row >= height || col < 0 || col >= width)
+    {
+        return ' '; // Outside the map is empty air
+    }
+    return lvl[row][col];
+}
+
+// Function to handle movement, gravity, bouncing, and drawing of projectiles
+void handleProjectiles(RenderWindow &window, Sprite &ballSprite, Texture ballTextures[],
+                       float *pX, float *pY, int *pDir, bool *pActive,
+                       float *pVelX, float *pVelY, int *animFrame, int *animCounter,
+                       char **lvl, int height, int width, int cell_size, float dt,
+                       int maxProj, int screenW, int screenH)
+{
+    float gravity = 1200.0f; // Gravity for vertical shots
+
+    for (int i = 0; i < maxProj; i++)
+    {
+        if (!pActive[i]) continue;
+
+        // --- ANIMATION ---
+        animCounter[i]++;
+        if (animCounter[i] >= 5)
+        {
+            animCounter[i] = 0;
+            animFrame[i]++;
+            if (animFrame[i] > 2) animFrame[i] = 0;
+        }
+        ballSprite.setTexture(ballTextures[animFrame[i]], true);
+
+        // --- PHYSICS ---
+        
+        // 1. Apply Gravity (Only if moving vertically or falling)
+        if (pDir[i] == 2 || pDir[i] == 3) // Up or Down
+        {
+            pVelY[i] += gravity * dt;
+        }
+
+        // 2. Move X
+        float nextX = pX[i] + pVelX[i] * dt;
+        
+        // Horizontal Wall Check
+        // Check center of ball
+        int ballSize = 30; // approx
+        int gridX = (int)(nextX + ballSize/2) / cell_size;
+        int gridY = (int)(pY[i] + ballSize/2) / cell_size;
+        
+        char tile = get_tile(lvl, gridY, gridX, height, width);
+
+        if (tile == '#')
+        {
+            // Hit wall horizontally -> Destroy
+            pActive[i] = false;
+            continue;
+        }
+        // Update X if safe
+        pX[i] = nextX;
+
+        // 3. Move Y
+        float nextY = pY[i] + pVelY[i] * dt;
+        gridX = (int)(pX[i] + ballSize/2) / cell_size;
+        
+        // Check top or bottom edge depending on direction
+        int gridY_Check = (int)(nextY + (pVelY[i] > 0 ? ballSize : 0)) / cell_size;
+        
+        tile = get_tile(lvl, gridY_Check, gridX, height, width);
+
+        if (tile == '#' || tile == '-')
+        {
+            // Vertical Collision Logic
+            
+            // A. If shooting UP and hit something -> Bounce Down?
+            // Simplified: If hit ceiling/platform while going up
+            if (pVelY[i] < 0) 
             {
-                inventory[capturedCount] = enemyType;
-                capturedCount++;
-                enemiesX[i] = enemiesX[enemyCount - 1];
-                enemiesY[i] = enemiesY[enemyCount - 1];
-                enemyCount--;
-                i--;
+                // In Tumble Pop, balls hitting ceiling usually bounce down or destroy.
+                // Let's make it bounce down.
+                pVelY[i] = -pVelY[i] * 0.5f; // Lose energy
+                // Or simply destroy if you prefer: pActive[i] = false;
+            }
+            // B. If falling Down and hit floor
+            else if (pVelY[i] > 0)
+            {
+                // Landed on floor. 
+                // Now it should roll.
+                // Snap to floor
+                nextY = (gridY_Check * cell_size) - ballSize - 1;
+                pVelY[i] = 0;
+                pY[i] = nextY; // Update Y once to snap
+
+                // Start Rolling Horizontal
+                // Default roll right, or random?
+                pVelX[i] = 100.0f; // --- CHANGE: REDUCED ROLLING SPEED (Was 400.0f) ---
+                pDir[i] = 0; // Switch state to "Right"
+                
+                // Note: Next frame it will process as horizontal move
+                continue; 
             }
         }
+        
+        pY[i] = nextY;
+
+        // 4. Bounds Check
+        if (pX[i] < 0 || pX[i] > screenW || pY[i] > screenH || pY[i] < 0)
+        {
+            pActive[i] = false;
+        }
+
+        // --- DRAW ---
+        ballSprite.setPosition(pX[i], pY[i]);
+        window.draw(ballSprite);
     }
 }
 
@@ -214,16 +261,6 @@ bool collisionDetection(RenderWindow &window, float playerX, float playerY, floa
         return true;
     }
     return false;
-}
-
-// Safety check to prevent crashing if player goes off-screen
-char get_tile(char **lvl, int row, int col, int height, int width)
-{
-    if (row < 0 || row >= height || col < 0 || col >= width)
-    {
-        return ' '; // Outside the map is empty air
-    }
-    return lvl[row][col];
 }
 
 void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgSprite, Texture &blockTexture, Sprite &blockSprite, const int height, const int width, const int cell_size)
@@ -360,12 +397,154 @@ void playerCollision_x(char **lvl, float &player_x, float player_y,
     }
 }
 
+// --- SUCTION LOGIC FUNCTION ---
+void handleVacuum(RenderWindow &window, Sprite &vacSprite, 
+                  Texture &texHorz, Texture &texVert, 
+                  float player_x, float player_y, 
+                  int PlayerWidth, int PlayerHeight, int vacDir, bool isActive, 
+                  float* enemiesX, float* enemiesY, int& enemyCount, 
+                  int* inventory, int& capturedCount, int maxCap, int enemyType,
+                  float &flickerTimer, bool &showSprite, float dt,
+                  bool* enemyIsCaught,
+                  bool drawOnly) 
+{
+    if (!isActive) return;
+    if (capturedCount >= maxCap) return;
+
+    // --- 1. FLICKER ANIMATION ---
+    if (drawOnly)
+    {
+        flickerTimer += dt;
+        if (flickerTimer >= 0.05f) 
+        {
+            showSprite = !showSprite;
+            flickerTimer = 0;
+        }
+    }
+
+    // --- 2. CALCULATE CENTERS & DIMENSIONS ---
+    int pX = (int)player_x;
+    int pY = (int)player_y;
+    int pCenterX = pX + PlayerWidth / 2;
+    int pCenterY = pY + PlayerHeight / 2;
+
+    int beamReach = 72;  // Length
+    int beamThick = 30;  // Width
+    
+    // Hitbox Variable
+    IntRect vacHitbox;
+
+    // --- 3. DIRECTION LOGIC ---
+
+    if (vacDir == 0) // RIGHT
+    {
+        vacSprite.setTexture(texHorz, true);
+        // Position: Exact Right Edge (No overlap). Center Vertically.
+        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick/2); 
+        vacSprite.setTextureRect(IntRect(0, 0, beamReach, beamThick));
+
+        vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick/2, beamReach * 2, beamThick * 2);
+    }
+    else if (vacDir == 1) // LEFT
+    {
+        vacSprite.setTexture(texHorz, true);
+        // Position: Exact Left Edge minus beam length. 
+        vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick/2); 
+        // Draw backwards (Visual only)
+        vacSprite.setTextureRect(IntRect(beamReach, 0, -beamReach, beamThick)); 
+
+        // Hitbox starts to the left of the player
+        vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick/2, beamReach * 2, beamThick * 2);
+    }
+    else if (vacDir == 2) // UP
+    {
+        vacSprite.setTexture(texVert, true);
+        // X: Center Horizontal. Y: Exact Top Edge minus beam length.
+        vacSprite.setPosition(pCenterX - beamThick/2, pY - (beamReach * 2));
+        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
+
+        vacHitbox = IntRect(pCenterX - beamThick/2, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
+    }
+    else if (vacDir == 3) // DOWN
+    {
+        vacSprite.setTexture(texVert, true);
+        // X: Center Horizontal. Y: Exact Bottom Edge.
+        vacSprite.setPosition(pCenterX - beamThick/2, pY + PlayerHeight);
+        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
+
+        vacHitbox = IntRect(pCenterX - beamThick/2, pY + PlayerHeight, beamThick * 2, beamReach * 2);
+    }
+
+    // --- 4. DRAWING PASS ---
+    if (drawOnly)
+    {
+        if (showSprite)
+        {
+            window.draw(vacSprite);
+        }
+        return; // Exit after drawing
+    }
+
+    // --- 5. LOGIC PASS (Only if drawOnly is FALSE) ---
+    for (int i = 0; i < enemyCount; i++)
+    {
+        IntRect enemyRect((int)enemiesX[i], (int)enemiesY[i], 60, 60);
+
+        if (vacHitbox.intersects(enemyRect))
+        {
+            // Mark enemy as caught so collision detection doesn't kill player
+            enemyIsCaught[i] = true;
+
+            // PULL LOGIC (RESTORED TO ORIGINAL SPEED)
+            float pullSpeed = 250.0f * dt; 
+            
+            if (enemiesX[i] < pCenterX) enemiesX[i] += pullSpeed;
+            else enemiesX[i] -= pullSpeed;
+            
+            if (enemiesY[i] < pCenterY) enemiesY[i] += pullSpeed;
+            else enemiesY[i] -= pullSpeed;
+
+            // CAPTURE CHECK (RESTORED TO ORIGINAL DISTANCE)
+            float dx = (float)(pCenterX - (enemiesX[i] + 30));
+            float dy = (float)(pCenterY - (enemiesY[i] + 30));
+            float dist = sqrt(dx*dx + dy*dy);
+
+            if (dist < 50.0f) 
+            {
+                inventory[capturedCount] = enemyType;
+                capturedCount++;
+                enemiesX[i] = enemiesX[enemyCount - 1];
+                enemiesY[i] = enemiesY[enemyCount - 1];
+                enemyCount--;
+                i--;
+            }
+        }
+    }
+}
+
 int main()
 {
+    int screen_x = 1200;
+    int screen_y = 950;
+
     bool playagain = true;
-    bool firstrun = true;
+    bool firstrun=true;
     while (playagain)
     {
+        const int MAX_PROJECTILES = 20;
+        // Arrays to store state for each potential projectile
+        float projX[MAX_PROJECTILES];
+        float projY[MAX_PROJECTILES];
+        int projDir[MAX_PROJECTILES]; // 0=Right, 1=Left, 2=Up, 3=Down
+        bool projActive[MAX_PROJECTILES];
+        float projVelX[MAX_PROJECTILES];
+        float projVelY[MAX_PROJECTILES];
+        int projAnimFrame[MAX_PROJECTILES];
+        int projAnimCounter[MAX_PROJECTILES];
+
+        // Initialize active state
+        for(int i=0; i<MAX_PROJECTILES; i++) projActive[i] = false;
+
         const float dt = 0.018f; // dt to smooth everything 0.018
         srand(time(0));          //  Initialize random seed for skeleton jump timing
         RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
@@ -374,7 +553,7 @@ int main()
         const int height = 14;
         const int width = 20; // 18
         char **lvl;
-
+        
         Texture gameOverBGTexture;
         Sprite gameOverBGSprite;
 
@@ -395,69 +574,51 @@ int main()
             deadAnimCounter = 0, deadAnimFrame = 0, deadAnimSpeed = 60;
         bool isDead = false;
         bool restartGame = false;
-
-        // Vacuum variables
-        // ... setup textures ...
-        Texture vacTexHorz, vacTexVert;
-        vacTexHorz.loadFromFile("Data/horizontalVacuum.png");
-        vacTexVert.loadFromFile("Data/verticalVacuum.png");
-
-        Sprite vacSprite;
-        vacSprite.setScale(scale, scale);
-
-        int vacDirection = 0; // Default direction
-        bool isVacuuming = false;
-        float vacFlickerTimer = 0;
-        bool showVacSprite = true;
-
-        // vacuum inventory
-        const int MAX_CAPACITY = 3;
-        int capturedEnemies[MAX_CAPACITY];
-        int capturedCount = 0;
-
+       
+        
         // ------------------------------------
         // INTRO SCREEN (BEFORE CHARACTER MENU)
         // ------------------------------------
 
-        if (firstrun) // so the intro screen runs only once
+       if(firstrun)// so the intro screen runs only once
+       {
+        Texture introTex;
+        Sprite introSprite;
+
+        if (!introTex.loadFromFile("Data/intro.png"))
+            cout << "intro.png missing!\n";
+
+        introSprite.setTexture(introTex);
+        introSprite.setPosition(0, 0); // adjust if needed
+        introSprite.setScale(1.8, 1.8);
+        // Press Enter to Start text
+        Font fontIntro;
+        fontIntro.loadFromFile("Data/font.ttf");
+
+        Text startText("PRESS ENTER TO START", fontIntro, 50);
+        startText.setFillColor(Color::White);
+        startText.setPosition(300, 800); // adjust to fit your screen
+
+        bool startGame = false;
+
+        while (window.isOpen() && !startGame)
         {
-            Texture introTex;
-            Sprite introSprite;
-
-            if (!introTex.loadFromFile("Data/intro.png"))
-                cout << "intro.png missing!\n";
-
-            introSprite.setTexture(introTex);
-            introSprite.setPosition(0, 0); // adjust if needed
-            introSprite.setScale(1.8, 1.8);
-            // Press Enter to Start text
-            Font fontIntro;
-            fontIntro.loadFromFile("Data/font.ttf");
-
-            Text startText("PRESS ENTER TO START", fontIntro, 50);
-            startText.setFillColor(Color::White);
-            startText.setPosition(300, 800); // adjust to fit your screen
-
-            bool startGame = false;
-
-            while (window.isOpen() && !startGame)
+            Event e;
+            while (window.pollEvent(e))
             {
-                Event e;
-                while (window.pollEvent(e))
-                {
-                    if (e.type == Event::Closed)
-                        window.close();
+                if (e.type == Event::Closed)
+                    window.close();
 
-                    if (e.type == Event::KeyPressed && e.key.code == Keyboard::Enter)
-                        startGame = true;
-                }
-
-                window.clear();
-                window.draw(introSprite);
-                window.draw(startText);
-                window.display();
+                if (e.type == Event::KeyPressed && e.key.code == Keyboard::Enter)
+                    startGame = true;
             }
-            firstrun = false;
+
+            window.clear();
+            window.draw(introSprite);
+            window.draw(startText);
+            window.display();
+        }
+        firstrun=false;
         }
 
         // font
@@ -472,7 +633,7 @@ int main()
 
         Text gameOverText("GAME OVER!!", font, 120);
         gameOverText.setFillColor(Color::Red);
-        gameOverText.setPosition(330, 300); // 350,300
+        gameOverText.setPosition(330, 300);  //350,300
 
         Text livesRemainingText("", font, 40);
         livesRemainingText.setFillColor(Color::White);
@@ -480,22 +641,22 @@ int main()
 
         Text restartText("Press ENTER to continue...", font, 50);
         restartText.setFillColor(Color::Yellow);
-        restartText.setPosition(400, 520); // 300,650
-
-        Text escText("Press ESC to Exit", font, 45);
+        restartText.setPosition(400, 520); //300,650
+        
+         Text escText("Press ESC to Exit", font, 45);
         escText.setFillColor(Color::Magenta);
-        escText.setPosition(470, 600); // 300,650
+        escText.setPosition(470, 600); //300,650
 
         // menu screen
 
         Texture menuBGTexture;
         Sprite menuBGSprite;
 
-        if (!menuBGTexture.loadFromFile("Data/menuBG.png"))
+        if (!menuBGTexture.loadFromFile("Data/menuBG.png")) 
             cout << "Menu background missing!\n";
 
         menuBGSprite.setTexture(menuBGTexture);
-
+        
         if (!gameOverBGTexture.loadFromFile("Data/gameover.png"))
             cout << "Game Over background missing!\n";
 
@@ -656,6 +817,7 @@ int main()
         int enemyDirection[maxEnemyCount];
         float platformLeftEdge[maxEnemyCount];
         float platformRightEdge[maxEnemyCount];
+        bool enemyIsCaught[maxEnemyCount]; // SAFETY FLAG
 
         int EnemyHeight = 60;
         int EnemyWidth = 72;
@@ -681,6 +843,7 @@ int main()
         float skeletonJumpCooldown[maxSkeletonCount]; //  Random cooldown between jumps
         bool skeletonShouldJump[maxSkeletonCount];    //  Flag to control when to attempt jump
         int skeletonStableFrames[maxSkeletonCount];   //  Count frames on ground before allowing jump
+        bool skeletonIsCaught[maxSkeletonCount];      // SAFETY FLAG
 
         Texture skeletonWalkTex[4]; // Array for 4 walking frames
         int skeletonAnimFrame[maxSkeletonCount];
@@ -716,8 +879,29 @@ int main()
         float velocityY = 0;
         float terminal_Velocity = 300.f; // 300
 
-        // int PlayerHeight = 102;
-        // int PlayerWidth = 96;
+        // PROJECTILE SETUP
+        Sprite ballSprite;
+        Texture ballTexture[3];
+        ballTexture[0].loadFromFile("Data/ball/ball1.png");
+        ballTexture[1].loadFromFile("Data/ball/ball2.png");
+        ballTexture[2].loadFromFile("Data/ball/ball3.png");
+        
+        // --- VACUUM SETUP ---
+        Texture vacTexHorz, vacTexVert;
+        if (!vacTexHorz.loadFromFile("Data/vacuum_horz.png")) cout << "Horz missing\n";
+        if (!vacTexVert.loadFromFile("Data/vacuum_vert.png")) cout << "Vert missing\n";
+
+        Sprite vacSprite;
+        vacSprite.setScale(2.0f, 2.0f); 
+
+        int vacDirection = 0; 
+        bool isVacuuming = false;
+        float vacFlickerTimer = 0.0f;
+        bool showVacSprite = true; 
+
+        const int MAX_CAPACITY = 3; 
+        int capturedEnemies[MAX_CAPACITY]; 
+        int capturedCount = 0;
 
         // --- LEVEL CREATION (YOUR ORIGINAL MAP) ---
         lvl = new char *[height];
@@ -929,34 +1113,85 @@ int main()
             if (Keyboard::isKeyPressed(Keyboard::Escape))
                 window.close();
 
-            // Suction mechanics input here
-            isVacuuming = false; // Reset
+            // *** RESET SAFETY FLAGS EVERY FRAME ***
+            for (int i = 0; i < maxEnemyCount; i++) enemyIsCaught[i] = false;
+            for (int i = 0; i < maxSkeletonCount; i++) skeletonIsCaught[i] = false;
 
-            // space will trigger suction
+            // --- VACUUM INPUT ---
+            isVacuuming = false;
             if (Keyboard::isKeyPressed(Keyboard::Space))
             {
                 isVacuuming = true;
-
-                // WASD determines direction
-                // Last key that is pressed is the one whose direction is selected
-                if (Keyboard::isKeyPressed(Keyboard::D))
-                    vacDirection = 0; // Right
-                else if (Keyboard::isKeyPressed(Keyboard::A))
-                    vacDirection = 1; // Left
-                else if (Keyboard::isKeyPressed(Keyboard::W))
-                    vacDirection = 2; // Up
-                else if (Keyboard::isKeyPressed(Keyboard::S))
-                    vacDirection = 3; // Down
-                else
+                if (Keyboard::isKeyPressed(Keyboard::D)) 
                 {
-                    // Default direction. selected to match the player's direction
-                    vacDirection = facing; // Use the player's facing (0 or 1) if no WASD
+                    vacDirection = 0; 
+                    facing = 1; 
                 }
+                else if (Keyboard::isKeyPressed(Keyboard::A)) 
+                {
+                    vacDirection = 1; 
+                    facing = 0; 
+                }
+                else if (Keyboard::isKeyPressed(Keyboard::W)) vacDirection = 2; 
+                else if (Keyboard::isKeyPressed(Keyboard::S)) vacDirection = 3; 
+                else vacDirection = facing; 
             }
-            else
+            else showVacSprite = true;
+
+            // --- FIRING INPUT (Press F or G) ---
+            
+            // Single Shot (F)
+            static bool fPressed = false;
+            if (Keyboard::isKeyPressed(Keyboard::F)) 
             {
-                showVacSprite = true;
+                if (!fPressed && capturedCount > 0) 
+                {
+                    fireProjectile(player_x + 30, player_y + 30, vacDirection, 
+                                   projX, projY, projDir, projActive, projVelX, projVelY, 
+                                   projAnimFrame, projAnimCounter, MAX_PROJECTILES);
+                    capturedCount--;
+                    fPressed = true;
+                }
+            } 
+            else 
+            {
+                fPressed = false;
             }
+
+            // Burst Shot (G)
+            static bool gPressed = false;
+            if (Keyboard::isKeyPressed(Keyboard::G)) 
+            {
+                if (!gPressed && capturedCount > 0) 
+                {
+                    while(capturedCount > 0) 
+                    {
+                        fireProjectile(player_x + 30, player_y + 30, vacDirection, 
+                                       projX, projY, projDir, projActive, projVelX, projVelY,
+                                       projAnimFrame, projAnimCounter, MAX_PROJECTILES);
+                        capturedCount--;
+                    }
+                    gPressed = true;
+                }
+            } 
+            else 
+            {
+                gPressed = false;
+            }
+
+            // --- EXECUTE VACUUM LOGIC BEFORE ENEMY LOGIC (drawOnly = false) ---
+            // This ensures enemyIsCaught flags are set correctly
+            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+                 player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+                 enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1, 
+                 vacFlickerTimer, showVacSprite, dt, 
+                 enemyIsCaught, false); 
+
+            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+                 player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+                 skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2, 
+                 vacFlickerTimer, showVacSprite, dt, 
+                 skeletonIsCaught, false);
 
             isMoving = 0;
             // Movement - Make sure this is OUTSIDE the event loop
@@ -964,9 +1199,7 @@ int main()
                               PlayerWidth, height, width, dt, isMoving, facing);
             updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
                                   walkTex, jumpTex, deadTex, animFrame, deadAnimFrame, animCounter, deadAnimCounter, animSpeed, deadAnimSpeed);
-            // Sprite &PlayerSprite, int facing, int isMoving, bool isDead, bool onGround,
-            //                Texture &idleTex, Texture walkTex[], Texture &jumpTex, Texture &deadTex[],
-            //              int &animFrame, int &deadAnimFrame, int &animCounter, int deadAnimCounter, int animSpeed
+            
             if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
             {
                 velocityY = jumpStrength;
@@ -994,14 +1227,18 @@ int main()
                     enemyDirection[i] = -1; // Move left
                 }
 
-                if (collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i],
-                                       PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight, isDead))
+                // CHECK COLLISION (Only if not caught by vacuum)
+                if (!enemyIsCaught[i])
                 {
-                    if (!waitingToRespawn)
+                    if (collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i],
+                                           PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight, isDead))
                     {
-                        playerLives--;
-                        waitingToRespawn = true;
-                        deathDelayCounter = 0.0f;
+                        if (!waitingToRespawn)
+                        {
+                            playerLives--;
+                            waitingToRespawn = true;
+                            deathDelayCounter = 0.0f;
+                        }
                     }
                 }
             } // <--- END OF GHOST LOOP (Correctly closed here)
@@ -1098,15 +1335,18 @@ int main()
                     skeletonStableFrames[i] = 0;
                 }
 
-                // Collision detection with player
-                if (collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
-                                       PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight, isDead))
+                // Collision detection with player (Only if not caught by vacuum)
+                if (!skeletonIsCaught[i])
                 {
-                    if (!waitingToRespawn)
+                    if (collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
+                                           PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight, isDead))
                     {
-                        playerLives--;
-                        waitingToRespawn = true;
-                        deathDelayCounter = 0.0f;
+                        if (!waitingToRespawn)
+                        {
+                            playerLives--;
+                            waitingToRespawn = true;
+                            deathDelayCounter = 0.0f;
+                        }
                     }
                 }
             } // <--- END OF SKELETON LOOP (Correctly closed here)
@@ -1136,6 +1376,7 @@ int main()
                         // Game Over
                         showGameOver = true;
                         waitingToRespawn = false;
+
                     }
                 }
             }
@@ -1160,9 +1401,9 @@ int main()
                         {
                             waitingForRestart = false;
                             showGameOver = false;
-
-                            restartGame = true;
-                            playagain = true;
+                           
+                            restartGame = true; 
+                             playagain = true;
                             // RESET variables when restarting
                             player_x = respawnX;
                             player_y = respawnY;
@@ -1172,6 +1413,8 @@ int main()
                             deadAnimFrame = 0;
                             deadAnimCounter = 0;
                             playerLives = 3;
+
+                          
                         }
 
                         if (gameOverEvent.type == Event::KeyPressed &&
@@ -1183,7 +1426,7 @@ int main()
                     }
 
                     window.clear();
-                    window.draw(gameOverBGSprite);
+                    window.draw(gameOverBGSprite); 
                     window.draw(gameOverText);
                     livesRemainingText.setString("You ran out of lives!");
                     window.draw(livesRemainingText);
@@ -1192,12 +1435,11 @@ int main()
                     window.display();
                 }
             }
-
-            if (restartGame) // <-- ADD THIS CHECK
-                break;
+            
+            if (restartGame) break; 
 
             // --- 4. RENDER (Draws everything ONCE per frame) ---
-            // window.clear();
+            //window.clear();
             display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 
             // 2.8 x 64 player's png width is 64
@@ -1208,19 +1450,24 @@ int main()
             PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
 
             window.draw(PlayerSprite);
-            // --- HANDLE VACUUM ---
 
-            // 1. For Ghosts (Type 1)
-            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert,
-                         player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming,
-                         enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1,
-                         vacFlickerTimer, showVacSprite, dt);
+            // --- DRAW PASS (drawOnly = true) ---
+            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+                 player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+                 enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1, 
+                 vacFlickerTimer, showVacSprite, dt, 
+                 enemyIsCaught, true); 
 
-            // 2. For Skeletons (Type 2)
-            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert,
-                         player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming,
-                         skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2,
-                         vacFlickerTimer, showVacSprite, dt);
+            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+                 player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+                 skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2, 
+                 vacFlickerTimer, showVacSprite, dt, 
+                 skeletonIsCaught, true);
+
+            // --- DRAW PROJECTILE ---
+            handleProjectiles(window, ballSprite, ballTexture, 
+                              projX, projY, projDir, projActive, projVelX, projVelY,
+                              projAnimFrame, projAnimCounter, lvl, height, width, cell_size, dt, MAX_PROJECTILES, screen_x, screen_y);
 
             // collision box start
             RectangleShape collBox;
@@ -1283,12 +1530,15 @@ int main()
             window.display();
 
         } // <--- End of while(window.isOpen())
-
+     
+       
         lvlMusic.stop();
         for (int i = 0; i < height; i++)
         {
             delete[] lvl[i];
         }
         delete[] lvl;
+
+        
     }
 }

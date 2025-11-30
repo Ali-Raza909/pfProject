@@ -905,6 +905,46 @@ powerupSprite.setScale(2.0f, 2.0f);
         int capturedEnemies[MAX_CAPACITY]; 
         int capturedCount = 0;
 
+        // --- PROJECTILE SYSTEM ---
+        const int MAX_PROJECTILES = 10;
+        float projectilesX[MAX_PROJECTILES];
+        float projectilesY[MAX_PROJECTILES];
+        int projectileType[MAX_PROJECTILES]; // 1=ghost, 2=skeleton, etc.
+        int projectileDirection[MAX_PROJECTILES]; // 1=right, -1=left
+        float projectileVelocityY[MAX_PROJECTILES];
+        bool projectileActive[MAX_PROJECTILES];
+        bool projectileOnGround[MAX_PROJECTILES];
+        int projectileCount = 0;
+        float projectileSpeed = 300.0f; // Rolling speed
+        int releaseDirection = 0; // 0=right, 1=left, 2=up, 3=down (same as vacuum direction)
+        
+        // Projectile dimensions
+        int ProjectileWidth = 50;
+        int ProjectileHeight = 50;
+        
+        // Projectile animation
+        Texture projectileTex[4]; // Animation frames for rolling ball
+        int projectileAnimFrame[MAX_PROJECTILES];
+        int projectileAnimCounter[MAX_PROJECTILES];
+        int projectileAnimSpeed = 5;
+        Sprite projectileSprite;
+        
+        // Load projectile textures
+        // You need: Data/projectile/roll1.png, roll2.png, roll3.png, roll4.png
+        projectileTex[0].loadFromFile("Data/projectile/roll1.png");
+        projectileTex[1].loadFromFile("Data/projectile/roll2.png");
+        projectileTex[2].loadFromFile("Data/projectile/roll3.png");
+        projectileTex[3].loadFromFile("Data/projectile/roll4.png");
+        projectileSprite.setScale(2.0f, 2.0f);
+        
+        // Initialize projectile arrays
+        for (int i = 0; i < MAX_PROJECTILES; i++)
+        {
+            projectileActive[i] = false;
+            projectileAnimFrame[i] = 0;
+            projectileAnimCounter[i] = 0;
+        }
+
         // --- LEVEL CREATION (YOUR ORIGINAL MAP) ---
         lvl = new char *[height];
         for (int i = 0; i < height; i += 1)
@@ -1215,6 +1255,132 @@ for (int i = 0; i < powerupCount; i++)
             }
             else showVacSprite = true;
 
+            // --- ENEMY RELEASE INPUT ---
+            // Update release direction based on WASD (same as vacuum direction)
+            if (Keyboard::isKeyPressed(Keyboard::D)) 
+                releaseDirection = 0; // Right
+            else if (Keyboard::isKeyPressed(Keyboard::A)) 
+                releaseDirection = 1; // Left
+            else if (Keyboard::isKeyPressed(Keyboard::W)) 
+                releaseDirection = 2; // Up
+            else if (Keyboard::isKeyPressed(Keyboard::S)) 
+                releaseDirection = 3; // Down
+            else
+                releaseDirection = facing; // Default to player facing (0=left, 1=right -> convert to release direction)
+            
+            // Single Shot - Press E to release one enemy (LIFO - last in first out)
+            static bool eKeyPressed = false;
+            if (Keyboard::isKeyPressed(Keyboard::E) && !eKeyPressed)
+            {
+                eKeyPressed = true;
+                if (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
+                {
+                    // Get the last captured enemy (LIFO)
+                    capturedCount--;
+                    int enemyTypeToRelease = capturedEnemies[capturedCount];
+                    
+                    // Create projectile at player position
+                    projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
+                    projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
+                    projectileType[projectileCount] = enemyTypeToRelease;
+                    projectileActive[projectileCount] = true;
+                    projectileAnimFrame[projectileCount] = 0;
+                    projectileAnimCounter[projectileCount] = 0;
+                    projectileVelocityY[projectileCount] = 0;
+                    projectileOnGround[projectileCount] = false;
+                    
+                    // Set direction based on release direction
+                    if (releaseDirection == 0) // Right
+                    {
+                        projectileDirection[projectileCount] = 1;
+                        projectileVelocityY[projectileCount] = 0;
+                    }
+                    else if (releaseDirection == 1) // Left
+                    {
+                        projectileDirection[projectileCount] = -1;
+                        projectileVelocityY[projectileCount] = 0;
+                    }
+                    else if (releaseDirection == 2) // Up
+                    {
+                        projectileDirection[projectileCount] = (facing == 1) ? 1 : -1; // Keep horizontal based on facing
+                        projectileVelocityY[projectileCount] = -200.0f; // Launch upward
+                    }
+                    else if (releaseDirection == 3) // Down
+                    {
+                        projectileDirection[projectileCount] = (facing == 1) ? 1 : -1;
+                        projectileVelocityY[projectileCount] = 200.0f; // Launch downward
+                    }
+                    
+                    projectileCount++;
+                    cout << "Single Shot! Released enemy type " << enemyTypeToRelease << " in direction " << releaseDirection << endl;
+                }
+            }
+            if (!Keyboard::isKeyPressed(Keyboard::E))
+                eKeyPressed = false;
+            
+            // Vacuum Burst - Press R to release all enemies at once
+            static bool rKeyPressed = false;
+            if (Keyboard::isKeyPressed(Keyboard::R) && !rKeyPressed)
+            {
+                rKeyPressed = true;
+                if (capturedCount > 0)
+                {
+                    cout << "Vacuum Burst! Releasing " << capturedCount << " enemies!" << endl;
+                    
+                    // Check for Vacuum Burst bonus (3+ enemies)
+                    if (capturedCount >= 3)
+                    {
+                        playerScore += 300; // Vacuum Burst bonus
+                        cout << "VACUUM BURST BONUS! +300 points" << endl;
+                    }
+                    
+                    // Release all enemies in LIFO order with slight spread
+                    float spreadOffset = 0;
+                    while (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
+                    {
+                        capturedCount--;
+                        int enemyTypeToRelease = capturedEnemies[capturedCount];
+                        
+                        // Create projectile at player position with slight vertical spread
+                        projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
+                        projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2 + spreadOffset;
+                        projectileType[projectileCount] = enemyTypeToRelease;
+                        projectileActive[projectileCount] = true;
+                        projectileAnimFrame[projectileCount] = 0;
+                        projectileAnimCounter[projectileCount] = 0;
+                        projectileVelocityY[projectileCount] = 0;
+                        projectileOnGround[projectileCount] = false;
+                        
+                        // Set direction based on release direction
+                        if (releaseDirection == 0) // Right
+                        {
+                            projectileDirection[projectileCount] = 1;
+                            projectileVelocityY[projectileCount] = 0;
+                        }
+                        else if (releaseDirection == 1) // Left
+                        {
+                            projectileDirection[projectileCount] = -1;
+                            projectileVelocityY[projectileCount] = 0;
+                        }
+                        else if (releaseDirection == 2) // Up
+                        {
+                            projectileDirection[projectileCount] = (facing == 1) ? 1 : -1;
+                            projectileVelocityY[projectileCount] = -200.0f - spreadOffset * 2; // Slightly different velocities
+                        }
+                        else if (releaseDirection == 3) // Down
+                        {
+                            projectileDirection[projectileCount] = (facing == 1) ? 1 : -1;
+                            projectileVelocityY[projectileCount] = 200.0f + spreadOffset * 2;
+                        }
+                        
+                        projectileCount++;
+                        spreadOffset += 10.0f; // Spread projectiles slightly
+                    }
+                }
+            }
+            if (!Keyboard::isKeyPressed(Keyboard::R))
+                rKeyPressed = false;
+
             // --- EXECUTE VACUUM LOGIC BEFORE ENEMY LOGIC (drawOnly = false) ---
             // This ensures enemyIsCaught flags are set correctly
             handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
@@ -1453,6 +1619,207 @@ for (int i = 0; i < powerupCount; i++)
                 }
             } // end of skeleton loop
 
+            // --- PROJECTILE UPDATE LOOP ---
+            for (int p = 0; p < projectileCount; p++)
+            {
+                if (!projectileActive[p]) continue;
+                
+                // --- HORIZONTAL MOVEMENT ---
+                float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt;
+                
+                // Check wall collision for horizontal movement
+                int projRow = (int)(projectilesY[p] + ProjectileHeight / 2) / cell_size;
+                int projColRight = (int)(newProjX + ProjectileWidth) / cell_size;
+                int projColLeft = (int)newProjX / cell_size;
+                
+                char rightWall = get_tile(lvl, projRow, projColRight, height, width);
+                char leftWall = get_tile(lvl, projRow, projColLeft, height, width);
+                
+                // Bounce off walls
+                if (projectileDirection[p] == 1 && rightWall == '#')
+                {
+                    projectileDirection[p] = -1; // Reverse direction
+                }
+                else if (projectileDirection[p] == -1 && leftWall == '#')
+                {
+                    projectileDirection[p] = 1; // Reverse direction
+                }
+                else
+                {
+                    projectilesX[p] = newProjX;
+                }
+                
+                // --- VERTICAL MOVEMENT / GRAVITY ---
+                float newProjY = projectilesY[p] + projectileVelocityY[p] * dt;
+                
+                // Check floor collision
+                int feetRow = (int)(newProjY + ProjectileHeight) / cell_size;
+                int feetColL = (int)projectilesX[p] / cell_size;
+                int feetColR = (int)(projectilesX[p] + ProjectileWidth) / cell_size;
+                
+                char floorL = get_tile(lvl, feetRow, feetColL, height, width);
+                char floorR = get_tile(lvl, feetRow, feetColR, height, width);
+                
+                // Check ceiling collision (for upward shots)
+                int headRow = (int)newProjY / cell_size;
+                char ceilL = get_tile(lvl, headRow, feetColL, height, width);
+                char ceilR = get_tile(lvl, headRow, feetColR, height, width);
+                
+                bool hitCeiling = false;
+                bool landed = false;
+                
+                // Ceiling check (moving up)
+                if (projectileVelocityY[p] < 0)
+                {
+                    // For shooting UP, projectiles pass through platforms '-' but stop at walls '#'
+                    if (ceilL == '#' || ceilR == '#')
+                    {
+                        hitCeiling = true;
+                        projectileVelocityY[p] = 0; // Stop upward movement
+                        projectilesY[p] = (headRow + 1) * cell_size; // Push down from ceiling
+                    }
+                    // Otherwise continue moving up through platforms
+                }
+                
+                // Floor check (moving down or stationary)
+                if (projectileVelocityY[p] >= 0)
+                {
+                    if (floorL == '#' || floorR == '#')
+                    {
+                        landed = true;
+                    }
+                    else if (floorL == '-' || floorR == '-')
+                    {
+                        // Land on platforms when moving down
+                        float blockTop = feetRow * cell_size;
+                        if ((projectilesY[p] + ProjectileHeight <= blockTop + 4.0f) && (newProjY + ProjectileHeight >= blockTop))
+                        {
+                            landed = true;
+                        }
+                    }
+                }
+                
+                if (landed)
+                {
+                    projectileOnGround[p] = true;
+                    projectileVelocityY[p] = 0;
+                    projectilesY[p] = (feetRow * cell_size) - ProjectileHeight;
+                }
+                else
+                {
+                    projectileOnGround[p] = false;
+                    projectilesY[p] = newProjY;
+                    
+                    // Apply gravity
+                    projectileVelocityY[p] += gravity * dt;
+                    if (projectileVelocityY[p] > terminal_Velocity)
+                        projectileVelocityY[p] = terminal_Velocity;
+                }
+                
+                // --- REMOVE PROJECTILE IF OUT OF BOUNDS ---
+                if (projectilesX[p] < -100 || projectilesX[p] > screen_x + 100 ||
+                    projectilesY[p] < -100 || projectilesY[p] > screen_y + 100)
+                {
+                    // Remove this projectile
+                    projectilesX[p] = projectilesX[projectileCount - 1];
+                    projectilesY[p] = projectilesY[projectileCount - 1];
+                    projectileType[p] = projectileType[projectileCount - 1];
+                    projectileDirection[p] = projectileDirection[projectileCount - 1];
+                    projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
+                    projectileActive[p] = projectileActive[projectileCount - 1];
+                    projectileOnGround[p] = projectileOnGround[projectileCount - 1];
+                    projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
+                    projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
+                    projectileCount--;
+                    p--;
+                    continue;
+                }
+                
+                // --- COLLISION WITH GHOST ENEMIES ---
+                for (int e = 0; e < enemyCount; e++)
+                {
+                    // Simple AABB collision
+                    if ((projectilesX[p] < enemiesX[e] + EnemyWidth) &&
+                        (projectilesX[p] + ProjectileWidth > enemiesX[e]) &&
+                        (projectilesY[p] < enemiesY[e] + EnemyHeight) &&
+                        (projectilesY[p] + ProjectileHeight > enemiesY[e]))
+                    {
+                        // Enemy hit! Award 2x points for defeat by projectile
+                        int defeatPoints = 50 * 2; // Ghost = 50, 2x for projectile
+                        
+                        // Check for aerial defeat (enemy not on ground - we'll assume if Y < 400 it's aerial)
+                        if (enemiesY[e] < 400)
+                        {
+                            playerScore += 150; // Aerial Defeat bonus
+                            cout << "AERIAL DEFEAT! +150 points" << endl;
+                        }
+                        
+                        addScore(playerScore, comboStreak, comboTimer, defeatPoints, 
+                                 true, multiKillCount, multiKillTimer, dt);
+                        multiKillCount++;
+                        multiKillTimer = 0.0f;
+                        
+                        cout << "Ghost defeated by projectile! +" << defeatPoints << " points" << endl;
+                        
+                        // Remove enemy
+                        enemiesX[e] = enemiesX[enemyCount - 1];
+                        enemiesY[e] = enemiesY[enemyCount - 1];
+                        enemySpeed[e] = enemySpeed[enemyCount - 1];
+                        enemyDirection[e] = enemyDirection[enemyCount - 1];
+                        platformLeftEdge[e] = platformLeftEdge[enemyCount - 1];
+                        platformRightEdge[e] = platformRightEdge[enemyCount - 1];
+                        enemyIsCaught[e] = enemyIsCaught[enemyCount - 1];
+                        enemyCount--;
+                        e--;
+                    }
+                }
+                
+                // --- COLLISION WITH SKELETON ENEMIES ---
+                for (int s = 0; s < skeletonCount; s++)
+                {
+                    // Simple AABB collision
+                    if ((projectilesX[p] < skeletonsX[s] + SkeletonWidth) &&
+                        (projectilesX[p] + ProjectileWidth > skeletonsX[s]) &&
+                        (projectilesY[p] < skeletonsY[s] + SkeletonHeight) &&
+                        (projectilesY[p] + ProjectileHeight > skeletonsY[s]))
+                    {
+                        // Enemy hit! Award 2x points for defeat by projectile
+                        int defeatPoints = 75 * 2; // Skeleton = 75, 2x for projectile
+                        
+                        // Check for aerial defeat
+                        if (!skeletonOnGround[s])
+                        {
+                            playerScore += 150; // Aerial Defeat bonus
+                            cout << "AERIAL DEFEAT! +150 points" << endl;
+                        }
+                        
+                        addScore(playerScore, comboStreak, comboTimer, defeatPoints, 
+                                 true, multiKillCount, multiKillTimer, dt);
+                        multiKillCount++;
+                        multiKillTimer = 0.0f;
+                        
+                        cout << "Skeleton defeated by projectile! +" << defeatPoints << " points" << endl;
+                        
+                        // Remove skeleton
+                        skeletonsX[s] = skeletonsX[skeletonCount - 1];
+                        skeletonsY[s] = skeletonsY[skeletonCount - 1];
+                        skeletonSpeed[s] = skeletonSpeed[skeletonCount - 1];
+                        skeletonDirection[s] = skeletonDirection[skeletonCount - 1];
+                        skeletonVelocityY[s] = skeletonVelocityY[skeletonCount - 1];
+                        skeletonOnGround[s] = skeletonOnGround[skeletonCount - 1];
+                        skeletonJumpTimer[s] = skeletonJumpTimer[skeletonCount - 1];
+                        skeletonJumpCooldown[s] = skeletonJumpCooldown[skeletonCount - 1];
+                        skeletonShouldJump[s] = skeletonShouldJump[skeletonCount - 1];
+                        skeletonStableFrames[s] = skeletonStableFrames[skeletonCount - 1];
+                        skeletonIsCaught[s] = skeletonIsCaught[skeletonCount - 1];
+                        skeletonAnimFrame[s] = skeletonAnimFrame[skeletonCount - 1];
+                        skeletonAnimCounter[s] = skeletonAnimCounter[skeletonCount - 1];
+                        skeletonCount--;
+                        s--;
+                    }
+                }
+            } // end of projectile loop
+
            // Check if level is complete (all enemies defeated)
 if (enemyCount == 0 && skeletonCount == 0 && capturedCount == 0)
 {
@@ -1555,6 +1922,14 @@ hasRangeBoost = false;
 hasPowerBoost = false;
 speed = originalSpeed * speedMultiplier;
 vacuumPower = originalVacuumPower;
+
+// Reset projectiles and captured enemies
+projectileCount = 0;
+capturedCount = 0;
+for (int i = 0; i < MAX_PROJECTILES; i++)
+{
+    projectileActive[i] = false;
+}
                           
                         }
 
@@ -1668,6 +2043,47 @@ vacuumPower = originalVacuumPower;
                 window.draw(SkeletonSprite);
             }
             
+            // Draw projectiles with rolling animation
+            for (int p = 0; p < projectileCount; p++)
+            {
+                if (!projectileActive[p]) continue;
+                
+                // Update animation frame for rolling effect
+                projectileAnimCounter[p]++;
+                if (projectileAnimCounter[p] >= projectileAnimSpeed)
+                {
+                    projectileAnimCounter[p] = 0;
+                    projectileAnimFrame[p]++;
+                    if (projectileAnimFrame[p] >= 4) // 4 frames total
+                        projectileAnimFrame[p] = 0;
+                }
+                
+                // Set the current animation frame texture
+                projectileSprite.setTexture(projectileTex[projectileAnimFrame[p]], true);
+                
+                // Flip sprite based on direction
+                int texW = projectileTex[projectileAnimFrame[p]].getSize().x;
+                int texH = projectileTex[projectileAnimFrame[p]].getSize().y;
+                
+                if (projectileDirection[p] == 1) // Moving right
+                {
+                    projectileSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                }
+                else // Moving left - flip
+                {
+                    projectileSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+                }
+                
+                projectileSprite.setPosition(projectilesX[p], projectilesY[p]);
+                window.draw(projectileSprite);
+            }
+            
+            // Draw captured enemies count display
+            Text capturedDisplay("Captured: " + to_string(capturedCount) + "/" + to_string(MAX_CAPACITY), font, 30);
+            capturedDisplay.setFillColor(Color::Green);
+            capturedDisplay.setPosition(20, 45);
+            window.draw(capturedDisplay);
+            
             // Draw powerups with floating animation
 for (int i = 0; i < powerupCount; i++)
 {
@@ -1726,6 +2142,12 @@ if (activeEffects != "")
     powerupStatus.setString("Active: " + activeEffects);
     window.draw(powerupStatus);
 }
+
+// Draw controls hint at bottom of screen
+Text controlsHint("E: Single Shot | R: Vacuum Burst | WASD: Aim Direction", font, 20);
+controlsHint.setFillColor(Color(255, 255, 255, 150)); // Semi-transparent white
+controlsHint.setPosition(screen_x / 2 - 250, screen_y - 30);
+window.draw(controlsHint);
 
             window.display();
 

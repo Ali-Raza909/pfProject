@@ -14,6 +14,7 @@ using namespace std;
 int screen_x = 1200;
 int screen_y = 950;
 
+// function to display animation frame based on player state
 void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool isDead, bool onGround,
                            Texture &idleTex, Texture walkTex[], Texture &jumpTex, Texture deadTex[],
                            int &animFrame, int &deadAnimFrame, int &animCounter, int &deadAnimCounter, int animSpeed, int deadAnimSpeed)
@@ -58,7 +59,7 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
         // --- FLIP LOGIC ---
         if (facing == 1) // Facing LEFT (Flipped)
         {
-            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));//-ve width flips the sprite horizontally
         }
         else // Facing RIGHT (Normal)
         {
@@ -89,6 +90,7 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
     }
 }
 
+// player box overlaps enemy box then player will be killed
 bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH, bool &isDead)
 {
     if ((playerX < enemyX + enemyW) && (playerX + playerW > enemyX) && (playerY < enemyY + enemyH) && (playerY + playerH > enemyY))
@@ -100,7 +102,7 @@ bool collisionDetection(RenderWindow &window, float playerX, float playerY, floa
     return false;
 }
 
-// Safety check to prevent crashing if player goes off-screen
+// Safety check to prevent crashing if player goes off screen
 char get_tile(char **lvl, int row, int col, int height, int width)
 {
     if (row < 0 || row >= height || col < 0 || col >= width)
@@ -244,6 +246,41 @@ void playerCollision_x(char **lvl, float &player_x, float player_y,
     }
 }
 
+    void addScore(int &playerScore, int &comboStreak, float &comboTimer, int points, 
+              bool isDefeat, int &multiKillCount, float &multiKillTimer, const float dt)
+{
+    int finalPoints = points;
+    
+    // Apply combo multiplier for defeats
+    if (isDefeat)
+    {
+        if (comboStreak >= 5)
+            finalPoints = (int)(points * 2.0f);
+        else if (comboStreak >= 3)
+            finalPoints = (int)(points * 1.5f);
+    }
+    
+    playerScore += finalPoints;
+    
+    // Reset combo timer
+    if (isDefeat)
+    {
+        comboStreak++;
+        comboTimer = 0.0f;
+    }
+}
+
+void checkMultiKill(int &multiKillCount, float &multiKillTimer, int &playerScore)
+{
+    if (multiKillCount >= 3)
+        playerScore += 500; // Multi-Kill (3+ enemies)
+    else if (multiKillCount == 2)
+        playerScore += 200; // Multi-Kill (2 enemies)
+    
+    multiKillCount = 0;
+    multiKillTimer = 0.0f;
+}
+
 // --- SUCTION LOGIC FUNCTION ---
 void handleVacuum(RenderWindow &window, Sprite &vacSprite, 
                   Texture &texHorz, Texture &texVert, 
@@ -253,7 +290,10 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,
                   int* inventory, int& capturedCount, int maxCap, int enemyType,
                   float &flickerTimer, bool &showSprite, float dt,
                   bool* enemyIsCaught,
-                  bool drawOnly) 
+                  bool drawOnly,float vacuumPower,
+                  int& playerScore, int& comboStreak, float& comboTimer,
+                  int& multiKillCount, float& multiKillTimer,
+                  bool hasRangeBoost) 
 {
     if (!isActive) return;
     if (capturedCount >= maxCap) return;
@@ -275,9 +315,10 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,
     int pCenterX = pX + PlayerWidth / 2;
     int pCenterY = pY + PlayerHeight / 2;
 
-    int beamReach = 72;  // Length
-    int beamThick = 30;  // Width
-    
+  float rangeMultiplier = hasRangeBoost ? 1.5f : 1.0f; // 1.5x wider if boosted
+int beamReach = 72 * vacuumPower * rangeMultiplier;
+int beamThick = 30 * vacuumPower * rangeMultiplier;
+
     // Hitbox Variable
     IntRect vacHitbox;
 
@@ -343,7 +384,7 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,
             enemyIsCaught[i] = true;
 
             // PULL LOGIC (RESTORED TO ORIGINAL SPEED)
-            float pullSpeed = 250.0f * dt; 
+            float pullSpeed = 250.0f * vacuumPower * dt;  // Pull speed affected by power
             
             if (enemiesX[i] < pCenterX) enemiesX[i] += pullSpeed;
             else enemiesX[i] -= pullSpeed;
@@ -356,18 +397,84 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,
             float dy = (float)(pCenterY - (enemiesY[i] + 30));
             float dist = sqrt(dx*dx + dy*dy);
 
-            if (dist < 50.0f) 
-            {
-                inventory[capturedCount] = enemyType;
-                capturedCount++;
-                enemiesX[i] = enemiesX[enemyCount - 1];
-                enemiesY[i] = enemiesY[enemyCount - 1];
-                enemyCount--;
-                i--;
-            }
+            if (dist < 50.0f * vacuumPower) 
+{
+    inventory[capturedCount] = enemyType;
+    capturedCount++;
+    
+    // Award capture points ONLY during logic pass
+    if (!drawOnly)
+    {
+        int capturePoints = 0;
+        if (enemyType == 1) capturePoints = 50;  // Ghost
+        else if (enemyType == 2) capturePoints = 75; // Skeleton
+        
+        addScore(playerScore, comboStreak, comboTimer, capturePoints, 
+                 false, multiKillCount, multiKillTimer, dt);
+    }
+    
+    // Remove enemy from array
+    enemiesX[i] = enemiesX[enemyCount - 1];
+    enemiesY[i] = enemiesY[enemyCount - 1];
+    enemyCount--;
+    i--;
+}
         }
     }
 }
+
+ void spawnPowerup(float* powerupsX, float* powerupsY, int* powerupType, 
+                  bool* powerupActive, float* powerupAnimTimer,
+                  int& powerupCount, int maxPowerups, char** lvl, 
+                  int mapWidth, int mapHeight, int cellSize)
+{
+    if (powerupCount >= maxPowerups) return;
+    
+    // Random powerup type (1-4)
+    int type = (rand() % 4) + 1;
+    
+    // Try to find a valid platform position
+    int attempts = 0;
+    int randomCol, randomRow;
+    bool foundValidSpot = false;
+    
+    while (attempts < 50 && !foundValidSpot)
+    {
+        // Random position (avoid edges)
+        randomCol = 2 + (rand() % (mapWidth - 4));
+        randomRow = 2 + (rand() % (mapHeight - 3));
+        
+        // Check if there's a platform or wall BELOW this position
+        char tileBelow = lvl[randomRow + 1][randomCol];
+        // Check if current position is empty
+        char currentTile = lvl[randomRow][randomCol];
+        
+        // Valid spot if: current position is empty AND there's a platform/wall below
+        if (currentTile == ' ' && (tileBelow == '-' || tileBelow == '#'))
+        {
+            foundValidSpot = true;
+        }
+        
+        attempts++;
+    }
+    
+    if (!foundValidSpot)
+    {
+        cout << "Could not find valid powerup spawn location\n";
+        return;
+    }
+    
+    powerupsX[powerupCount] = randomCol * cellSize;
+    powerupsY[powerupCount] = randomRow * cellSize;
+    powerupType[powerupCount] = type;
+    powerupActive[powerupCount] = true;
+    powerupAnimTimer[powerupCount] = 0.0f;
+    
+    cout << "Spawned powerup type " << type << " at (" << randomCol << ", " << randomRow << ")\n";
+    
+    powerupCount++;
+} 
+
 
 int main()
 {
@@ -376,7 +483,18 @@ int main()
     while (playagain)
     {
         
-
+        // Score System Variables
+         int playerScore = 0;
+          int comboStreak = 0;
+         float comboTimer = 0.0f;
+         const float comboTimeout = 3.0f; // 3 seconds to maintain combo
+          bool levelNoDamage = true;
+           float levelTimer = 0.0f;
+            int multiKillCount = 0;
+          float multiKillTimer = 0.0f;
+       const float multiKillWindow = 1.0f; // 1 second window for multi-kills
+       
+       
         const float dt = 0.018f; // dt to smooth everything 0.018
         srand(time(0));          //  Initialize random seed for skeleton jump timing
         RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
@@ -385,6 +503,8 @@ int main()
         const int height = 14;
         const int width = 20; // 18
         char **lvl;
+        
+        
         
         Texture gameOverBGTexture;
         Sprite gameOverBGSprite;
@@ -421,7 +541,7 @@ int main()
             cout << "intro.png missing!\n";
 
         introSprite.setTexture(introTex);
-        introSprite.setPosition(0, 0); // adjust if needed
+        introSprite.setPosition(0, 0); 
         introSprite.setScale(1.8, 1.8);
         // Press Enter to Start text
         Font fontIntro;
@@ -429,7 +549,7 @@ int main()
 
         Text startText("PRESS ENTER TO START", fontIntro, 50);
         startText.setFillColor(Color::White);
-        startText.setPosition(300, 800); // adjust to fit your screen
+        startText.setPosition(300, 800); 
 
         bool startGame = false;
 
@@ -463,6 +583,7 @@ int main()
         infoText.setFillColor(Color::White);
         infoText.setPosition(20, 20);
 
+        // game over screen text
         Text gameOverText("GAME OVER!!", font, 120);
         gameOverText.setFillColor(Color::Red);
         gameOverText.setPosition(330, 300);  //350,300
@@ -499,10 +620,19 @@ int main()
             float(screen_x) / gameOverBGTexture.getSize().x,
             float(screen_y) / gameOverBGTexture.getSize().y);
 
-        // OPTIONAL — make image fill the whole window
+        // make image fill the whole window
         menuBGSprite.setScale(
             float(screen_x) / menuBGTexture.getSize().x,
             float(screen_y) / menuBGTexture.getSize().y);
+            
+         // Score Display
+        Text scoreText("Score: 0", font, 35);
+         scoreText.setFillColor(Color::Yellow);
+          scoreText.setPosition(screen_x - 250, 10);
+
+         Text comboText("", font, 30);
+            comboText.setFillColor(Color::Cyan);
+            comboText.setPosition(screen_x - 250, 50);   
 
         Text title("Game Menu", font, 100);
         title.setFillColor(Color::Magenta);
@@ -558,8 +688,8 @@ int main()
                         PlayerWidth = 31 * scale;
                         PlayerHeight = 42 * scale;
 
-                        speedMultiplier = 1.5f;
-                        vacuumPower = 1.0f;
+                        speedMultiplier = 1.0f;
+                        vacuumPower = 1.2f;
                         characterSelected = true;
                     }
                     if (e.key.code == Keyboard::Num2)
@@ -591,8 +721,8 @@ int main()
                         PlayerWidth = 31 * scale;
                         PlayerHeight = 42 * scale;
 
-                        speedMultiplier = 1.0f;
-                        vacuumPower = 1.2f;
+                        speedMultiplier = 1.5f;
+                        vacuumPower = 1.0f;
                         characterSelected = true;
                     }
                     if (e.key.code == Keyboard::Escape)
@@ -629,17 +759,19 @@ int main()
         lvlMusic.openFromFile("Data/mus.ogg");
         lvlMusic.setVolume(20);
         lvlMusic.setLoop(true);
+        lvlMusic.play();
 
         float player_x = 850.0f; // 650.f
         float player_y = 450.f;
 
-        float speed = 140.0f; // 140
+        float speed = 140.0f * speedMultiplier;  // Apply character speed bonus
 
         const float jumpStrength = -150.0f; // 150
         const float gravity = 90.f;         // 90
 
         bool isJumping = false;
 
+         // ghosts
         int enemyCount = 0;
         const int maxEnemyCount = 8;
 
@@ -710,6 +842,48 @@ int main()
         float offset_y = 0;
         float velocityY = 0;
         float terminal_Velocity = 300.f; // 300
+        
+        // --- POWERUP SYSTEM ---
+const int maxPowerups = 4;
+int powerupCount = 0;
+
+float powerupsX[maxPowerups];
+float powerupsY[maxPowerups];
+int powerupType[maxPowerups]; // 1=Speed, 2=Range, 3=Power, 4=ExtraLife
+bool powerupActive[maxPowerups];
+float powerupAnimTimer[maxPowerups];
+
+int PowerupWidth = 48;
+int PowerupHeight = 48;
+
+// Powerup effect durations and flags
+float speedBoostTimer = 0.0f;
+float rangeBoostTimer = 0.0f;
+float powerBoostTimer = 0.0f;
+const float powerupDuration = 10.0f; // 10 seconds for temporary powerups
+
+bool hasSpeedBoost = false;
+bool hasRangeBoost = false;
+bool hasPowerBoost = false;
+
+float originalSpeed = 140.0f;
+float originalVacuumPower = 1.0f;
+
+// Textures for powerups
+Texture speedPowerupTex, rangePowerupTex, powerPowerupTex, lifePowerupTex;
+Sprite powerupSprite;
+
+            // Load powerup textures
+if (!speedPowerupTex.loadFromFile("Data/speed.png"))
+    cout << "Speed powerup texture missing!\n";
+if (!rangePowerupTex.loadFromFile("Data/range.png"))
+    cout << "Range powerup texture missing!\n";
+if (!powerPowerupTex.loadFromFile("Data/power.png"))
+    cout << "Power powerup texture missing!\n";
+if (!lifePowerupTex.loadFromFile("Data/life.png"))
+    cout << "Life powerup texture missing!\n";
+
+powerupSprite.setScale(2.0f, 2.0f);
 
         // int PlayerHeight = 102;
         // int PlayerWidth = 96;
@@ -927,8 +1101,26 @@ int main()
         }
         cout << "Total skeletons: " << skeletonCount << endl;
 
-        // End of original map paste
+        // End of original map 
+        
+        // Spawn initial powerups
 
+// Spawn initial powerups
+for (int i = 0; i < 3; i++) // Spawn 3 random powerups
+{
+    spawnPowerup(powerupsX, powerupsY, powerupType, powerupActive, 
+                 powerupAnimTimer, powerupCount, maxPowerups, 
+                 lvl, width, height, cell_size);  // <-- Added 'lvl' parameter
+}
+
+// Store original values for character
+originalSpeed = speed;
+originalVacuumPower = vacuumPower;
+
+// Store original values for character
+originalSpeed = speed;
+originalVacuumPower = vacuumPower;  
+          
         Event ev;
 
         while (window.isOpen() && !restartGame)
@@ -940,7 +1132,64 @@ int main()
             }
             if (Keyboard::isKeyPressed(Keyboard::Escape))
                 window.close();
+            
+            // Update timers
+levelTimer += dt;
+comboTimer += dt;
+multiKillTimer += dt;
 
+// Reset combo if timeout
+if (comboTimer >= comboTimeout)
+{
+    comboStreak = 0;
+}
+
+// Check multi-kill timeout
+if (multiKillTimer >= multiKillWindow && multiKillCount > 0)
+{
+    checkMultiKill(multiKillCount, multiKillTimer, playerScore);
+}
+
+            // Update powerup timers
+if (hasSpeedBoost)
+{
+    speedBoostTimer += dt;
+    if (speedBoostTimer >= powerupDuration)
+    {
+        hasSpeedBoost = false;
+        speed = originalSpeed * speedMultiplier; // Reset to normal
+        cout << "Speed boost expired\n";
+    }
+}
+
+if (hasRangeBoost)
+{
+    rangeBoostTimer += dt;
+    if (rangeBoostTimer >= powerupDuration)
+    {
+        hasRangeBoost = false;
+        cout << "Range boost expired\n";
+    }
+}
+
+if (hasPowerBoost)
+{
+    powerBoostTimer += dt;
+    if (powerBoostTimer >= powerupDuration)
+    {
+        hasPowerBoost = false;
+        vacuumPower = originalVacuumPower; // Reset to character's base power
+        cout << "Power boost expired\n";
+    }
+}
+
+// Update powerup animations
+for (int i = 0; i < powerupCount; i++)
+{
+    if (powerupActive[i])
+        powerupAnimTimer[i] += dt;
+}
+            
             // *** RESET SAFETY FLAGS EVERY FRAME ***
             for (int i = 0; i < maxEnemyCount; i++) enemyIsCaught[i] = false;
             for (int i = 0; i < maxSkeletonCount; i++) skeletonIsCaught[i] = false;
@@ -972,16 +1221,78 @@ int main()
                  player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
                  enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1, 
                  vacFlickerTimer, showVacSprite, dt, 
-                 enemyIsCaught, false); 
+                 enemyIsCaught, false,vacuumPower,
+                   playerScore,  comboStreak, comboTimer,
+                 multiKillCount, multiKillTimer,
+     hasRangeBoost); 
 
             handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
                  player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
                  skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2, 
                  vacFlickerTimer, showVacSprite, dt, 
-                 skeletonIsCaught, false);
+                 skeletonIsCaught, false,vacuumPower,
+                   playerScore, comboStreak, comboTimer,
+                  multiKillCount,  multiKillTimer,
+     hasRangeBoost);
+                  
+             // --- POWERUP COLLECTION ---
+for (int i = 0; i < powerupCount; i++)
+{
+    if (!powerupActive[i]) continue;
+    
+    // Check collision with player
+    if ((player_x < powerupsX[i] + PowerupWidth) && 
+        (player_x + PlayerWidth > powerupsX[i]) && 
+        (player_y < powerupsY[i] + PowerupHeight) && 
+        (player_y + PlayerHeight > powerupsY[i]))
+    {
+        // Collect powerup
+        powerupActive[i] = false;
+        
+        switch(powerupType[i])
+        {
+            case 1: // Speed Boost
+                hasSpeedBoost = true;
+                speedBoostTimer = 0.0f;
+                speed = originalSpeed * speedMultiplier * 2.0f; // Double speed
+                playerScore += 100;
+                cout << "SPEED BOOST!\n";
+                break;
+                
+            case 2: // Range Boost (wider vacuum)
+                hasRangeBoost = true;
+                rangeBoostTimer = 0.0f;
+                playerScore += 100;
+                cout << "RANGE BOOST!\n";
+                break;
+                
+            case 3: // Power Boost (stronger vacuum)
+                hasPowerBoost = true;
+                powerBoostTimer = 0.0f;
+                vacuumPower = originalVacuumPower * 1.5f; // 1.5x stronger
+                playerScore += 100;
+                cout << "POWER BOOST!\n";
+                break;
+                
+            case 4: // Extra Life
+                playerLives++;
+                playerScore += 200;
+                cout << "EXTRA LIFE!\n";
+                break;
+        }
+        
+        // Remove collected powerup
+        powerupsX[i] = powerupsX[powerupCount - 1];
+        powerupsY[i] = powerupsY[powerupCount - 1];
+        powerupType[i] = powerupType[powerupCount - 1];
+        powerupActive[i] = powerupActive[powerupCount - 1];
+        powerupCount--;
+        i--;
+    }
+}     
 
             isMoving = 0;
-            // Movement - Make sure this is OUTSIDE the event loop
+            // Movement - 
             playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
                               PlayerWidth, height, width, dt, isMoving, facing);
             updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
@@ -1027,10 +1338,12 @@ int main()
                             playerLives--;
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
+                             levelNoDamage = false; 
+                          playerScore -= 50; //  DAMAGE PENALTY
                         }
                     }
                 }
-            } // <--- END OF GHOST LOOP (Correctly closed here)
+            } // end of ghost loop
 
             // --- 2. SKELETON ENEMY LOOP ---
             // Update skeletons with gravity, platform movement, and intelligent jumping
@@ -1138,9 +1451,36 @@ int main()
                         }
                     }
                 }
-            } // <--- END OF SKELETON LOOP (Correctly closed here)
+            } // end of skeleton loop
 
-            // --- 3. GAME LOGIC (Outside of all loops) ---
+           // Check if level is complete (all enemies defeated)
+if (enemyCount == 0 && skeletonCount == 0 && capturedCount == 0)
+{
+    // Level 1 Complete Bonus
+    playerScore += 1000; // Level Clear
+    
+    if (levelNoDamage)
+        playerScore += 1500; // No Damage Bonus
+    
+    // Speed bonuses
+    if (levelTimer < 30.0f)
+        playerScore += 2000;
+    else if (levelTimer < 45.0f)
+        playerScore += 1000;
+    else if (levelTimer < 60.0f)
+        playerScore += 500;
+    
+    // Character bonus
+    if (speedMultiplier == 1.5f) // Yellow character
+        playerScore += 500; // Speed Demon
+    else if (vacuumPower == 1.2f) // Green character
+        playerScore += 500; // Max Capacity
+    
+    cout << "LEVEL COMPLETE! Final Score: " << playerScore << endl;
+    // TODO: Move to next level or show victory screen
+}
+
+            // game logic
             if (waitingToRespawn)
             {
                 deathDelayCounter += dt;
@@ -1194,15 +1534,27 @@ int main()
                             restartGame = true; 
                              playagain = true;
                             // RESET variables when restarting
-player_x = respawnX;
-player_y = respawnY;
-velocityY = 0;
-onGround = false;
-isDead = false;
-deadAnimFrame = 0;
-deadAnimCounter = 0;
-playerLives = 3;
 
+                           player_x = respawnX;
+                           player_y = respawnY;
+                           velocityY = 0;
+                           onGround = false;
+                           isDead = false;
+                            deadAnimFrame = 0;
+                          deadAnimCounter = 0;
+                         playerLives = 3;
+                         playerScore = 0; 
+                       comboStreak = 0; 
+                      levelTimer = 0.0f; 
+                        levelNoDamage = true;
+
+                        // Reset powerups
+powerupCount = 0;
+hasSpeedBoost = false;
+hasRangeBoost = false;
+hasPowerBoost = false;
+speed = originalSpeed * speedMultiplier;
+vacuumPower = originalVacuumPower;
                           
                         }
 
@@ -1217,17 +1569,19 @@ playerLives = 3;
                     window.clear();
                     window.draw(gameOverBGSprite); 
                     window.draw(gameOverText);
+                    livesRemainingText.setString("Final Score: " + to_string(playerScore));
                     livesRemainingText.setString("You ran out of lives!");
                     window.draw(livesRemainingText);
                     window.draw(restartText);
                     window.draw(escText);
+                   
                     window.display();
                 }
             }
             
             if (restartGame) break; 
 
-            // --- 4. RENDER (Draws everything ONCE per frame) ---
+            // render (drawing everything once per frame)
             //window.clear();
             display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 
@@ -1245,13 +1599,19 @@ playerLives = 3;
                  player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
                  enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1, 
                  vacFlickerTimer, showVacSprite, dt, 
-                 enemyIsCaught, true); 
+                 enemyIsCaught, true,vacuumPower,
+                  playerScore,  comboStreak,  comboTimer,
+                   multiKillCount,  multiKillTimer,
+     hasRangeBoost); 
 
             handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
                  player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
                  skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2, 
                  vacFlickerTimer, showVacSprite, dt, 
-                 skeletonIsCaught, true);
+                 skeletonIsCaught, true,vacuumPower,
+                   playerScore, comboStreak,  comboTimer,
+                   multiKillCount,  multiKillTimer,
+     hasRangeBoost);
 
             // collision box start
             RectangleShape collBox;
@@ -1307,10 +1667,66 @@ playerLives = 3;
                 SkeletonSprite.setPosition(skeletonsX[i] - XoffsetSkeleton, skeletonsY[i] - YoffsetSkeleton);
                 window.draw(SkeletonSprite);
             }
+            
+            // Draw powerups with floating animation
+for (int i = 0; i < powerupCount; i++)
+{
+    if (!powerupActive[i]) continue;
+    
+    // Floating animation
+    float floatOffset = sin(powerupAnimTimer[i] * 3.0f) * 5.0f;
+    
+    // Set texture based on type
+    switch(powerupType[i])
+    {
+        case 1:
+          powerupSprite.setTexture(speedPowerupTex);
+           break;
+        case 2:
+         powerupSprite.setTexture(rangePowerupTex);
+          break;
+        case 3:
+         powerupSprite.setTexture(powerPowerupTex); 
+          break;
+        case 4:
+         powerupSprite.setTexture(lifePowerupTex);
+         break;
+    }
+    
+    powerupSprite.setPosition(powerupsX[i], powerupsY[i] + floatOffset);
+    window.draw(powerupSprite);
+}
+            
             Text livesDisplay("Lives: " + to_string(playerLives), font, 40);
             livesDisplay.setFillColor(Color::Magenta);
             livesDisplay.setPosition(70, 0);
             window.draw(livesDisplay);
+            // Update and draw score
+scoreText.setString("Score: " + to_string(playerScore));
+window.draw(scoreText);
+
+// Draw combo indicator
+if (comboStreak >= 3)
+{
+    comboText.setString("COMBO x" + to_string(comboStreak) + "!");
+    window.draw(comboText);
+}
+      // Draw active powerup indicators
+Text powerupStatus("", font, 25);
+powerupStatus.setFillColor(Color::Cyan);
+powerupStatus.setPosition(20, 80);
+
+string activeEffects = "";
+if (hasSpeedBoost) activeEffects += "SPEED ";
+if (hasRangeBoost) activeEffects += "RANGE ";
+if (hasPowerBoost) activeEffects += "POWER ";
+
+if (activeEffects != "")
+{
+    powerupStatus.setString("Active: " + activeEffects);
+    window.draw(powerupStatus);
+}
+
             window.display();
 
         } // <--- End of while(window.isOpen())

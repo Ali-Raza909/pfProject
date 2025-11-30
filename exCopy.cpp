@@ -915,26 +915,32 @@ powerupSprite.setScale(2.0f, 2.0f);
         bool projectileActive[MAX_PROJECTILES];
         bool projectileOnGround[MAX_PROJECTILES];
         int projectileCount = 0;
-        float projectileSpeed = 300.0f; // Rolling speed
+        float projectileSpeed = 70.0f; // Rolling speed
         int releaseDirection = 0; // 0=right, 1=left, 2=up, 3=down (same as vacuum direction)
         
         // Projectile dimensions
         int ProjectileWidth = 50;
         int ProjectileHeight = 50;
         
-        // Projectile animation
-        Texture projectileTex[4]; // Animation frames for rolling ball
+        // Projectile animation - separate textures for each enemy type
+        // Ghost rolling animation (type 1)
+        Texture ghostRollTex[4];
+        ghostRollTex[0].loadFromFile("Data/ghostRoll/roll1.png");
+        ghostRollTex[1].loadFromFile("Data/ghostRoll/roll2.png");
+        ghostRollTex[2].loadFromFile("Data/ghostRoll/roll3.png");
+        ghostRollTex[3].loadFromFile("Data/ghostRoll/roll4.png");
+        
+        // Skeleton rolling animation (type 2)
+        Texture skeletonRollTex[4];
+        skeletonRollTex[0].loadFromFile("Data/skeletonRoll/roll1.png");
+        skeletonRollTex[1].loadFromFile("Data/skeletonRoll/roll2.png");
+        skeletonRollTex[2].loadFromFile("Data/skeletonRoll/roll3.png");
+        skeletonRollTex[3].loadFromFile("Data/skeletonRoll/roll4.png");
+        
         int projectileAnimFrame[MAX_PROJECTILES];
         int projectileAnimCounter[MAX_PROJECTILES];
         int projectileAnimSpeed = 5;
         Sprite projectileSprite;
-        
-        // Load projectile textures
-        // You need: Data/projectile/roll1.png, roll2.png, roll3.png, roll4.png
-        projectileTex[0].loadFromFile("Data/projectile/roll1.png");
-        projectileTex[1].loadFromFile("Data/projectile/roll2.png");
-        projectileTex[2].loadFromFile("Data/projectile/roll3.png");
-        projectileTex[3].loadFromFile("Data/projectile/roll4.png");
         projectileSprite.setScale(2.0f, 2.0f);
         
         // Initialize projectile arrays
@@ -944,6 +950,19 @@ powerupSprite.setScale(2.0f, 2.0f);
             projectileAnimFrame[i] = 0;
             projectileAnimCounter[i] = 0;
         }
+        
+        // --- BURST MODE SYSTEM ---
+        bool burstModeActive = false;
+        int burstFrameCounter = 0;
+        const int BURST_FRAME_DELAY = 10; // Release one enemy every 10 frames
+        int burstReleaseDirection = 0; // Store the direction when burst was initiated
+        int burstPlayerFacing = 0; // Store player facing when burst was initiated
+        
+        // Bottom floor boundaries for projectile destruction
+        // These will be set based on level layout (row 11 is the floor with walls at columns 0 and 18)
+        int bottomFloorRow = 11;
+        float bottomFloorLeftEdge = 1 * cell_size; // Left wall ends at column 0, platform starts at column 1
+        float bottomFloorRightEdge = 17 * cell_size + cell_size; // Right wall starts at column 18
 
         // --- LEVEL CREATION (YOUR ORIGINAL MAP) ---
         lvl = new char *[height];
@@ -1318,14 +1337,14 @@ for (int i = 0; i < powerupCount; i++)
             if (!Keyboard::isKeyPressed(Keyboard::E))
                 eKeyPressed = false;
             
-            // Vacuum Burst - Press R to release all enemies at once
+            // Vacuum Burst - Press R to START releasing all enemies one by one with frame delay
             static bool rKeyPressed = false;
             if (Keyboard::isKeyPressed(Keyboard::R) && !rKeyPressed)
             {
                 rKeyPressed = true;
-                if (capturedCount > 0)
+                if (capturedCount > 0 && !burstModeActive)
                 {
-                    cout << "Vacuum Burst! Releasing " << capturedCount << " enemies!" << endl;
+                    cout << "Vacuum Burst initiated! Releasing " << capturedCount << " enemies one by one!" << endl;
                     
                     // Check for Vacuum Burst bonus (3+ enemies)
                     if (capturedCount >= 3)
@@ -1334,16 +1353,35 @@ for (int i = 0; i < powerupCount; i++)
                         cout << "VACUUM BURST BONUS! +300 points" << endl;
                     }
                     
-                    // Release all enemies in LIFO order with slight spread
-                    float spreadOffset = 0;
-                    while (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
+                    // Activate burst mode instead of releasing all at once
+                    burstModeActive = true;
+                    burstFrameCounter = 0;
+                    burstReleaseDirection = releaseDirection; // Store current direction
+                    burstPlayerFacing = facing; // Store current facing
+                }
+            }
+            if (!Keyboard::isKeyPressed(Keyboard::R))
+                rKeyPressed = false;
+            
+            // --- BURST MODE FRAME-BASED RELEASE ---
+            if (burstModeActive)
+            {
+                burstFrameCounter++;
+                
+                // Release one enemy every BURST_FRAME_DELAY frames (10 frames = ~6 enemies/sec at 60fps)
+                if (burstFrameCounter >= BURST_FRAME_DELAY)
+                {
+                    burstFrameCounter = 0;
+                    
+                    if (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
                     {
+                        // Get the last captured enemy (LIFO)
                         capturedCount--;
                         int enemyTypeToRelease = capturedEnemies[capturedCount];
                         
-                        // Create projectile at player position with slight vertical spread
+                        // Create projectile at player position
                         projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
-                        projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2 + spreadOffset;
+                        projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
                         projectileType[projectileCount] = enemyTypeToRelease;
                         projectileActive[projectileCount] = true;
                         projectileAnimFrame[projectileCount] = 0;
@@ -1351,35 +1389,40 @@ for (int i = 0; i < powerupCount; i++)
                         projectileVelocityY[projectileCount] = 0;
                         projectileOnGround[projectileCount] = false;
                         
-                        // Set direction based on release direction
-                        if (releaseDirection == 0) // Right
+                        // Set direction based on stored burst release direction
+                        if (burstReleaseDirection == 0) // Right
                         {
                             projectileDirection[projectileCount] = 1;
                             projectileVelocityY[projectileCount] = 0;
                         }
-                        else if (releaseDirection == 1) // Left
+                        else if (burstReleaseDirection == 1) // Left
                         {
                             projectileDirection[projectileCount] = -1;
                             projectileVelocityY[projectileCount] = 0;
                         }
-                        else if (releaseDirection == 2) // Up
+                        else if (burstReleaseDirection == 2) // Up
                         {
-                            projectileDirection[projectileCount] = (facing == 1) ? 1 : -1;
-                            projectileVelocityY[projectileCount] = -200.0f - spreadOffset * 2; // Slightly different velocities
+                            projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
+                            projectileVelocityY[projectileCount] = -200.0f;
                         }
-                        else if (releaseDirection == 3) // Down
+                        else if (burstReleaseDirection == 3) // Down
                         {
-                            projectileDirection[projectileCount] = (facing == 1) ? 1 : -1;
-                            projectileVelocityY[projectileCount] = 200.0f + spreadOffset * 2;
+                            projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
+                            projectileVelocityY[projectileCount] = 200.0f;
                         }
                         
                         projectileCount++;
-                        spreadOffset += 10.0f; // Spread projectiles slightly
+                        cout << "Burst released enemy type " << enemyTypeToRelease << endl;
+                    }
+                    
+                    // Deactivate burst mode when all enemies are released
+                    if (capturedCount <= 0)
+                    {
+                        burstModeActive = false;
+                        cout << "Vacuum Burst complete!" << endl;
                     }
                 }
             }
-            if (!Keyboard::isKeyPressed(Keyboard::R))
-                rKeyPressed = false;
 
             // --- EXECUTE VACUUM LOGIC BEFORE ENEMY LOGIC (drawOnly = false) ---
             // This ensures enemyIsCaught flags are set correctly
@@ -1716,9 +1759,36 @@ for (int i = 0; i < powerupCount; i++)
                         projectileVelocityY[p] = terminal_Velocity;
                 }
                 
-                // --- REMOVE PROJECTILE IF OUT OF BOUNDS ---
+                // --- REMOVE PROJECTILE IF OUT OF BOUNDS OR AT BOTTOM FLOOR EDGES ---
+                bool shouldRemoveProjectile = false;
+                
+                // Check if out of screen bounds
                 if (projectilesX[p] < -100 || projectilesX[p] > screen_x + 100 ||
                     projectilesY[p] < -100 || projectilesY[p] > screen_y + 100)
+                {
+                    shouldRemoveProjectile = true;
+                }
+                
+                // Check if projectile is on the bottom floor and reaches left or right edge
+                // Bottom floor is at row 11 (y position around 11 * cell_size)
+                int currentRow = (int)(projectilesY[p] + ProjectileHeight) / cell_size;
+                if (currentRow >= bottomFloorRow - 1) // On or near bottom floor
+                {
+                    // Check if projectile reaches left edge of bottom platform
+                    if (projectilesX[p] <= bottomFloorLeftEdge)
+                    {
+                        shouldRemoveProjectile = true;
+                        cout << "Projectile vanished at bottom floor left edge" << endl;
+                    }
+                    // Check if projectile reaches right edge of bottom platform
+                    if (projectilesX[p] + ProjectileWidth >= bottomFloorRightEdge)
+                    {
+                        shouldRemoveProjectile = true;
+                        cout << "Projectile vanished at bottom floor right edge" << endl;
+                    }
+                }
+                
+                if (shouldRemoveProjectile)
                 {
                     // Remove this projectile
                     projectilesX[p] = projectilesX[projectileCount - 1];
@@ -1930,6 +2000,10 @@ for (int i = 0; i < MAX_PROJECTILES; i++)
 {
     projectileActive[i] = false;
 }
+
+// Reset burst mode
+burstModeActive = false;
+burstFrameCounter = 0;
                           
                         }
 
@@ -2043,7 +2117,7 @@ for (int i = 0; i < MAX_PROJECTILES; i++)
                 window.draw(SkeletonSprite);
             }
             
-            // Draw projectiles with rolling animation
+            // Draw projectiles with enemy-specific rolling animation
             for (int p = 0; p < projectileCount; p++)
             {
                 if (!projectileActive[p]) continue;
@@ -2058,13 +2132,28 @@ for (int i = 0; i < MAX_PROJECTILES; i++)
                         projectileAnimFrame[p] = 0;
                 }
                 
-                // Set the current animation frame texture
-                projectileSprite.setTexture(projectileTex[projectileAnimFrame[p]], true);
+                // Set texture based on enemy type
+                int texW, texH;
+                if (projectileType[p] == 1) // Ghost
+                {
+                    projectileSprite.setTexture(ghostRollTex[projectileAnimFrame[p]], true);
+                    texW = ghostRollTex[projectileAnimFrame[p]].getSize().x;
+                    texH = ghostRollTex[projectileAnimFrame[p]].getSize().y;
+                }
+                else if (projectileType[p] == 2) // Skeleton
+                {
+                    projectileSprite.setTexture(skeletonRollTex[projectileAnimFrame[p]], true);
+                    texW = skeletonRollTex[projectileAnimFrame[p]].getSize().x;
+                    texH = skeletonRollTex[projectileAnimFrame[p]].getSize().y;
+                }
+                else // Default fallback to ghost
+                {
+                    projectileSprite.setTexture(ghostRollTex[projectileAnimFrame[p]], true);
+                    texW = ghostRollTex[projectileAnimFrame[p]].getSize().x;
+                    texH = ghostRollTex[projectileAnimFrame[p]].getSize().y;
+                }
                 
                 // Flip sprite based on direction
-                int texW = projectileTex[projectileAnimFrame[p]].getSize().x;
-                int texH = projectileTex[projectileAnimFrame[p]].getSize().y;
-                
                 if (projectileDirection[p] == 1) // Moving right
                 {
                     projectileSprite.setTextureRect(IntRect(0, 0, texW, texH));

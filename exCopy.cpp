@@ -586,19 +586,19 @@ int main()
         // game over screen text
         Text gameOverText("GAME OVER!!", font, 120);
         gameOverText.setFillColor(Color::Red);
-        gameOverText.setPosition(330, 300);  //350,300
+        gameOverText.setPosition(300, 300);  //350,300
 
         Text livesRemainingText("", font, 40);
         livesRemainingText.setFillColor(Color::White);
-        livesRemainingText.setPosition(470, 450); // 400,500
+        livesRemainingText.setPosition(420, 450); // 400,500
 
         Text restartText("Press ENTER to continue...", font, 50);
         restartText.setFillColor(Color::Yellow);
-        restartText.setPosition(400, 520); //300,650
+        restartText.setPosition(320, 520); //300,650
         
          Text escText("Press ESC to Exit", font, 45);
         escText.setFillColor(Color::Magenta);
-        escText.setPosition(470, 600); //300,650
+        escText.setPosition(430, 600); //300,650
 
         // menu screen
 

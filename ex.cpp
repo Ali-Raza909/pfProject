@@ -531,7 +531,459 @@ void applySliding(char **lvl, float &player_x, float player_y, int PlayerHeight,
     }
 }
 
-// Function to generate Level 2 map with randomized slopes
+// --- LEVEL 2 RANDOMIZED DESIGN GENERATION ---
+// This function generates ONLY the level layout (walls, platforms, slants)
+// Enemy spawning is handled separately
+// Tile types:
+// '#' = solid wall/floor (cannot pass through)
+// '-' = horizontal platform (can jump through from below)
+// '/' = slant going down-left (top-right to bottom-left) - player slides left
+// '\' = slant going down-right (top-left to bottom-right) - player slides right
+// ' ' = empty space
+
+void generateLevel2Design(char **lvl, int height, int width)
+{
+    // Clear the level first
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            lvl[i][j] = ' ';
+        }
+    }
+    
+    // --- 1. CREATE SOLID BOUNDARIES (WALLS AND FLOOR) ---
+    // Floor (row 11 - bottom solid floor)
+    for (int j = 0; j < width; j++)
+    {
+        lvl[11][j] = '#';
+    }
+    
+    // Left wall (column 0)
+    for (int i = 0; i < height; i++)
+    {
+        lvl[i][0] = '#';
+    }
+    
+    // Right wall (column width-2, which is 18 for width=20)
+    for (int i = 0; i < height; i++)
+    {
+        lvl[i][width - 2] = '#';
+    }
+    
+    // --- 2. GENERATE THE SLANTED PLATFORM ---
+    // Random direction: 0 = top-left to bottom-right (\), 1 = top-right to bottom-left (/)
+    int slantDirection = rand() % 2;
+    
+    // Random starting row (between row 2 and row 4)
+    int slantStartRow = 2 + rand() % 3;
+    
+    // Random slant length (5 to 7 tiles diagonally)
+    int slantLength = 5 + rand() % 3;
+    
+    // Determine starting column based on direction
+    // Must leave at least 2 blocks on each side for player navigation
+    int slantStartCol;
+    
+    if (slantDirection == 0) // Going down-right (\)
+    {
+        // Start from left side, columns 2-5
+        slantStartCol = 2 + rand() % 4;
+        
+        // Make sure slant doesn't exceed right boundary (leave 2 blocks)
+        if (slantStartCol + slantLength > width - 4)
+        {
+            slantLength = width - 4 - slantStartCol;
+        }
+    }
+    else // Going down-left (/)
+    {
+        // Start from right side, columns 12-15 (for width=20)
+        slantStartCol = (width - 6) - rand() % 4;
+        
+        // Make sure slant doesn't exceed left boundary (leave 2 blocks)
+        if (slantStartCol - slantLength < 2)
+        {
+            slantLength = slantStartCol - 2;
+        }
+    }
+    
+    // Ensure minimum slant length
+    if (slantLength < 4) slantLength = 4;
+    
+    // Draw the slanted platform
+    for (int i = 0; i < slantLength; i++)
+    {
+        int row = slantStartRow + i;
+        int col;
+        
+        if (slantDirection == 0) // Down-right (\)
+        {
+            col = slantStartCol + i;
+            if (row < 11 && col > 0 && col < width - 2)
+            {
+                lvl[row][col] = '\\';
+            }
+        }
+        else // Down-left (/)
+        {
+            col = slantStartCol - i;
+            if (row < 11 && col > 0 && col < width - 2)
+            {
+                lvl[row][col] = '/';
+            }
+        }
+    }
+    
+    // --- 3. GENERATE HORIZONTAL PLATFORMS ---
+    // These platforms should NOT overlap with the slant
+    // Create platforms at different heights
+    
+    // Helper lambda-style check: is this position part of the slant?
+    // We'll check manually in the loops below
+    
+    // Platform configuration: row, startCol, length
+    // We'll generate some fixed positions and some random ones
+    
+    // Top area platforms (rows 2-3)
+    // Left side platform
+    int topLeftStart = 1;
+    int topLeftEnd = 5 + rand() % 2; // 5-6 tiles
+    for (int j = topLeftStart; j <= topLeftEnd && j < width - 2; j++)
+    {
+        if (lvl[2][j] == ' ') // Only place if not slant
+        {
+            lvl[2][j] = '-';
+        }
+    }
+    
+    // Right side platform
+    int topRightEnd = width - 3;
+    int topRightStart = topRightEnd - (4 + rand() % 2); // 4-5 tiles
+    for (int j = topRightStart; j <= topRightEnd; j++)
+    {
+        if (lvl[2][j] == ' ')
+        {
+            lvl[2][j] = '-';
+        }
+    }
+    
+    // Middle-upper platforms (rows 4-5)
+    // Small platform on left
+    int midUpLeftStart = 1 + rand() % 2;
+    int midUpLeftEnd = midUpLeftStart + 3 + rand() % 2;
+    for (int j = midUpLeftStart; j <= midUpLeftEnd && j < width - 2; j++)
+    {
+        if (lvl[4][j] == ' ')
+        {
+            lvl[4][j] = '-';
+        }
+    }
+    
+    // Small platform on right
+    int midUpRightEnd = width - 3 - rand() % 2;
+    int midUpRightStart = midUpRightEnd - (3 + rand() % 2);
+    for (int j = midUpRightStart; j <= midUpRightEnd; j++)
+    {
+        if (lvl[4][j] == ' ')
+        {
+            lvl[4][j] = '-';
+        }
+    }
+    
+    // Middle platforms (rows 6-7)
+    // Platform on left side
+    int midLeftStart = 1;
+    int midLeftEnd = 4 + rand() % 3;
+    for (int j = midLeftStart; j <= midLeftEnd && j < width - 2; j++)
+    {
+        if (lvl[6][j] == ' ')
+        {
+            lvl[6][j] = '-';
+        }
+    }
+    
+    // Platform on right side  
+    int midRightEnd = width - 3;
+    int midRightStart = midRightEnd - (3 + rand() % 3);
+    for (int j = midRightStart; j <= midRightEnd; j++)
+    {
+        if (lvl[6][j] == ' ')
+        {
+            lvl[6][j] = '-';
+        }
+    }
+    
+    // Lower-middle platforms (row 8)
+    // Small scattered platforms
+    int lowMidStart1 = 2 + rand() % 3;
+    int lowMidEnd1 = lowMidStart1 + 2 + rand() % 2;
+    for (int j = lowMidStart1; j <= lowMidEnd1 && j < width - 2; j++)
+    {
+        if (lvl[8][j] == ' ')
+        {
+            lvl[8][j] = '-';
+        }
+    }
+    
+    int lowMidStart2 = width - 6 - rand() % 3;
+    int lowMidEnd2 = lowMidStart2 + 2 + rand() % 2;
+    for (int j = lowMidStart2; j <= lowMidEnd2 && j < width - 2; j++)
+    {
+        if (lvl[8][j] == ' ')
+        {
+            lvl[8][j] = '-';
+        }
+    }
+    
+    // Lower platforms (row 10) - just above floor
+    // Wide platforms for easier navigation at bottom
+    int lowLeftStart = 1;
+    int lowLeftEnd = 6 + rand() % 2;
+    for (int j = lowLeftStart; j <= lowLeftEnd && j < width - 2; j++)
+    {
+        if (lvl[10][j] == ' ')
+        {
+            lvl[10][j] = '-';
+        }
+    }
+    
+    int lowRightEnd = width - 3;
+    int lowRightStart = lowRightEnd - (5 + rand() % 2);
+    for (int j = lowRightStart; j <= lowRightEnd; j++)
+    {
+        if (lvl[10][j] == ' ')
+        {
+            lvl[10][j] = '-';
+        }
+    }
+    
+    // --- 4. ADD A MIDDLE CONNECTING PLATFORM ---
+    // To ensure players can traverse the level, add a platform in the middle area
+    // This should be placed where the slant ISN'T
+    int middleRow = 5;
+    int middlePlatformStart, middlePlatformEnd;
+    
+    if (slantDirection == 0) // Slant goes down-right, so middle platform on right side
+    {
+        middlePlatformStart = width / 2 + 2;
+        middlePlatformEnd = middlePlatformStart + 3;
+    }
+    else // Slant goes down-left, so middle platform on left side
+    {
+        middlePlatformEnd = width / 2 - 2;
+        middlePlatformStart = middlePlatformEnd - 3;
+    }
+    
+    for (int j = middlePlatformStart; j <= middlePlatformEnd && j > 0 && j < width - 2; j++)
+    {
+        if (lvl[middleRow][j] == ' ')
+        {
+            lvl[middleRow][j] = '-';
+        }
+    }
+    
+    // --- 5. OUTPUT DEBUG INFO ---
+    cout << "=== Level 2 Generated ===" << endl;
+    cout << "Slant direction: " << (slantDirection == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
+    cout << "Slant start: row " << slantStartRow << ", col " << slantStartCol << endl;
+    cout << "Slant length: " << slantLength << " tiles" << endl;
+}
+
+// NEW FUNCTION: Spawn enemies in waves for Level 2
+// NEW FUNCTION: Spawn enemies in waves for Level 2
+void spawnWave(int waveNumber, int cell_size,
+               float* enemiesX, float* enemiesY, float* enemySpeed, int* enemyDirection,
+               float* platformLeftEdge, float* platformRightEdge, int& enemyCount,
+               float* skeletonsX, float* skeletonsY, float* skeletonSpeed, int* skeletonDirection,
+               float* skeletonVelocityY, bool* skeletonOnGround, float* skeletonJumpTimer,
+               float* skeletonJumpCooldown, bool* skeletonShouldJump, int* skeletonStableFrames,
+               int* skeletonAnimFrame, int* skeletonAnimCounter, int& skeletonCount,
+               float* invisiblesX, float* invisiblesY, float* invisibleSpeed, int* invisibleDirection,
+               float* invisibleVelocityY, bool* invisibleOnGround, bool* invisibleIsVisible,
+               float* invisibleVisibilityTimer, float* invisibleTeleportTimer, int& invisibleCount,
+               float* chelnovsX, float* chelnovsY, float* chelnovSpeed, int* chelnovDirection,
+               float* chelnovVelocityY, bool* chelnovOnGround, float* chelnovShootTimer,
+               bool* chelnovIsShooting, float* chelnovShootPhaseTimer, int& chelnovCount,
+               int maxEnemyCount, int maxSkeletonCount, int maxInvisibleCount, int maxChelnovCount)
+{
+    cout << "Spawning Wave " << (waveNumber + 1) << endl;
+    
+    switch(waveNumber)
+    {
+        case 0: // Wave 1 - 2 Ghosts + 3 Skeletons
+        {
+            // Spawn 2 Ghosts
+            float ghostSpawnX[] = {(float)(4 * cell_size), (float)(14 * cell_size)};
+            float ghostSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size)};
+            for (int i = 0; i < 2 && enemyCount < maxEnemyCount; i++)
+            {
+                enemiesX[enemyCount] = ghostSpawnX[i];
+                enemiesY[enemyCount] = ghostSpawnY[i];
+                enemySpeed[enemyCount] = 15.f;
+                enemyDirection[enemyCount] = 1;
+                platformLeftEdge[enemyCount] = (float)(1 * cell_size + 10);
+                platformRightEdge[enemyCount] = (float)(17 * cell_size - 10);
+                enemyCount++;
+            }
+            
+            // Spawn 3 Skeletons
+            float skelSpawnX[] = {(float)(5*cell_size), (float)(13*cell_size), (float)(9*cell_size)};
+            float skelSpawnY[] = {(float)(0*cell_size), (float)(0*cell_size), (float)(2*cell_size)};
+            for (int i = 0; i < 3 && skeletonCount < maxSkeletonCount; i++)
+            {
+                skeletonsX[skeletonCount] = skelSpawnX[i];
+                skeletonsY[skeletonCount] = skelSpawnY[i];
+                skeletonSpeed[skeletonCount] = 40.f;
+                skeletonDirection[skeletonCount] = 1;
+                skeletonVelocityY[skeletonCount] = 0;
+                skeletonOnGround[skeletonCount] = false;
+                skeletonJumpTimer[skeletonCount] = 0.f;
+                skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
+                skeletonShouldJump[skeletonCount] = false;
+                skeletonStableFrames[skeletonCount] = 0;
+                skeletonAnimFrame[skeletonCount] = 0;
+                skeletonAnimCounter[skeletonCount] = 0;
+                skeletonCount++;
+            }
+            break;
+        }
+        
+        case 1: // Wave 2 - 2 Ghosts + 3 Skeletons
+        {
+            // Spawn 2 Ghosts
+            float ghostSpawnX[] = {(float)(3 * cell_size), (float)(15 * cell_size)};
+            float ghostSpawnY[] = {(float)(2 * cell_size), (float)(2 * cell_size)};
+            for (int i = 0; i < 2 && enemyCount < maxEnemyCount; i++)
+            {
+                enemiesX[enemyCount] = ghostSpawnX[i];
+                enemiesY[enemyCount] = ghostSpawnY[i];
+                enemySpeed[enemyCount] = 15.f;
+                enemyDirection[enemyCount] = 1;
+                platformLeftEdge[enemyCount] = (float)(1 * cell_size + 10);
+                platformRightEdge[enemyCount] = (float)(17 * cell_size - 10);
+                enemyCount++;
+            }
+            
+            // Spawn 3 Skeletons
+            float skelSpawnX[] = {(float)(5*cell_size), (float)(13*cell_size), (float)(3*cell_size)};
+            float skelSpawnY[] = {(float)(2*cell_size), (float)(2*cell_size), (float)(4*cell_size)};
+            for (int i = 0; i < 3 && skeletonCount < maxSkeletonCount; i++)
+            {
+                skeletonsX[skeletonCount] = skelSpawnX[i];
+                skeletonsY[skeletonCount] = skelSpawnY[i];
+                skeletonSpeed[skeletonCount] = 40.f;
+                skeletonDirection[skeletonCount] = 1;
+                skeletonVelocityY[skeletonCount] = 0;
+                skeletonOnGround[skeletonCount] = false;
+                skeletonJumpTimer[skeletonCount] = 0.f;
+                skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
+                skeletonShouldJump[skeletonCount] = false;
+                skeletonStableFrames[skeletonCount] = 0;
+                skeletonAnimFrame[skeletonCount] = 0;
+                skeletonAnimCounter[skeletonCount] = 0;
+                skeletonCount++;
+            }
+            break;
+        }
+        
+        case 2: // Wave 3 - 3 Skeletons + 2 Chelnovs + 2 Invisible Men
+        {
+            // Spawn 3 Skeletons
+            float skelSpawnX[] = {(float)(15*cell_size), (float)(4*cell_size), (float)(14*cell_size)};
+            float skelSpawnY[] = {(float)(4*cell_size), (float)(6*cell_size), (float)(6*cell_size)};
+            for (int i = 0; i < 3 && skeletonCount < maxSkeletonCount; i++)
+            {
+                skeletonsX[skeletonCount] = skelSpawnX[i];
+                skeletonsY[skeletonCount] = skelSpawnY[i];
+                skeletonSpeed[skeletonCount] = 40.f;
+                skeletonDirection[skeletonCount] = 1;
+                skeletonVelocityY[skeletonCount] = 0;
+                skeletonOnGround[skeletonCount] = false;
+                skeletonJumpTimer[skeletonCount] = 0.f;
+                skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
+                skeletonShouldJump[skeletonCount] = false;
+                skeletonStableFrames[skeletonCount] = 0;
+                skeletonAnimFrame[skeletonCount] = 0;
+                skeletonAnimCounter[skeletonCount] = 0;
+                skeletonCount++;
+            }
+            
+            // Spawn 2 Chelnovs
+            float chelSpawnX[] = {(float)(12*cell_size), (float)(6*cell_size)};
+            float chelSpawnY[] = {(float)(0*cell_size), (float)(2*cell_size)};
+            for (int i = 0; i < 2 && chelnovCount < maxChelnovCount; i++)
+            {
+                chelnovsX[chelnovCount] = chelSpawnX[i];
+                chelnovsY[chelnovCount] = chelSpawnY[i];
+                chelnovSpeed[chelnovCount] = 30.f;
+                chelnovDirection[chelnovCount] = 1;
+                chelnovVelocityY[chelnovCount] = 0;
+                chelnovOnGround[chelnovCount] = false;
+                chelnovShootTimer[chelnovCount] = 0.f;
+                chelnovIsShooting[chelnovCount] = false;
+                chelnovShootPhaseTimer[chelnovCount] = 0.f;
+                chelnovCount++;
+            }
+            
+            // Spawn 2 Invisible Men
+            float invisSpawnX[] = {(float)(6*cell_size), (float)(13*cell_size)};
+            float invisSpawnY[] = {(float)(0*cell_size), (float)(4*cell_size)};
+            for (int i = 0; i < 2 && invisibleCount < maxInvisibleCount; i++)
+            {
+                invisiblesX[invisibleCount] = invisSpawnX[i];
+                invisiblesY[invisibleCount] = invisSpawnY[i];
+                invisibleSpeed[invisibleCount] = 25.f;
+                invisibleDirection[invisibleCount] = 1;
+                invisibleVelocityY[invisibleCount] = 0;
+                invisibleOnGround[invisibleCount] = false;
+                invisibleIsVisible[invisibleCount] = true;
+                invisibleVisibilityTimer[invisibleCount] = 0.f;
+                invisibleTeleportTimer[invisibleCount] = 0.f;
+                invisibleCount++;
+            }
+            break;
+        }
+        
+        case 3: // Wave 4 - BOSS WAVE: 2 Chelnovs + 1 Invisible Man
+        {
+            // Spawn 2 Chelnovs
+            float chelSpawnX[] = {(float)(14*cell_size), (float)(3*cell_size)};
+            float chelSpawnY[] = {(float)(4*cell_size), (float)(8*cell_size)};
+            for (int i = 0; i < 2 && chelnovCount < maxChelnovCount; i++)
+            {
+                chelnovsX[chelnovCount] = chelSpawnX[i];
+                chelnovsY[chelnovCount] = chelSpawnY[i];
+                chelnovSpeed[chelnovCount] = 30.f;
+                chelnovDirection[chelnovCount] = 1;
+                chelnovVelocityY[chelnovCount] = 0;
+                chelnovOnGround[chelnovCount] = false;
+                chelnovShootTimer[chelnovCount] = 0.f;
+                chelnovIsShooting[chelnovCount] = false;
+                chelnovShootPhaseTimer[chelnovCount] = 0.f;
+                chelnovCount++;
+            }
+            
+            // Spawn 1 Invisible Man
+            if (invisibleCount < maxInvisibleCount)
+            {
+                invisiblesX[invisibleCount] = (float)(5*cell_size);
+                invisiblesY[invisibleCount] = (float)(4*cell_size);
+                invisibleSpeed[invisibleCount] = 25.f;
+                invisibleDirection[invisibleCount] = 1;
+                invisibleVelocityY[invisibleCount] = 0;
+                invisibleOnGround[invisibleCount] = false;
+                invisibleIsVisible[invisibleCount] = true;
+                invisibleVisibilityTimer[invisibleCount] = 0.f;
+                invisibleTeleportTimer[invisibleCount] = 0.f;
+                invisibleCount++;
+            }
+            break;
+        }
+    }
+}
+
+// MODIFIED FUNCTION: Generate Level 2 map with optional enemy spawning
 void generateLevel2Map(char** lvl, int height, int width, int cell_size,
                        float* enemiesX, float* enemiesY, float* enemySpeed, int* enemyDirection,
                        float* platformLeftEdge, float* platformRightEdge, int& enemyCount,
@@ -544,172 +996,90 @@ void generateLevel2Map(char** lvl, int height, int width, int cell_size,
                        float* invisibleVisibilityTimer, float* invisibleTeleportTimer, int& invisibleCount,
                        float* chelnovsX, float* chelnovsY, float* chelnovSpeed, int* chelnovDirection,
                        float* chelnovVelocityY, bool* chelnovOnGround, float* chelnovShootTimer,
-                       bool* chelnovIsShooting, float* chelnovShootPhaseTimer, int& chelnovCount)
+                       bool* chelnovIsShooting, float* chelnovShootPhaseTimer, int& chelnovCount,
+                       bool spawnAllEnemies = true) // NEW PARAMETER with default value
 {
-
-    
-    // Clear the map
-    for (int i = 0; i < height; i++)
-    {
-        for (int j = 0; j < width; j++)
-        {
-            lvl[i][j] = ' ';
-        }
-    }
-    
     // Reset enemy counts
     enemyCount = 0;
     skeletonCount = 0;
     invisibleCount = 0;
     chelnovCount = 0;
     
-    // Create floor and walls
-    for (int j = 0; j <= 18; j++)
-        lvl[11][j] = '#';
-    for (int i = 0; i <= 10; i++)
+    // --- USE THE RANDOMIZED LEVEL DESIGN FUNCTION ---
+    generateLevel2Design(lvl, height, width);
+    
+    // MODIFIED: Only spawn enemies if requested
+    if (spawnAllEnemies)
     {
-        lvl[i][0] = '#';
-        lvl[i][18] = '#';
-    }
-    
-    // Top platforms
-    for (int j = 3; j <= 7; j++) lvl[1][j] = '-';
-    for (int j = 11; j <= 15; j++) lvl[1][j] = '-';
-    
-    // Row 3 - with randomized slopes
-    lvl[3][2] = '-';
-    lvl[3][3] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[3][4] = '-';
-    lvl[3][5] = '-';
-    lvl[3][6] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    lvl[3][12] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[3][13] = '-';
-    lvl[3][14] = '-';
-    lvl[3][15] = (rand() % 2 == 0) ? '\\' : '-';
-    lvl[3][16] = '-';
-    
-    // Row 5 - more platforms with random slopes
-    lvl[5][1] = '-';
-    lvl[5][2] = '-';
-    lvl[5][3] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    lvl[5][7] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[5][8] = '-';
-    lvl[5][9] = '-';
-    lvl[5][10] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    lvl[5][14] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[5][15] = '-';
-    lvl[5][16] = '-';
-    lvl[5][17] = '-';
-    
-    // Row 7 - lower platforms with slopes
-    lvl[7][3] = (rand() % 3 == 0) ? '/' : '-';
-    lvl[7][4] = '-';
-    lvl[7][5] = '-';
-    lvl[7][6] = (rand() % 3 == 0) ? '\\' : '-';
-    
-    lvl[7][12] = (rand() % 3 == 0) ? '/' : '-';
-    lvl[7][13] = '-';
-    lvl[7][14] = '-';
-    lvl[7][15] = (rand() % 3 == 0) ? '\\' : '-';
-    
-    // Central structure
-    lvl[7][8] = '#';
-    lvl[7][9] = '#';
-    lvl[7][10] = '#';
-    lvl[6][8] = '#';
-    lvl[6][10] = '#';
-    lvl[5][8] = '#';
-    lvl[5][9] = '#';
-    lvl[5][10] = '#';
-    lvl[4][9] = '-';
-    lvl[3][8] = '#';
-    lvl[3][9] = '#';
-    lvl[3][10] = '#';
-    
-    // Row 9 - with slopes
-    lvl[9][2] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[9][3] = '-';
-    lvl[9][4] = '-';
-    lvl[9][5] = (rand() % 2 == 0) ? '\\' : '-';
-    lvl[9][6] = '-';
-    
-    lvl[9][12] = '-';
-    lvl[9][13] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[9][14] = '-';
-    lvl[9][15] = '-';
-    lvl[9][16] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    // Spawn 4 ghosts - using explicit float casts
-    float ghostSpawnX[] = {(float)(4 * cell_size), (float)(14 * cell_size), (float)(3 * cell_size), (float)(15 * cell_size)};
-    float ghostSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size), (float)(2 * cell_size), (float)(2 * cell_size)};
-    for (int i = 0; i < 4 && enemyCount < 10; i++)
-    {
-        enemiesX[enemyCount] = ghostSpawnX[i];
-        enemiesY[enemyCount] = ghostSpawnY[i];
-        enemySpeed[enemyCount] = 15.f;
-        enemyDirection[enemyCount] = 1;
-        platformLeftEdge[enemyCount] = (float)(1 * cell_size + 10);
-        platformRightEdge[enemyCount] = (float)(17 * cell_size - 10);
-        enemyCount++;
-    }
-    
-    // Spawn 9 skeletons - using explicit float casts
-    float skelSpawnX[] = {(float)(5*cell_size), (float)(13*cell_size), (float)(5*cell_size), (float)(13*cell_size), (float)(3*cell_size),
-                          (float)(15*cell_size), (float)(4*cell_size), (float)(14*cell_size), (float)(9*cell_size)};
-    float skelSpawnY[] = {(float)(0*cell_size), (float)(0*cell_size), (float)(2*cell_size), (float)(2*cell_size), (float)(4*cell_size),
-                          (float)(4*cell_size), (float)(6*cell_size), (float)(6*cell_size), (float)(8*cell_size)};
-    for (int i = 0; i < 9 && skeletonCount < 10; i++)
-    {
-        skeletonsX[skeletonCount] = skelSpawnX[i];
-        skeletonsY[skeletonCount] = skelSpawnY[i];
-        skeletonSpeed[skeletonCount] = 40.f;
-        skeletonDirection[skeletonCount] = 1;
-        skeletonVelocityY[skeletonCount] = 0;
-        skeletonOnGround[skeletonCount] = false;
-        skeletonJumpTimer[skeletonCount] = 0.f;
-        skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
-        skeletonShouldJump[skeletonCount] = false;
-        skeletonStableFrames[skeletonCount] = 0;
-        skeletonAnimFrame[skeletonCount] = 0;
-        skeletonAnimCounter[skeletonCount] = 0;
-        skeletonCount++;
-    }
-    
-    // Spawn 3 invisible men - using explicit float casts
-    float invisSpawnX[] = {(float)(6*cell_size), (float)(5*cell_size), (float)(13*cell_size)};
-    float invisSpawnY[] = {(float)(0*cell_size), (float)(4*cell_size), (float)(6*cell_size)};
-    for (int i = 0; i < 3 && invisibleCount < 5; i++)
-    {
-        invisiblesX[invisibleCount] = invisSpawnX[i];
-        invisiblesY[invisibleCount] = invisSpawnY[i];
-        invisibleSpeed[invisibleCount] = 25.f;
-        invisibleDirection[invisibleCount] = 1;
-        invisibleVelocityY[invisibleCount] = 0;
-        invisibleOnGround[invisibleCount] = false;
-        invisibleIsVisible[invisibleCount] = true;
-        invisibleVisibilityTimer[invisibleCount] = 0.f;
-        invisibleTeleportTimer[invisibleCount] = 0.f;
-        invisibleCount++;
-    }
-    
-    // Spawn 4 chelnovs - using explicit float casts
-    float chelSpawnX[] = {(float)(12*cell_size), (float)(6*cell_size), (float)(14*cell_size), (float)(3*cell_size)};
-    float chelSpawnY[] = {(float)(0*cell_size), (float)(2*cell_size), (float)(4*cell_size), (float)(8*cell_size)};
-    for (int i = 0; i < 4 && chelnovCount < 5; i++)
-    {
-        chelnovsX[chelnovCount] = chelSpawnX[i];
-        chelnovsY[chelnovCount] = chelSpawnY[i];
-        chelnovSpeed[chelnovCount] = 30.f;
-        chelnovDirection[chelnovCount] = 1;
-        chelnovVelocityY[chelnovCount] = 0;
-        chelnovOnGround[chelnovCount] = false;
-        chelnovShootTimer[chelnovCount] = 0.f;
-        chelnovIsShooting[chelnovCount] = false;
-        chelnovShootPhaseTimer[chelnovCount] = 0.f;
-        chelnovCount++;
+        // Spawn 4 ghosts - using explicit float casts
+        float ghostSpawnX[] = {(float)(4 * cell_size), (float)(14 * cell_size), (float)(3 * cell_size), (float)(15 * cell_size)};
+        float ghostSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size), (float)(2 * cell_size), (float)(2 * cell_size)};
+        for (int i = 0; i < 4 && enemyCount < 10; i++)
+        {
+            enemiesX[enemyCount] = ghostSpawnX[i];
+            enemiesY[enemyCount] = ghostSpawnY[i];
+            enemySpeed[enemyCount] = 15.f;
+            enemyDirection[enemyCount] = 1;
+            platformLeftEdge[enemyCount] = (float)(1 * cell_size + 10);
+            platformRightEdge[enemyCount] = (float)(17 * cell_size - 10);
+            enemyCount++;
+        }
+        
+        // Spawn 9 skeletons - using explicit float casts
+        float skelSpawnX[] = {(float)(5*cell_size), (float)(13*cell_size), (float)(5*cell_size), (float)(13*cell_size), (float)(3*cell_size),
+                              (float)(15*cell_size), (float)(4*cell_size), (float)(14*cell_size), (float)(9*cell_size)};
+        float skelSpawnY[] = {(float)(0*cell_size), (float)(0*cell_size), (float)(2*cell_size), (float)(2*cell_size), (float)(4*cell_size),
+                              (float)(4*cell_size), (float)(6*cell_size), (float)(6*cell_size), (float)(8*cell_size)};
+        for (int i = 0; i < 9 && skeletonCount < 10; i++)
+        {
+            skeletonsX[skeletonCount] = skelSpawnX[i];
+            skeletonsY[skeletonCount] = skelSpawnY[i];
+            skeletonSpeed[skeletonCount] = 40.f;
+            skeletonDirection[skeletonCount] = 1;
+            skeletonVelocityY[skeletonCount] = 0;
+            skeletonOnGround[skeletonCount] = false;
+            skeletonJumpTimer[skeletonCount] = 0.f;
+            skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
+            skeletonShouldJump[skeletonCount] = false;
+            skeletonStableFrames[skeletonCount] = 0;
+            skeletonAnimFrame[skeletonCount] = 0;
+            skeletonAnimCounter[skeletonCount] = 0;
+            skeletonCount++;
+        }
+        
+        // Spawn 3 invisible men - using explicit float casts
+        float invisSpawnX[] = {(float)(6*cell_size), (float)(5*cell_size), (float)(13*cell_size)};
+        float invisSpawnY[] = {(float)(0*cell_size), (float)(4*cell_size), (float)(6*cell_size)};
+        for (int i = 0; i < 3 && invisibleCount < 5; i++)
+        {
+            invisiblesX[invisibleCount] = invisSpawnX[i];
+            invisiblesY[invisibleCount] = invisSpawnY[i];
+            invisibleSpeed[invisibleCount] = 25.f;
+            invisibleDirection[invisibleCount] = 1;
+            invisibleVelocityY[invisibleCount] = 0;
+            invisibleOnGround[invisibleCount] = false;
+            invisibleIsVisible[invisibleCount] = true;
+            invisibleVisibilityTimer[invisibleCount] = 0.f;
+            invisibleTeleportTimer[invisibleCount] = 0.f;
+            invisibleCount++;
+        }
+        
+        // Spawn 4 chelnovs - using explicit float casts
+        float chelSpawnX[] = {(float)(12*cell_size), (float)(6*cell_size), (float)(14*cell_size), (float)(3*cell_size)};
+        float chelSpawnY[] = {(float)(0*cell_size), (float)(2*cell_size), (float)(4*cell_size), (float)(8*cell_size)};
+        for (int i = 0; i < 4 && chelnovCount < 5; i++)
+        {
+            chelnovsX[chelnovCount] = chelSpawnX[i];
+            chelnovsY[chelnovCount] = chelSpawnY[i];
+            chelnovSpeed[chelnovCount] = 30.f;
+            chelnovDirection[chelnovCount] = 1;
+            chelnovVelocityY[chelnovCount] = 0;
+            chelnovOnGround[chelnovCount] = false;
+            chelnovShootTimer[chelnovCount] = 0.f;
+            chelnovIsShooting[chelnovCount] = false;
+            chelnovShootPhaseTimer[chelnovCount] = 0.f;
+            chelnovCount++;
+        }
     }
     
     cout << "Level 2 generated with " << enemyCount << " ghosts, " << skeletonCount << " skeletons, "
@@ -738,6 +1108,14 @@ int main()
        // Level tracking variables
        int currentLevel = 1;
        bool showStageClear = false;
+       
+       // NEW: Wave spawning system variables
+       bool useWaveSpawning = false;
+       int currentWave = 0;
+       int maxWaves = 4;
+       float waveTimer = 0.0f;
+       float timeBetweenWaves = 5.0f; // 5 seconds between waves
+       bool waveSpawned[4] = {false, false, false, false};
        
         const float dt = 0.018f; // dt to smooth everything 0.018
         srand(time(0));          //  Initialize random seed for skeleton jump timing
@@ -1463,6 +1841,54 @@ slopeRightSprite.setTexture(slopeRightTexture);
             comboTimer += dt;
             multiKillTimer += dt;
 
+            // NEW: Wave spawning system for Level 2
+            if (currentLevel == 2 && useWaveSpawning)
+            {
+                waveTimer += dt;
+                
+                // Check if current wave should spawn
+                if (currentWave < maxWaves && !waveSpawned[currentWave])
+                {
+                    // Spawn first wave immediately, others after delay
+                    if (currentWave == 0 || waveTimer >= timeBetweenWaves)
+                    {
+                        spawnWave(currentWave, cell_size,
+                                 enemiesX, enemiesY, enemySpeed, enemyDirection,
+                                 platformLeftEdge, platformRightEdge, enemyCount,
+                                 skeletonsX, skeletonsY, skeletonSpeed, skeletonDirection,
+                                 skeletonVelocityY, skeletonOnGround, skeletonJumpTimer,
+                                 skeletonJumpCooldown, skeletonShouldJump, skeletonStableFrames,
+                                 skeletonAnimFrame, skeletonAnimCounter, skeletonCount,
+                                 invisiblesX, invisiblesY, invisibleSpeed, invisibleDirection,
+                                 invisibleVelocityY, invisibleOnGround, invisibleIsVisible,
+                                 invisibleVisibilityTimer, invisibleTeleportTimer, invisibleCount,
+                                 chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
+                                 chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
+                                 chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount,
+                                 maxEnemyCount, maxSkeletonCount, maxInvisibleCount, maxChelnovCount);
+                        
+                        waveSpawned[currentWave] = true;
+                        waveTimer = 0.0f;
+                    }
+                }
+                
+                // Check if current wave is cleared (all enemies defeated)
+                if (waveSpawned[currentWave] && 
+                    enemyCount == 0 && skeletonCount == 0 && 
+                    invisibleCount == 0 && chelnovCount == 0 &&
+                    capturedCount == 0 && projectileCount == 0)
+                {
+                    currentWave++;
+                    waveTimer = 0.0f;
+                    
+                    if (currentWave < maxWaves)
+                    {
+                        cout << "Wave " << currentWave << " cleared! Next wave in " 
+                             << timeBetweenWaves << " seconds..." << endl;
+                    }
+                }
+            }
+
             if (comboTimer >= comboTimeout)
                 comboStreak = 0;
 
@@ -1678,299 +2104,197 @@ slopeRightSprite.setTexture(slopeRightTexture);
                     
                     powerupsX[i] = powerupsX[powerupCount - 1];
                     powerupsY[i] = powerupsY[powerupCount - 1];
-                    powerupType[i] = powerupType[powerupCount - 1];
-                    powerupActive[i] = powerupActive[powerupCount - 1];
-                    powerupCount--;
-                    i--;
-                }
-            }     
+powerupType[i] = powerupType[powerupCount - 1];
+powerupActive[i] = powerupActive[powerupCount - 1];
+powerupCount--;
+i--;
+}
+}
+isMoving = 0;
+        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
+                          PlayerWidth, height, width, dt, isMoving, facing);
+        updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
+                              walkTex, jumpTex, deadTex, animFrame, deadAnimFrame, animCounter, deadAnimCounter, animSpeed, deadAnimSpeed);
 
-            isMoving = 0;
-            playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
-                              PlayerWidth, height, width, dt, isMoving, facing);
-            updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
-                                  walkTex, jumpTex, deadTex, animFrame, deadAnimFrame, animCounter, deadAnimCounter, animSpeed, deadAnimSpeed);
+        if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
+        {
+            velocityY = jumpStrength;
+            onGround = false;
+            isJumping = true;
+        }
 
-            if (Keyboard::isKeyPressed(Keyboard::Up) && onGround)
+        player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
+        
+        // Apply sliding on slopes (Level 2)
+        if (currentLevel == 2)
+        {
+            applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround);
+        }
+
+        // Ghost enemy loop
+        for (int i = 0; i < enemyCount; i++)
+        {
+            enemiesX[i] += enemySpeed[i] * enemyDirection[i] * dt;
+
+            if (enemiesX[i] <= platformLeftEdge[i])
             {
-                velocityY = jumpStrength;
-                onGround = false;
-                isJumping = true;
+                enemiesX[i] = platformLeftEdge[i];
+                enemyDirection[i] = 1;
+            }
+            else if (enemiesX[i] >= platformRightEdge[i])
+            {
+                enemiesX[i] = platformRightEdge[i];
+                enemyDirection[i] = -1;
             }
 
-            player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
-            
-            // Apply sliding on slopes (Level 2)
-            if (currentLevel == 2)
+            if (!enemyIsCaught[i])
             {
-                applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround);
-            }
-
-            // Ghost enemy loop
-            for (int i = 0; i < enemyCount; i++)
-            {
-                enemiesX[i] += enemySpeed[i] * enemyDirection[i] * dt;
-
-                if (enemiesX[i] <= platformLeftEdge[i])
+                if (collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i],
+                                       PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight, isDead))
                 {
-                    enemiesX[i] = platformLeftEdge[i];
-                    enemyDirection[i] = 1;
-                }
-                else if (enemiesX[i] >= platformRightEdge[i])
-                {
-                    enemiesX[i] = platformRightEdge[i];
-                    enemyDirection[i] = -1;
-                }
-
-                if (!enemyIsCaught[i])
-                {
-                    if (collisionDetection(window, player_x, player_y, enemiesX[i], enemiesY[i],
-                                           PlayerWidth, PlayerHeight, EnemyWidth, EnemyHeight, isDead))
+                    if (!waitingToRespawn)
                     {
-                        if (!waitingToRespawn)
-                        {
-                            playerLives--;
-                            waitingToRespawn = true;
-                            deathDelayCounter = 0.0f;
-                            levelNoDamage = false; 
-                            playerScore -= 50;
-                        }
+                        playerLives--;
+                        waitingToRespawn = true;
+                        deathDelayCounter = 0.0f;
+                        levelNoDamage = false; 
+                        playerScore -= 50;
                     }
                 }
             }
+        }
 
-            // Skeleton enemy loop
-            for (int i = 0; i < skeletonCount; i++)
+        // Skeleton enemy loop
+        for (int i = 0; i < skeletonCount; i++)
+        {
+            float newX = skeletonsX[i] + skeletonSpeed[i] * skeletonDirection[i] * dt;
+
+            char right_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
+                                        (int)(newX + SkeletonWidth) / cell_size, height, width);
+            char left_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
+                                       (int)newX / cell_size, height, width);
+
+            if ((skeletonDirection[i] == 1 && right_check == '#') ||
+                (skeletonDirection[i] == -1 && left_check == '#'))
             {
-                float newX = skeletonsX[i] + skeletonSpeed[i] * skeletonDirection[i] * dt;
+                skeletonDirection[i] *= -1;
+            }
+            else
+            {
+                skeletonsX[i] = newX;
+            }
 
-                char right_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
-                                            (int)(newX + SkeletonWidth) / cell_size, height, width);
-                char left_check = get_tile(lvl, (int)(skeletonsY[i] + SkeletonHeight / 2) / cell_size,
-                                           (int)newX / cell_size, height, width);
+            player_gravity(lvl, offset_y, skeletonVelocityY[i], skeletonOnGround[i],
+                           gravity, terminal_Velocity, skeletonsX[i], skeletonsY[i],
+                           cell_size, SkeletonHeight, SkeletonWidth, height, width, dt);
 
-                if ((skeletonDirection[i] == 1 && right_check == '#') ||
-                    (skeletonDirection[i] == -1 && left_check == '#'))
+            if (skeletonOnGround[i])
+                skeletonStableFrames[i]++;
+            else
+                skeletonStableFrames[i] = 0;
+
+            skeletonJumpTimer[i] += dt;
+
+            if (skeletonOnGround[i] && skeletonStableFrames[i] > 350 && !skeletonShouldJump[i])
+            {
+                if (rand() % 100 < 1)
                 {
-                    skeletonDirection[i] *= -1;
-                }
-                else
-                {
-                    skeletonsX[i] = newX;
-                }
+                    int currentRow = (int)(skeletonsY[i] + SkeletonHeight) / cell_size;
+                    int skeletonCol = (int)(skeletonsX[i] + SkeletonWidth / 2) / cell_size;
+                    bool platformAbove = false;
 
-                player_gravity(lvl, offset_y, skeletonVelocityY[i], skeletonOnGround[i],
-                               gravity, terminal_Velocity, skeletonsX[i], skeletonsY[i],
-                               cell_size, SkeletonHeight, SkeletonWidth, height, width, dt);
-
-                if (skeletonOnGround[i])
-                    skeletonStableFrames[i]++;
-                else
-                    skeletonStableFrames[i] = 0;
-
-                skeletonJumpTimer[i] += dt;
-
-                if (skeletonOnGround[i] && skeletonStableFrames[i] > 350 && !skeletonShouldJump[i])
-                {
-                    if (rand() % 100 < 1)
+                    for (int checkRow = currentRow - 5; checkRow < currentRow - 1; checkRow++)
                     {
-                        int currentRow = (int)(skeletonsY[i] + SkeletonHeight) / cell_size;
-                        int skeletonCol = (int)(skeletonsX[i] + SkeletonWidth / 2) / cell_size;
-                        bool platformAbove = false;
-
-                        for (int checkRow = currentRow - 5; checkRow < currentRow - 1; checkRow++)
+                        if (checkRow >= 0)
                         {
-                            if (checkRow >= 0)
+                            for (int checkCol = skeletonCol - 3; checkCol <= skeletonCol + 3; checkCol++)
                             {
-                                for (int checkCol = skeletonCol - 3; checkCol <= skeletonCol + 3; checkCol++)
+                                char tile = get_tile(lvl, checkRow, checkCol, height, width);
+                                if (tile == '-' || tile == '#')
                                 {
-                                    char tile = get_tile(lvl, checkRow, checkCol, height, width);
-                                    if (tile == '-' || tile == '#')
-                                    {
-                                        platformAbove = true;
-                                        break;
-                                    }
+                                    platformAbove = true;
+                                    break;
                                 }
                             }
-                            if (platformAbove) break;
                         }
-
-                        if (platformAbove)
-                        {
-                            skeletonShouldJump[i] = true;
-                            skeletonJumpTimer[i] = 0.f;
-                        }
+                        if (platformAbove) break;
                     }
-                }
 
-                if (skeletonShouldJump[i] && skeletonOnGround[i] && skeletonStableFrames[i] > 30)
-                {
-                    skeletonVelocityY[i] = jumpStrength;
-                    skeletonOnGround[i] = false;
-                    skeletonShouldJump[i] = false;
-                    skeletonStableFrames[i] = 0;
-                }
-
-                if (!skeletonIsCaught[i])
-                {
-                    if (collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
-                                           PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight, isDead))
+                    if (platformAbove)
                     {
-                        if (!waitingToRespawn)
-                        {
-                            playerLives--;
-                            waitingToRespawn = true;
-                            deathDelayCounter = 0.0f;
-                        }
+                        skeletonShouldJump[i] = true;
+                        skeletonJumpTimer[i] = 0.f;
                     }
                 }
             }
-            
-            // Level 2 enemy loops
-            if (currentLevel == 2)
+
+            if (skeletonShouldJump[i] && skeletonOnGround[i] && skeletonStableFrames[i] > 30)
             {
-                // Invisible Man loop
-                for (int i = 0; i < invisibleCount; i++)
+                skeletonVelocityY[i] = jumpStrength;
+                skeletonOnGround[i] = false;
+                skeletonShouldJump[i] = false;
+                skeletonStableFrames[i] = 0;
+            }
+
+            if (!skeletonIsCaught[i])
+            {
+                if (collisionDetection(window, player_x, player_y, skeletonsX[i], skeletonsY[i],
+                                       PlayerWidth, PlayerHeight, SkeletonWidth, SkeletonHeight, isDead))
                 {
-                    invisibleVisibilityTimer[i] += dt;
-                    if (invisibleVisibilityTimer[i] >= 3.0f)
+                    if (!waitingToRespawn)
                     {
-                        invisibleVisibilityTimer[i] = 0.0f;
-                        invisibleIsVisible[i] = !invisibleIsVisible[i];
-                    }
-                    
-                    invisibleTeleportTimer[i] += dt;
-                    if (invisibleTeleportTimer[i] >= 5.0f)
-                    {
-                        invisibleTeleportTimer[i] = 0.0f;
-                        int newCol = 2 + (rand() % 15);
-                        int newRow = 1 + (rand() % 8);
-                        invisiblesX[i] = newCol * cell_size;
-                        invisiblesY[i] = newRow * cell_size;
-                    }
-                    
-                    invisiblesX[i] += invisibleSpeed[i] * invisibleDirection[i] * dt;
-                    
-                    if (invisiblesX[i] <= cell_size)
-                    {
-                        invisiblesX[i] = cell_size;
-                        invisibleDirection[i] = 1;
-                    }
-                    else if (invisiblesX[i] >= 17 * cell_size)
-                    {
-                        invisiblesX[i] = 17 * cell_size;
-                        invisibleDirection[i] = -1;
-                    }
-                    
-                    player_gravity(lvl, offset_y, invisibleVelocityY[i], invisibleOnGround[i],
-                                   gravity, terminal_Velocity, invisiblesX[i], invisiblesY[i],
-                                   cell_size, InvisibleHeight, InvisibleWidth, height, width, dt);
-                    
-                    if (invisibleIsVisible[i] && !invisibleIsCaught[i])
-                    {
-                        if (collisionDetection(window, player_x, player_y, invisiblesX[i], invisiblesY[i],
-                                               PlayerWidth, PlayerHeight, InvisibleWidth, InvisibleHeight, isDead))
-                        {
-                            if (!waitingToRespawn)
-                            {
-                                playerLives--;
-                                waitingToRespawn = true;
-                                deathDelayCounter = 0.0f;
-                                levelNoDamage = false;
-                                playerScore -= 50;
-                            }
-                        }
+                        playerLives--;
+                        waitingToRespawn = true;
+                        deathDelayCounter = 0.0f;
                     }
                 }
-                
-                // Chelnov loop
-                for (int i = 0; i < chelnovCount; i++)
+            }
+        }
+        
+        // Level 2 enemy loops
+        if (currentLevel == 2)
+        {
+            // Invisible Man loop
+            for (int i = 0; i < invisibleCount; i++)
+            {
+                invisibleVisibilityTimer[i] += dt;
+                if (invisibleVisibilityTimer[i] >= 3.0f)
                 {
-                    chelnovShootTimer[i] += dt;
-                    
-                    if (chelnovIsShooting[i])
-                    {
-                        chelnovShootPhaseTimer[i] += dt;
-                        if (chelnovShootPhaseTimer[i] >= 1.0f)
-                        {
-                            chelnovIsShooting[i] = false;
-                            chelnovShootPhaseTimer[i] = 0.0f;
-                        }
-                    }
-                    
-                    if (chelnovShootTimer[i] >= 4.0f)
-                    {
-                        chelnovShootTimer[i] = 0.0f;
-                        chelnovIsShooting[i] = true;
-                        chelnovShootPhaseTimer[i] = 0.0f;
-                        
-                        if (chelnovProjCount < maxChelnovProjectiles)
-                        {
-                            chelnovProjX[chelnovProjCount] = chelnovsX[i];
-                            chelnovProjY[chelnovProjCount] = chelnovsY[i] + ChelnovHeight / 2;
-                            chelnovProjDirection[chelnovProjCount] = (player_x > chelnovsX[i]) ? 1 : -1;
-                            chelnovProjActive[chelnovProjCount] = true;
-                            chelnovProjCount++;
-                        }
-                    }
-                    
-                    chelnovsX[i] += chelnovSpeed[i] * chelnovDirection[i] * dt;
-                    
-                    if (chelnovsX[i] <= cell_size)
-                    {
-                        chelnovsX[i] = cell_size;
-                        chelnovDirection[i] = 1;
-                    }
-                    else if (chelnovsX[i] >= 17 * cell_size)
-                    {
-                        chelnovsX[i] = 17 * cell_size;
-                        chelnovDirection[i] = -1;
-                    }
-                    
-                    player_gravity(lvl, offset_y, chelnovVelocityY[i], chelnovOnGround[i],
-                                   gravity, terminal_Velocity, chelnovsX[i], chelnovsY[i],
-                                   cell_size, ChelnovHeight, ChelnovWidth, height, width, dt);
-                    
-                    if (!chelnovIsCaught[i])
-                    {
-                        if (collisionDetection(window, player_x, player_y, chelnovsX[i], chelnovsY[i],
-                                               PlayerWidth, PlayerHeight, ChelnovWidth, ChelnovHeight, isDead))
-                        {
-                            if (!waitingToRespawn)
-                            {
-                                playerLives--;
-                                waitingToRespawn = true;
-                                deathDelayCounter = 0.0f;
-                                levelNoDamage = false;
-                                playerScore -= 50;
-                            }
-                        }
-                    }
+                    invisibleVisibilityTimer[i] = 0.0f;
+                    invisibleIsVisible[i] = !invisibleIsVisible[i];
                 }
                 
-                // Chelnov projectile loop
-                for (int i = 0; i < chelnovProjCount; i++)
+                invisibleTeleportTimer[i] += dt;
+                if (invisibleTeleportTimer[i] >= 5.0f)
                 {
-                    if (!chelnovProjActive[i]) continue;
-                    
-                    chelnovProjX[i] += 150.0f * chelnovProjDirection[i] * dt;
-                    
-                    if (chelnovProjX[i] < 0 || chelnovProjX[i] > screen_x)
-                    {
-                        chelnovProjActive[i] = false;
-                        chelnovProjX[i] = chelnovProjX[chelnovProjCount - 1];
-                        chelnovProjY[i] = chelnovProjY[chelnovProjCount - 1];
-                        chelnovProjDirection[i] = chelnovProjDirection[chelnovProjCount - 1];
-                        chelnovProjActive[i] = chelnovProjActive[chelnovProjCount - 1];
-                        chelnovProjCount--;
-                        i--;
-                        continue;
-                    }
-                    
-                    if ((player_x < chelnovProjX[i] + 30) &&
-                        (player_x + PlayerWidth > chelnovProjX[i]) &&
-                        (player_y < chelnovProjY[i] + 30) &&
-                        (player_y + PlayerHeight > chelnovProjY[i]))
+                    invisibleTeleportTimer[i] = 0.0f;
+                    int newCol = 2 + (rand() % 15);
+                    int newRow = 1 + (rand() % 8);
+                    invisiblesX[i] = newCol * cell_size;
+                    invisiblesY[i] = newRow * cell_size;
+                }
+                
+                invisiblesX[i] += invisibleSpeed[i] * invisibleDirection[i] * dt;
+                
+                if (invisiblesX[i] <= cell_size)
+                {
+                    invisiblesX[i] = cell_size;
+                    invisibleDirection[i] = 1;
+                }
+                else if (invisiblesX[i] >= 17 * cell_size)
+                {
+                    invisiblesX[i] = 17 * cell_size;
+                    invisibleDirection[i] = -1;
+                }
+                
+                player_gravity(lvl, offset_y, invisibleVelocityY[i], invisibleOnGround[i],
+                               gravity, terminal_Velocity, invisiblesX[i], invisiblesY[i],
+                               cell_size, InvisibleHeight, InvisibleWidth, height, width, dt);
+                
+                if (invisibleIsVisible[i] && !invisibleIsCaught[i])
+                {
+                    if (collisionDetection(window, player_x, player_y, invisiblesX[i], invisiblesY[i],
+                                           PlayerWidth, PlayerHeight, InvisibleWidth, InvisibleHeight, isDead))
                     {
                         if (!waitingToRespawn)
                         {
@@ -1979,742 +2303,892 @@ slopeRightSprite.setTexture(slopeRightTexture);
                             deathDelayCounter = 0.0f;
                             levelNoDamage = false;
                             playerScore -= 50;
-                            
-                            chelnovProjActive[i] = false;
-                            chelnovProjX[i] = chelnovProjX[chelnovProjCount - 1];
-                            chelnovProjY[i] = chelnovProjY[chelnovProjCount - 1];
-                            chelnovProjDirection[i] = chelnovProjDirection[chelnovProjCount - 1];
-                            chelnovProjActive[i] = chelnovProjActive[chelnovProjCount - 1];
-                            chelnovProjCount--;
-                            i--;
                         }
                     }
                 }
             }
-
-            // Projectile update loop
-            for (int p = 0; p < projectileCount; p++)
+            
+            // Chelnov loop
+            for (int i = 0; i < chelnovCount; i++)
             {
-                if (!projectileActive[p])
-                     continue;
-                     
-                projectileLifespan[p] += dt;
-    if (projectileLifespan[p] >= MAX_PROJECTILE_LIFE)
-    {
-        // Remove old projectile
-        projectilesX[p] = projectilesX[projectileCount - 1];
-        projectilesY[p] = projectilesY[projectileCount - 1];
-        projectileType[p] = projectileType[projectileCount - 1];
-        projectileDirection[p] = projectileDirection[projectileCount - 1];
-        projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
-        projectileActive[p] = projectileActive[projectileCount - 1];
-        projectileOnGround[p] = projectileOnGround[projectileCount - 1];
-        projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
-        projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
-        projectileLifespan[p] = projectileLifespan[projectileCount - 1];
-        projectileCount--;
-        p--;
-        continue;
-    }     
-    
-                // Update animation frame
-projectileAnimCounter[p]++;
-if (projectileAnimCounter[p] >= projectileAnimSpeed)
-{
-    projectileAnimCounter[p] = 0;
-    projectileAnimFrame[p]++;
-    if (projectileAnimFrame[p] >= 4)
-        projectileAnimFrame[p] = 0;
-}
-
+                chelnovShootTimer[i] += dt;
                 
-                float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt;
-                
-                int projRow = (int)(projectilesY[p] + ProjectileHeight / 2) / cell_size;
-                int projColRight = (int)(newProjX + ProjectileWidth) / cell_size;
-                int projColLeft = (int)newProjX / cell_size;
-                
-                char rightWall = get_tile(lvl, projRow, projColRight, height, width);
-                char leftWall = get_tile(lvl, projRow, projColLeft, height, width);
-                
-                if (projectileDirection[p] == 1 && rightWall == '#')
-                    projectileDirection[p] = -1;
-                else if (projectileDirection[p] == -1 && leftWall == '#')
-                    projectileDirection[p] = 1;
-                else
-                    projectilesX[p] = newProjX;
-                
-                float newProjY = projectilesY[p] + projectileVelocityY[p] * dt;
-                
-                int feetRow = (int)(newProjY + ProjectileHeight) / cell_size;
-                int feetColL = (int)projectilesX[p] / cell_size;
-                int feetColR = (int)(projectilesX[p] + ProjectileWidth) / cell_size;
-                
-                char floorL = get_tile(lvl, feetRow, feetColL, height, width);
-                char floorR = get_tile(lvl, feetRow, feetColR, height, width);
-                
-                int headRow = (int)newProjY / cell_size;
-                char ceilL = get_tile(lvl, headRow, feetColL, height, width);
-                char ceilR = get_tile(lvl, headRow, feetColR, height, width);
-                
-                bool landed = false;
-                
-                if (projectileVelocityY[p] < 0)
+                if (chelnovIsShooting[i])
                 {
-                    if (ceilL == '#' || ceilR == '#')
+                    chelnovShootPhaseTimer[i] += dt;
+                    if (chelnovShootPhaseTimer[i] >= 1.0f)
                     {
-                        projectileVelocityY[p] = 0;
-                        projectilesY[p] = (headRow + 1) * cell_size;
+                        chelnovIsShooting[i] = false;
+                        chelnovShootPhaseTimer[i] = 0.0f;
                     }
                 }
                 
-                if (projectileVelocityY[p] >= 0)
+                if (chelnovShootTimer[i] >= 4.0f)
                 {
-                    if (floorL == '#' || floorR == '#')
-                        landed = true;
-                    else if (floorL == '-' || floorR == '-')
+                    chelnovShootTimer[i] = 0.0f;
+                    chelnovIsShooting[i] = true;
+                    chelnovShootPhaseTimer[i] = 0.0f;
+                    
+                    if (chelnovProjCount < maxChelnovProjectiles)
                     {
-                        float blockTop = feetRow * cell_size;
-                        if ((projectilesY[p] + ProjectileHeight <= blockTop + 4.0f) && (newProjY + ProjectileHeight >= blockTop))
-                            landed = true;
+                        chelnovProjX[chelnovProjCount] = chelnovsX[i];
+                        chelnovProjY[chelnovProjCount] = chelnovsY[i] + ChelnovHeight / 2;
+                        chelnovProjDirection[chelnovProjCount] = (player_x > chelnovsX[i]) ? 1 : -1;
+                        chelnovProjActive[chelnovProjCount] = true;
+                        chelnovProjCount++;
                     }
                 }
                 
-                if (landed)
+                chelnovsX[i] += chelnovSpeed[i] * chelnovDirection[i] * dt;
+                
+                if (chelnovsX[i] <= cell_size)
                 {
-                    projectileOnGround[p] = true;
-                    projectileVelocityY[p] = 0;
-                    projectilesY[p] = (feetRow * cell_size) - ProjectileHeight;
+                    chelnovsX[i] = cell_size;
+                    chelnovDirection[i] = 1;
                 }
-                else
+                else if (chelnovsX[i] >= 17 * cell_size)
                 {
-                    projectileOnGround[p] = false;
-                    projectilesY[p] = newProjY;
-                    projectileVelocityY[p] += gravity * dt;
-                    if (projectileVelocityY[p] > terminal_Velocity)
-                        projectileVelocityY[p] = terminal_Velocity;
+                    chelnovsX[i] = 17 * cell_size;
+                    chelnovDirection[i] = -1;
                 }
                 
-                bool shouldRemoveProjectile = false;
+                player_gravity(lvl, offset_y, chelnovVelocityY[i], chelnovOnGround[i],
+                               gravity, terminal_Velocity, chelnovsX[i], chelnovsY[i],
+                               cell_size, ChelnovHeight, ChelnovWidth, height, width, dt);
                 
-                if (projectilesX[p] < -100 || projectilesX[p] > screen_x + 100 ||
-                    projectilesY[p] < -100 || projectilesY[p] > screen_y + 100)
-                    shouldRemoveProjectile = true;
-                
-                int currentRow = (int)(projectilesY[p] + ProjectileHeight) / cell_size;
-                if (currentRow >= bottomFloorRow - 1)
+                if (!chelnovIsCaught[i])
                 {
-                    if (projectilesX[p] <= bottomFloorLeftEdge || projectilesX[p] + ProjectileWidth >= bottomFloorRightEdge)
-                        shouldRemoveProjectile = true;
+                    if (collisionDetection(window, player_x, player_y, chelnovsX[i], chelnovsY[i],
+                                           PlayerWidth, PlayerHeight, ChelnovWidth, ChelnovHeight, isDead))
+                    {
+                        if (!waitingToRespawn)
+                        {
+                            playerLives--;
+                            waitingToRespawn = true;
+                            deathDelayCounter = 0.0f;
+                            levelNoDamage = false;
+                            playerScore -= 50;
+                        }
+                    }
                 }
+            }
+            
+            // Chelnov projectile loop
+            for (int i = 0; i < chelnovProjCount; i++)
+            {
+                if (!chelnovProjActive[i]) continue;
                 
-                if (shouldRemoveProjectile)
+                chelnovProjX[i] += 150.0f * chelnovProjDirection[i] * dt;
+                
+                if (chelnovProjX[i] < 0 || chelnovProjX[i] > screen_x)
                 {
-                    projectilesX[p] = projectilesX[projectileCount - 1];
-                    projectilesY[p] = projectilesY[projectileCount - 1];
-                    projectileType[p] = projectileType[projectileCount - 1];
-                    projectileDirection[p] = projectileDirection[projectileCount - 1];
-                    projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
-                    projectileActive[p] = projectileActive[projectileCount - 1];
-                    projectileOnGround[p] = projectileOnGround[projectileCount - 1];
-                    projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
-                    projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
-                    projectileCount--;
-                    p--;
+                    chelnovProjActive[i] = false;
+                    chelnovProjX[i] = chelnovProjX[chelnovProjCount - 1];
+                    chelnovProjY[i] = chelnovProjY[chelnovProjCount - 1];
+                    chelnovProjDirection[i] = chelnovProjDirection[chelnovProjCount - 1];
+                    chelnovProjActive[i] = chelnovProjActive[chelnovProjCount - 1];
+                    chelnovProjCount--;
+                    i--;
                     continue;
                 }
                 
-                // Collision with ghosts
-                for (int e = 0; e < enemyCount; e++)
+                if ((player_x < chelnovProjX[i] + 30) &&
+                    (player_x + PlayerWidth > chelnovProjX[i]) &&
+                    (player_y < chelnovProjY[i] + 30) &&
+                    (player_y + PlayerHeight > chelnovProjY[i]))
                 {
-                    if ((projectilesX[p] < enemiesX[e] + EnemyWidth) &&
-                        (projectilesX[p] + ProjectileWidth > enemiesX[e]) &&
-                        (projectilesY[p] < enemiesY[e] + EnemyHeight) &&
-                        (projectilesY[p] + ProjectileHeight > enemiesY[e]))
+                    if (!waitingToRespawn)
                     {
-                        int defeatPoints = 50 * 2;
-                        if (enemiesY[e] < 400) playerScore += 150;
-                        addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
-                        multiKillCount++;
-                        multiKillTimer = 0.0f;
-                        
-                        enemiesX[e] = enemiesX[enemyCount - 1];
-                        enemiesY[e] = enemiesY[enemyCount - 1];
-                        enemySpeed[e] = enemySpeed[enemyCount - 1];
-                        enemyDirection[e] = enemyDirection[enemyCount - 1];
-                        platformLeftEdge[e] = platformLeftEdge[enemyCount - 1];
-                        platformRightEdge[e] = platformRightEdge[enemyCount - 1];
-                        enemyIsCaught[e] = enemyIsCaught[enemyCount - 1];
-                        enemyCount--;
-                        e--;
-                    }
-                }
-                
-                // Collision with skeletons
-                for (int s = 0; s < skeletonCount; s++)
-                {
-                    if ((projectilesX[p] < skeletonsX[s] + SkeletonWidth) &&
-                        (projectilesX[p] + ProjectileWidth > skeletonsX[s]) &&
-                        (projectilesY[p] < skeletonsY[s] + SkeletonHeight) &&
-                        (projectilesY[p] + ProjectileHeight > skeletonsY[s]))
-                    {
-                        int defeatPoints = 75 * 2;
-                        if (!skeletonOnGround[s]) playerScore += 150;
-                        addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
-                        multiKillCount++;
-                        multiKillTimer = 0.0f;
-                        
-                        skeletonsX[s] = skeletonsX[skeletonCount - 1];
-                        skeletonsY[s] = skeletonsY[skeletonCount - 1];
-                        skeletonSpeed[s] = skeletonSpeed[skeletonCount - 1];
-                        skeletonDirection[s] = skeletonDirection[skeletonCount - 1];
-                        skeletonVelocityY[s] = skeletonVelocityY[skeletonCount - 1];
-                        skeletonOnGround[s] = skeletonOnGround[skeletonCount - 1];
-                        skeletonJumpTimer[s] = skeletonJumpTimer[skeletonCount - 1];
-                        skeletonJumpCooldown[s] = skeletonJumpCooldown[skeletonCount - 1];
-                        skeletonShouldJump[s] = skeletonShouldJump[skeletonCount - 1];
-                        skeletonStableFrames[s] = skeletonStableFrames[skeletonCount - 1];
-                        skeletonIsCaught[s] = skeletonIsCaught[skeletonCount - 1];
-                        skeletonAnimFrame[s] = skeletonAnimFrame[skeletonCount - 1];
-                        skeletonAnimCounter[s] = skeletonAnimCounter[skeletonCount - 1];
-                        skeletonCount--;
-                        s--;
-                    }
-                }
-                
-                // Level 2: Collision with Invisible Man and Chelnov
-                if (currentLevel == 2)
-                {
-                    for (int inv = 0; inv < invisibleCount; inv++)
-                    {
-                        if ((projectilesX[p] < invisiblesX[inv] + InvisibleWidth) &&
-                            (projectilesX[p] + ProjectileWidth > invisiblesX[inv]) &&
-                            (projectilesY[p] < invisiblesY[inv] + InvisibleHeight) &&
-                            (projectilesY[p] + ProjectileHeight > invisiblesY[inv]))
-                        {
-                            int defeatPoints = 150 * 2;
-                            addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
-                            multiKillCount++;
-                            multiKillTimer = 0.0f;
-                            
-                            invisiblesX[inv] = invisiblesX[invisibleCount - 1];
-                            invisiblesY[inv] = invisiblesY[invisibleCount - 1];
-                            invisibleCount--;
-                            inv--;
-                        }
-                    }
-                    
-                    for (int ch = 0; ch < chelnovCount; ch++)
-                    {
-                        if ((projectilesX[p] < chelnovsX[ch] + ChelnovWidth) &&
-                            (projectilesX[p] + ProjectileWidth > chelnovsX[ch]) &&
-                            (projectilesY[p] < chelnovsY[ch] + ChelnovHeight) &&
-                            (projectilesY[p] + ProjectileHeight > chelnovsY[ch]))
-                        {
-                            int defeatPoints = 200 * 2;
-                            addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
-                            multiKillCount++;
-                            multiKillTimer = 0.0f;
-                            
-                            chelnovsX[ch] = chelnovsX[chelnovCount - 1];
-                            chelnovsY[ch] = chelnovsY[chelnovCount - 1];
-                            chelnovCount--;
-                            ch--;
-                        }
-                    }
-                }
-            }
-
-            // Check if level is complete
-           // Check if level is complete
-            bool allEnemiesDefeated = false;
-            if (currentLevel == 1)
-                allEnemiesDefeated = (enemyCount == 0 && skeletonCount == 0 && capturedCount == 0 && projectileCount == 0);
-            else if (currentLevel == 2)
-                allEnemiesDefeated = (enemyCount == 0 && skeletonCount == 0 && invisibleCount == 0 && chelnovCount == 0 && capturedCount == 0 && chelnovProjCount == 0 && projectileCount == 0);
-                
-                // DEBUG - Print counts every 60 frames
-            static int debugCounter = 0;
-            debugCounter++;
-            if (debugCounter >= 60)
-            {
-                debugCounter = 0;
-                cout << "Level " << currentLevel << " - Ghosts: " << enemyCount 
-                     << " Skeletons: " << skeletonCount 
-                     << " Invisible: " << invisibleCount 
-                     << " Chelnov: " << chelnovCount 
-                     << " Captured: " << capturedCount 
-                     << " ChelProj: " << chelnovProjCount 
-                     << " YourProj: " << projectileCount 
-                     << " AllDefeated: " << allEnemiesDefeated << endl;
-            }
-                
-            if (allEnemiesDefeated && !showStageClear)
-            {
-                showStageClear = true;
-                
-                if (currentLevel == 1)
-                {
-                    playerScore += 1000;
-                    if (levelNoDamage) playerScore += 1500;
-                    if (levelTimer < 30.0f) playerScore += 2000;
-                    else if (levelTimer < 45.0f) playerScore += 1000;
-                    else if (levelTimer < 60.0f) playerScore += 500;
-                }
-                else if (currentLevel == 2)
-                {
-                    playerScore += 2000;
-                    if (levelNoDamage) playerScore += 2500;
-                    if (levelTimer < 60.0f) playerScore += 3000;
-                    else if (levelTimer < 90.0f) playerScore += 1500;
-                    else if (levelTimer < 120.0f) playerScore += 750;
-                }
-                
-                if (speedMultiplier == 1.5f) playerScore += 500;
-                else if (vacuumPower == 1.2f) playerScore += 500;
-            }
-            
-            // Stage Clear screen
-            if (showStageClear)
-            {
-                bool waitingForNext = true;
-                while (waitingForNext && window.isOpen())
-                {
-                    Event stageClearEvent;
-                    while (window.pollEvent(stageClearEvent))
-                    {
-                        if (stageClearEvent.type == Event::Closed)
-                        {
-                            window.close();
-                            return 0;
-                        }
-                        
-                        if (stageClearEvent.type == Event::KeyPressed &&
-                            stageClearEvent.key.code == Keyboard::Enter)
-                        {
-                            waitingForNext = false;
-                            showStageClear = false;
-                            
-                            if (currentLevel == 1)
-                            {
-                                currentLevel = 2;
-                                
-                                  generateLevel2Map(lvl, height, width, cell_size,
-                                    enemiesX, enemiesY, enemySpeed, enemyDirection,
-                                    platformLeftEdge, platformRightEdge, enemyCount,
-                                    skeletonsX, skeletonsY, skeletonSpeed, skeletonDirection,
-                                    skeletonVelocityY, skeletonOnGround, skeletonJumpTimer,
-                                    skeletonJumpCooldown, skeletonShouldJump, skeletonStableFrames,
-                                    skeletonAnimFrame, skeletonAnimCounter, skeletonCount,
-                                    invisiblesX, invisiblesY, invisibleSpeed, invisibleDirection,
-                                    invisibleVelocityY, invisibleOnGround, invisibleIsVisible,
-                                    invisibleVisibilityTimer, invisibleTeleportTimer, invisibleCount,                     
-                                    chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
-                                    chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
-                                    chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount)
-                                    ;                                
-                                
-                                MAX_CAPACITY = 5;
-                                
-                                lvlMusic.stop();
-                                lvl2Music.play();
-                                
-                                player_x = 850.0f;
-                                player_y = 450.0f;
-                                velocityY = 0;
-                                onGround = false;
-                                
-                                levelNoDamage = true;
-                                levelTimer = 0.0f;
-                                playerLives = 3;
-                                
-                                capturedCount = 0;
-                                projectileCount = 0;
-                                for (int i = 0; i < MAX_PROJECTILES; i++)
-                                    projectileActive[i] = false;
-                                
-                                powerupCount = 0;
-                                hasSpeedBoost = false;
-                                hasRangeBoost = false;
-                                hasPowerBoost = false;
-                                speed = originalSpeed * speedMultiplier;
-                                vacuumPower = originalVacuumPower;
-                                
-                               
-                                
-                                for (int i = 0; i < 3; i++)
-                                {
-                                    spawnPowerup(powerupsX, powerupsY, powerupType, powerupActive, 
-                                                 powerupAnimTimer, powerupCount, maxPowerups, 
-                                                 lvl, width, height, cell_size);
-                                }
-                            }
-                            else if (currentLevel == 2)
-                            {
-                                restartGame = true;
-                                playagain = true;
-                            }
-                        }
-                        
-                        if (stageClearEvent.type == Event::KeyPressed &&
-                            stageClearEvent.key.code == Keyboard::Escape)
-                        {
-                            window.close();
-                            return 0;
-                        }
-                    }
-                    
-                    window.clear(Color(20, 20, 60));
-                    window.draw(stageClearText);
-                    
-                    if (currentLevel == 1)
-                        stageBonusText.setString("Level 1 Complete!");
-                    else
-                        stageBonusText.setString("Level 2 Complete! You Win!");
-                    window.draw(stageBonusText);
-                    
-                    stageScoreText.setString("Score: " + to_string(playerScore));
-                    window.draw(stageScoreText);
-                    
-                    if (currentLevel == 1)
-                        nextLevelText.setString("Press ENTER for Level 2");
-                    else
-                        nextLevelText.setString("Press ENTER to Play Again");
-                    window.draw(nextLevelText);
-                    
-                    window.display();
-                }
-            }
-            
-            if (restartGame) break;
-
-            // Game over logic
-            if (waitingToRespawn)
-            {
-                deathDelayCounter += dt;
-
-                if (deathDelayCounter >= deathDelayTime)
-                {
-                    if (playerLives > 0)
-                    {
-                        isDead = false;
-                        player_x = respawnX;
-                        player_y = respawnY;
-                        velocityY = 0;
-                        onGround = false;
-                        waitingToRespawn = false;
-                        deadAnimFrame = 0;
-                        deadAnimCounter = 0;
+                        playerLives--;
+                        waitingToRespawn = true;
                         deathDelayCounter = 0.0f;
-                    }
-                    else
-                    {
-                        showGameOver = true;
-                        waitingToRespawn = false;
+                        levelNoDamage = false;
+                        playerScore -= 50;
+                        
+                        chelnovProjActive[i] = false;
+                        chelnovProjX[i] = chelnovProjX[chelnovProjCount - 1];
+                        chelnovProjY[i] = chelnovProjY[chelnovProjCount - 1];
+                        chelnovProjDirection[i] = chelnovProjDirection[chelnovProjCount - 1];
+                        chelnovProjActive[i] = chelnovProjActive[chelnovProjCount - 1];
+                        chelnovProjCount--;
+                        i--;
                     }
                 }
             }
+        }
 
-            if (showGameOver)
+        // Projectile update loop
+        for (int p = 0; p < projectileCount; p++)
+        {
+            if (!projectileActive[p])
+                 continue;
+                 
+            projectileLifespan[p] += dt;
+if (projectileLifespan[p] >= MAX_PROJECTILE_LIFE)
+{
+    // Remove old projectile
+    projectilesX[p] = projectilesX[projectileCount - 1];
+    projectilesY[p] = projectilesY[projectileCount - 1];
+    projectileType[p] = projectileType[projectileCount - 1];
+    projectileDirection[p] = projectileDirection[projectileCount - 1];
+    projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
+    projectileActive[p] = projectileActive[projectileCount - 1];
+    projectileOnGround[p] = projectileOnGround[projectileCount - 1];
+    projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
+    projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
+    projectileLifespan[p] = projectileLifespan[projectileCount - 1];
+    projectileCount--;
+    p--;
+    continue;
+}     
+
+            // Update animation frame
+            projectileAnimCounter[p]++;
+if (projectileAnimCounter[p] >= projectileAnimSpeed)
+{
+projectileAnimCounter[p] = 0;
+projectileAnimFrame[p]++;
+if (projectileAnimFrame[p] >= 4)
+projectileAnimFrame[p] = 0;
+}
+
+float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt;
+            
+            int projRow = (int)(projectilesY[p] + ProjectileHeight / 2) / cell_size;
+            int projColRight = (int)(newProjX + ProjectileWidth) / cell_size;
+            int projColLeft = (int)newProjX / cell_size;
+            
+            char rightWall = get_tile(lvl, projRow, projColRight, height, width);
+            char leftWall = get_tile(lvl, projRow, projColLeft, height, width);
+            
+            if (projectileDirection[p] == 1 && rightWall == '#')
+                projectileDirection[p] = -1;
+            else if (projectileDirection[p] == -1 && leftWall == '#')
+                projectileDirection[p] = 1;
+            else
+                projectilesX[p] = newProjX;
+            
+            float newProjY = projectilesY[p] + projectileVelocityY[p] * dt;
+            
+            int feetRow = (int)(newProjY + ProjectileHeight) / cell_size;
+            int feetColL = (int)projectilesX[p] / cell_size;
+            int feetColR = (int)(projectilesX[p] + ProjectileWidth) / cell_size;
+            
+            char floorL = get_tile(lvl, feetRow, feetColL, height, width);
+            char floorR = get_tile(lvl, feetRow, feetColR, height, width);
+            
+            int headRow = (int)newProjY / cell_size;
+            char ceilL = get_tile(lvl, headRow, feetColL, height, width);
+            char ceilR = get_tile(lvl, headRow, feetColR, height, width);
+            
+            bool landed = false;
+            
+            if (projectileVelocityY[p] < 0)
             {
-                bool waitingForRestart = true;
-                while (waitingForRestart && window.isOpen())
+                if (ceilL == '#' || ceilR == '#')
                 {
-                    Event gameOverEvent;
-                    while (window.pollEvent(gameOverEvent))
+                    projectileVelocityY[p] = 0;
+                    projectilesY[p] = (headRow + 1) * cell_size;
+                }
+            }
+            
+            if (projectileVelocityY[p] >= 0)
+            {
+                if (floorL == '#' || floorR == '#')
+                    landed = true;
+                else if (floorL == '-' || floorR == '-')
+                {
+                    float blockTop = feetRow * cell_size;
+                    if ((projectilesY[p] + ProjectileHeight <= blockTop + 4.0f) && (newProjY + ProjectileHeight >= blockTop))
+                        landed = true;
+                }
+            }
+            
+            if (landed)
+            {
+                projectileOnGround[p] = true;
+                projectileVelocityY[p] = 0;
+                projectilesY[p] = (feetRow * cell_size) - ProjectileHeight;
+            }
+            else
+            {
+                projectileOnGround[p] = false;
+                projectilesY[p] = newProjY;
+                projectileVelocityY[p] += gravity * dt;
+                if (projectileVelocityY[p] > terminal_Velocity)
+                    projectileVelocityY[p] = terminal_Velocity;
+            }
+            
+            bool shouldRemoveProjectile = false;
+            
+            if (projectilesX[p] < -100 || projectilesX[p] > screen_x + 100 ||
+                projectilesY[p] < -100 || projectilesY[p] > screen_y + 100)
+                shouldRemoveProjectile = true;
+            
+            int currentRow = (int)(projectilesY[p] + ProjectileHeight) / cell_size;
+            if (currentRow >= bottomFloorRow - 1)
+            {
+                if (projectilesX[p] <= bottomFloorLeftEdge || projectilesX[p] + ProjectileWidth >= bottomFloorRightEdge)
+                    shouldRemoveProjectile = true;
+            }
+            
+            if (shouldRemoveProjectile)
+            {
+                projectilesX[p] = projectilesX[projectileCount - 1];
+                projectilesY[p] = projectilesY[projectileCount - 1];
+                projectileType[p] = projectileType[projectileCount - 1];
+                projectileDirection[p] = projectileDirection[projectileCount - 1];
+                projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
+                projectileActive[p] = projectileActive[projectileCount - 1];
+                projectileOnGround[p] = projectileOnGround[projectileCount - 1];
+                projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
+                projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
+                projectileCount--;
+                p--;
+                continue;
+            }
+            
+            // Collision with ghosts
+            for (int e = 0; e < enemyCount; e++)
+            {
+                if ((projectilesX[p] < enemiesX[e] + EnemyWidth) &&
+                    (projectilesX[p] + ProjectileWidth > enemiesX[e]) &&
+                    (projectilesY[p] < enemiesY[e] + EnemyHeight) &&
+                    (projectilesY[p] + ProjectileHeight > enemiesY[e]))
+                {
+                    int defeatPoints = 50 * 2;
+                    if (enemiesY[e] < 400) playerScore += 150;
+                    addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
+                    multiKillCount++;
+                    multiKillTimer = 0.0f;
+                    
+                    enemiesX[e] = enemiesX[enemyCount - 1];
+                    enemiesY[e] = enemiesY[enemyCount - 1];
+                    enemySpeed[e] = enemySpeed[enemyCount - 1];
+                    enemyDirection[e] = enemyDirection[enemyCount - 1];
+                    platformLeftEdge[e] = platformLeftEdge[enemyCount - 1];
+                    platformRightEdge[e] = platformRightEdge[enemyCount - 1];
+                    enemyIsCaught[e] = enemyIsCaught[enemyCount - 1];
+                    enemyCount--;
+                    e--;
+                }
+            }
+            
+            // Collision with skeletons
+            for (int s = 0; s < skeletonCount; s++)
+            {
+                if ((projectilesX[p] < skeletonsX[s] + SkeletonWidth) &&
+                    (projectilesX[p] + ProjectileWidth > skeletonsX[s]) &&
+                    (projectilesY[p] < skeletonsY[s] + SkeletonHeight) &&
+                    (projectilesY[p] + ProjectileHeight > skeletonsY[s]))
+                {
+                    int defeatPoints = 75 * 2;
+                    if (!skeletonOnGround[s]) playerScore += 150;
+                    addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
+                    multiKillCount++;
+                    multiKillTimer = 0.0f;
+                    
+                    skeletonsX[s] = skeletonsX[skeletonCount - 1];
+                    skeletonsY[s] = skeletonsY[skeletonCount - 1];
+                    skeletonSpeed[s] = skeletonSpeed[skeletonCount - 1];
+                    skeletonDirection[s] = skeletonDirection[skeletonCount - 1];
+                    skeletonVelocityY[s] = skeletonVelocityY[skeletonCount - 1];
+                    skeletonOnGround[s] = skeletonOnGround[skeletonCount - 1];
+                    skeletonJumpTimer[s] = skeletonJumpTimer[skeletonCount - 1];
+                    skeletonJumpCooldown[s] = skeletonJumpCooldown[skeletonCount - 1];
+                    skeletonShouldJump[s] = skeletonShouldJump[skeletonCount - 1];
+                    skeletonStableFrames[s] = skeletonStableFrames[skeletonCount - 1];
+                    skeletonIsCaught[s] = skeletonIsCaught[skeletonCount - 1];
+                    skeletonAnimFrame[s] = skeletonAnimFrame[skeletonCount - 1];
+                    skeletonAnimCounter[s] = skeletonAnimCounter[skeletonCount - 1];
+                    skeletonCount--;
+                    s--;
+                }
+            }
+            
+            // Level 2: Collision with Invisible Man and Chelnov
+            if (currentLevel == 2)
+            {
+                for (int inv = 0; inv < invisibleCount; inv++)
+                {
+                    if ((projectilesX[p] < invisiblesX[inv] + InvisibleWidth) &&
+                        (projectilesX[p] + ProjectileWidth > invisiblesX[inv]) &&
+                        (projectilesY[p] < invisiblesY[inv] + InvisibleHeight) &&
+                        (projectilesY[p] + ProjectileHeight > invisiblesY[inv]))
                     {
-                        if (gameOverEvent.type == Event::Closed)
-                        {
-                            window.close();
-                            return 0;
-                        }
+                        int defeatPoints = 150 * 2;
+                        addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
+                        multiKillCount++;
+                        multiKillTimer = 0.0f;
+                        
+                        invisiblesX[inv] = invisiblesX[invisibleCount - 1];
+                        invisiblesY[inv] = invisiblesY[invisibleCount - 1];
+                        invisibleCount--;
+                        inv--;
+                    }
+                }
+                
+                for (int ch = 0; ch < chelnovCount; ch++)
+                {
+                    if ((projectilesX[p] < chelnovsX[ch] + ChelnovWidth) &&
+                        (projectilesX[p] + ProjectileWidth > chelnovsX[ch]) &&
+                        (projectilesY[p] < chelnovsY[ch] + ChelnovHeight) &&
+                        (projectilesY[p] + ProjectileHeight > chelnovsY[ch]))
+                    {
+                        int defeatPoints = 200 * 2;
+                        addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
+                        multiKillCount++;
+                        multiKillTimer = 0.0f;
+                        
+                        chelnovsX[ch] = chelnovsX[chelnovCount - 1];
+                        chelnovsY[ch] = chelnovsY[chelnovCount - 1];
+                        chelnovCount--;
+                        ch--;
+                    }
+                }
+            }
+        }
 
-                        if (gameOverEvent.type == Event::KeyPressed &&
-                            gameOverEvent.key.code == Keyboard::Enter)
+        // Check if level is complete
+       // Check if level is complete
+       // Check if level is complete
+bool allEnemiesDefeated = false;
+if (currentLevel == 1)
+{
+    allEnemiesDefeated = (enemyCount == 0 && skeletonCount == 0 && capturedCount == 0 && projectileCount == 0);
+}
+else if (currentLevel == 2)
+{
+    // For Level 2 with wave spawning, only complete when ALL waves are done
+    if (useWaveSpawning)
+    {
+        // Level complete only if: all waves spawned AND all enemies defeated
+        allEnemiesDefeated = (currentWave >= maxWaves && 
+                              enemyCount == 0 && skeletonCount == 0 && 
+                              invisibleCount == 0 && chelnovCount == 0 && 
+                              capturedCount == 0 && chelnovProjCount == 0 && 
+                              projectileCount == 0);
+    }
+    else
+    {
+        // Original behavior if wave spawning is disabled
+        allEnemiesDefeated = (enemyCount == 0 && skeletonCount == 0 && 
+                              invisibleCount == 0 && chelnovCount == 0 && 
+                              capturedCount == 0 && chelnovProjCount == 0 && 
+                              projectileCount == 0);
+    }
+}
+            
+            // DEBUG - Print counts every 60 frames
+        static int debugCounter = 0;
+        debugCounter++;
+        if (debugCounter >= 60)
+        {
+            debugCounter = 0;
+            cout << "Level " << currentLevel << " - Ghosts: " << enemyCount 
+                 << " Skeletons: " << skeletonCount 
+                 << " Invisible: " << invisibleCount 
+                 << " Chelnov: " << chelnovCount 
+                 << " Captured: " << capturedCount 
+                 << " ChelProj: " << chelnovProjCount 
+                 << " YourProj: " << projectileCount 
+                 << " AllDefeated: " << allEnemiesDefeated << endl;
+        }
+            
+        if (allEnemiesDefeated && !showStageClear)
+        {
+            showStageClear = true;
+            
+            if (currentLevel == 1)
+            {
+                playerScore += 1000;
+                if (levelNoDamage) playerScore += 1500;
+                if (levelTimer < 30.0f) playerScore += 2000;
+                else if (levelTimer < 45.0f) playerScore += 1000;
+                else if (levelTimer < 60.0f) playerScore += 500;
+            }
+            else if (currentLevel == 2)
+            {
+                playerScore += 2000;
+                if (levelNoDamage) playerScore += 2500;
+                if (levelTimer < 60.0f) playerScore += 3000;
+                else if (levelTimer < 90.0f) playerScore += 1500;
+                else if (levelTimer < 120.0f) playerScore += 750;
+            }
+            
+            if (speedMultiplier == 1.5f) playerScore += 500;
+            else if (vacuumPower == 1.2f) playerScore += 500;
+        }
+        
+        // Stage Clear screen
+        if (showStageClear)
+        {
+            bool waitingForNext = true;
+            while (waitingForNext && window.isOpen())
+            {
+                Event stageClearEvent;
+                while (window.pollEvent(stageClearEvent))
+                {
+                    if (stageClearEvent.type == Event::Closed)
+                    {
+                        window.close();
+                        return 0;
+                    }
+                    
+                    if (stageClearEvent.type == Event::KeyPressed &&
+                        stageClearEvent.key.code == Keyboard::Enter)
+                    {
+                        waitingForNext = false;
+                        showStageClear = false;
+                        
+                        if (currentLevel == 1)
                         {
-                            waitingForRestart = false;
-                            showGameOver = false;
-                            restartGame = true; 
-                            playagain = true;
+                            currentLevel = 2;
                             
-                            player_x = respawnX;
-                            player_y = respawnY;
+                            // MODIFIED: Enable wave spawning
+                            useWaveSpawning = true;
+                            currentWave = 0;
+                            waveTimer = 0.0f;
+                            for (int i = 0; i < 4; i++) waveSpawned[i] = false;
+                            
+                            // Generate level WITHOUT spawning all enemies
+                            generateLevel2Map(lvl, height, width, cell_size,
+                                enemiesX, enemiesY, enemySpeed, enemyDirection,
+                                platformLeftEdge, platformRightEdge, enemyCount,
+                                skeletonsX, skeletonsY, skeletonSpeed, skeletonDirection,
+                                skeletonVelocityY, skeletonOnGround, skeletonJumpTimer,
+                                skeletonJumpCooldown, skeletonShouldJump, skeletonStableFrames,
+                                skeletonAnimFrame, skeletonAnimCounter, skeletonCount,
+                                invisiblesX, invisiblesY, invisibleSpeed, invisibleDirection,
+                                invisibleVelocityY, invisibleOnGround, invisibleIsVisible,
+                                invisibleVisibilityTimer, invisibleTeleportTimer, invisibleCount,                     
+                                chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
+                                chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
+                                chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount,
+                                false); // DON'T spawn all enemies at once!
+                            
+                            MAX_CAPACITY = 5;
+                            
+                            lvlMusic.stop();
+                            lvl2Music.play();
+                            
+                            player_x = 850.0f;
+                            player_y = 450.0f;
                             velocityY = 0;
                             onGround = false;
-                            isDead = false;
-                            deadAnimFrame = 0;
-                            deadAnimCounter = 0;
-                            playerLives = 3;
-                            playerScore = 0; 
-                            comboStreak = 0; 
-                            levelTimer = 0.0f; 
+                            
                             levelNoDamage = true;
-
+                            levelTimer = 0.0f;
+                            playerLives = 3;
+                            
+                            capturedCount = 0;
+                            projectileCount = 0;
+                            for (int i = 0; i < MAX_PROJECTILES; i++)
+                                projectileActive[i] = false;
+                            
                             powerupCount = 0;
                             hasSpeedBoost = false;
                             hasRangeBoost = false;
                             hasPowerBoost = false;
                             speed = originalSpeed * speedMultiplier;
                             vacuumPower = originalVacuumPower;
-
-                            projectileCount = 0;
-                            capturedCount = 0;
-                            for (int i = 0; i < MAX_PROJECTILES; i++)
-                                projectileActive[i] = false;
-
-                            burstModeActive = false;
-                            burstFrameCounter = 0;
-                            currentLevel = 1;
-                            MAX_CAPACITY = 3;
+                            
+                           
+                            
+                            for (int i = 0; i < 3; i++)
+                            {
+                                spawnPowerup(powerupsX, powerupsY, powerupType, powerupActive, 
+                                             powerupAnimTimer, powerupCount, maxPowerups, 
+                                             lvl, width, height, cell_size);
+                            }
                         }
-
-                        if (gameOverEvent.type == Event::KeyPressed &&
-                            gameOverEvent.key.code == Keyboard::Escape)
+                        else if (currentLevel == 2)
                         {
-                            window.close();
-                            return 0;
+                            restartGame = true;
+                            playagain = true;
                         }
                     }
+                    
+                    if (stageClearEvent.type == Event::KeyPressed &&
+                        stageClearEvent.key.code == Keyboard::Escape)
+                    {
+                        window.close();
+                        return 0;
+                    }
+                }
+                
+                window.clear(Color(20, 20, 60));
+                window.draw(stageClearText);
+                
+                if (currentLevel == 1)
+                    stageBonusText.setString("Level 1 Complete!");
+                else
+                    stageBonusText.setString("Level 2 Complete! You Win!");
+                window.draw(stageBonusText);
+                
+                stageScoreText.setString("Score: " + to_string(playerScore));
+                window.draw(stageScoreText);
+                
+                if (currentLevel == 1)
+                    nextLevelText.setString("Press ENTER for Level 2");
+                else
+                    nextLevelText.setString("Press ENTER to Play Again");
+                window.draw(nextLevelText);
+                
+                window.display();
+            }
+        }
+        
+        if (restartGame) break;
 
-                    window.clear();
-                    window.draw(gameOverBGSprite); 
-                    window.draw(gameOverText);
-                    livesRemainingText.setString("You ran out of lives!");
-                    window.draw(livesRemainingText);
-                    window.draw(restartText);
-                    window.draw(escText);
-                    window.display();
+        // Game over logic
+        if (waitingToRespawn)
+        {
+            deathDelayCounter += dt;
+
+            if (deathDelayCounter >= deathDelayTime)
+            {
+                if (playerLives > 0)
+                {
+                    isDead = false;
+                    player_x = respawnX;
+                    player_y = respawnY;
+                    velocityY = 0;
+                    onGround = false;
+                    waitingToRespawn = false;
+                    deadAnimFrame = 0;
+                    deadAnimCounter = 0;
+                    deathDelayCounter = 0.0f;
+                }
+                else
+                {
+                    showGameOver = true;
+                    waitingToRespawn = false;
                 }
             }
-            
-            if (restartGame) break; 
+        }
 
-            // Rendering
-          if (currentLevel == 1)
-{
-    display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, 
-                  slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
-                  height, width, cell_size);
+        if (showGameOver)
+        {
+            bool waitingForRestart = true;
+            while (waitingForRestart && window.isOpen())
+            {
+                Event gameOverEvent;
+                while (window.pollEvent(gameOverEvent))
+                {
+                    if (gameOverEvent.type == Event::Closed)
+                    {
+                        window.close();
+                        return 0;
+                    }
+
+                    if (gameOverEvent.type == Event::KeyPressed &&
+                        gameOverEvent.key.code == Keyboard::Enter)
+                    {
+                        waitingForRestart = false;
+                        showGameOver = false;
+                        restartGame = true; 
+                        playagain = true;
+                        
+                        player_x = respawnX;
+                        player_y = respawnY;
+                        velocityY = 0;
+                        onGround = false;
+                        isDead = false;
+                        deadAnimFrame = 0;
+                        deadAnimCounter = 0;
+                        playerLives = 3;
+                        playerScore = 0; 
+                        comboStreak = 0; 
+                        levelTimer = 0.0f; 
+                        levelNoDamage = true;
+
+                        powerupCount = 0;
+                        hasSpeedBoost = false;
+                        hasRangeBoost = false;
+                        hasPowerBoost = false;
+                        speed = originalSpeed * speedMultiplier;
+                        vacuumPower = originalVacuumPower;
+
+                        projectileCount = 0;
+                        capturedCount = 0;
+                        for (int i = 0; i < MAX_PROJECTILES; i++)
+                            projectileActive[i] = false;
+
+                        burstModeActive = false;
+                        burstFrameCounter = 0;
+                        currentLevel = 1;
+                        MAX_CAPACITY = 3;
+                    }
+
+                    if (gameOverEvent.type == Event::KeyPressed &&
+                        gameOverEvent.key.code == Keyboard::Escape)
+                    {
+                        window.close();
+                        return 0;
+                    }
+                }
+
+                window.clear();
+                window.draw(gameOverBGSprite); 
+                window.draw(gameOverText);
+                livesRemainingText.setString("You ran out of lives!");
+                window.draw(livesRemainingText);
+                window.draw(restartText);
+                window.draw(escText);
+                window.display();
+            }
+        }
+        
+        if (restartGame) break; 
+
+        // Rendering
+      if (currentLevel == 1){
+display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite,
+slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
+height, width, cell_size);
 }
 else if(currentLevel == 2)
 {
-    display_level(window, lvl, bgTex2, bgSprite2, blockTexture2, blockSprite2,
-                  slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
-                  height, width, cell_size);
+display_level(window, lvl, bgTex2, bgSprite2, blockTexture2, blockSprite2,
+slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
+height, width, cell_size);
 }
 
-           
-            float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
-            float Yoffset = (64 * scale - PlayerHeight);
+float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
+        float Yoffset = (64 * scale - PlayerHeight);
 
-            PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
-            window.draw(PlayerSprite);
+        PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
+        window.draw(PlayerSprite);
 
-            // Draw vacuum
-            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
-                 player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
-                 enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1, 
-                 vacFlickerTimer, showVacSprite, dt, enemyIsCaught, true, vacuumPower,
-                 playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost); 
+        // Draw vacuum
+        handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+             player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+             enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1, 
+             vacFlickerTimer, showVacSprite, dt, enemyIsCaught, true, vacuumPower,
+             playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost); 
 
-            handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
-                 player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
-                 skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2, 
-                 vacFlickerTimer, showVacSprite, dt, skeletonIsCaught, true, vacuumPower,
-                 playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
+        handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+             player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+             skeletonsX, skeletonsY, skeletonCount, capturedEnemies, capturedCount, MAX_CAPACITY, 2, 
+             vacFlickerTimer, showVacSprite, dt, skeletonIsCaught, true, vacuumPower,
+             playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
 
-            // Collision box
-            RectangleShape collBox;
-            collBox.setSize(Vector2f(PlayerWidth, PlayerHeight));
-            collBox.setPosition(player_x, player_y);
-            collBox.setFillColor(Color::Transparent);
-            collBox.setOutlineColor(Color::Red);
-            collBox.setOutlineThickness(2);
-            window.draw(collBox);
+        // Collision box
+        RectangleShape collBox;
+        collBox.setSize(Vector2f(PlayerWidth, PlayerHeight));
+        collBox.setPosition(player_x, player_y);
+        collBox.setFillColor(Color::Transparent);
+        collBox.setOutlineColor(Color::Red);
+        collBox.setOutlineThickness(2);
+        window.draw(collBox);
 
-            // Draw ghosts
-            for (int i = 0; i < enemyCount; i++)
-            {
-                EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
-                window.draw(EnemySprite);
-            }
-
-            // Draw skeletons
-            for (int i = 0; i < skeletonCount; i++)
-            {
-                skeletonAnimCounter[i]++;
-                if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
-                {
-                    skeletonAnimCounter[i] = 0;
-                    skeletonAnimFrame[i]++;
-                    if (skeletonAnimFrame[i] >= 4)
-                        skeletonAnimFrame[i] = 0;
-                }
-
-                SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
-
-                int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
-                int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
-
-                if (skeletonDirection[i] == 1)
-                    SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                else
-                    SkeletonSprite.setTextureRect(IntRect(0, 0, texW, texH));
-
-                float skeletonScale = 2.0f;
-                float XoffsetSkeleton = (64 * skeletonScale - SkeletonWidth) / 2.0f;
-                float YoffsetSkeleton = (64 * skeletonScale - SkeletonHeight);
-
-                SkeletonSprite.setPosition(skeletonsX[i] - XoffsetSkeleton, skeletonsY[i] - YoffsetSkeleton);
-                window.draw(SkeletonSprite);
-            }
-            
-            // Draw Level 2 enemies
-            if (currentLevel == 2)
-            {
-                for (int i = 0; i < invisibleCount; i++)
-                {
-                    if (invisibleIsVisible[i])
-                    {
-                        InvisibleSprite.setPosition(invisiblesX[i], invisiblesY[i]);
-                        window.draw(InvisibleSprite);
-                    }
-                }
-                
-                for (int i = 0; i < chelnovCount; i++)
-                {
-                    ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
-                    int texW = ChelnovTexture.getSize().x;
-                    int texH = ChelnovTexture.getSize().y;
-                    if (chelnovDirection[i] == 1)
-                        ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                    else
-                        ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                    window.draw(ChelnovSprite);
-                }
-                
-                for (int i = 0; i < chelnovProjCount; i++)
-                {
-                    if (chelnovProjActive[i])
-                    {
-                        chelnovProjSprite.setPosition(chelnovProjX[i], chelnovProjY[i]);
-                        window.draw(chelnovProjSprite);
-                    }
-                }
-            }
-            
-            // Draw projectiles
-            for (int p = 0; p < projectileCount; p++)
-            {
-                if (!projectileActive[p]) continue;
-                
-                projectileAnimCounter[p]++;
-                if (projectileAnimCounter[p] >= projectileAnimSpeed)
-                {
-                    projectileAnimCounter[p] = 0;
-                    projectileAnimFrame[p]++;
-                    if (projectileAnimFrame[p] >= 4)
-                        projectileAnimFrame[p] = 0;
-                }
-                
-                int texW, texH;
-                if (projectileType[p] == 1)
-                {
-                    projectileSprite.setTexture(ghostRollTex[projectileAnimFrame[p]], true);
-                    texW = ghostRollTex[projectileAnimFrame[p]].getSize().x;
-                    texH = ghostRollTex[projectileAnimFrame[p]].getSize().y;
-                }
-                else
-                {
-                    projectileSprite.setTexture(skeletonRollTex[projectileAnimFrame[p]], true);
-                    texW = skeletonRollTex[projectileAnimFrame[p]].getSize().x;
-                    texH = skeletonRollTex[projectileAnimFrame[p]].getSize().y;
-                }
-                
-                if (projectileDirection[p] == 1)
-                    projectileSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                else
-                    projectileSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                
-                projectileSprite.setPosition(projectilesX[p], projectilesY[p]);
-                window.draw(projectileSprite);
-            }
-            
-            // Draw powerups
-            for (int i = 0; i < powerupCount; i++)
-            {
-                if (!powerupActive[i]) continue;
-                
-                float floatOffset = sin(powerupAnimTimer[i] * 3.0f) * 5.0f;
-                
-                switch(powerupType[i])
-                {
-                    case 1: powerupSprite.setTexture(speedPowerupTex); break;
-                    case 2: powerupSprite.setTexture(rangePowerupTex); break;
-                    case 3: powerupSprite.setTexture(powerPowerupTex); break;
-                    case 4: powerupSprite.setTexture(lifePowerupTex); break;
-                }
-                
-                powerupSprite.setPosition(powerupsX[i], powerupsY[i] + floatOffset);
-                window.draw(powerupSprite);
-            }
-            
-            // UI
-            Text capturedDisplay("Captured: " + to_string(capturedCount) + "/" + to_string(MAX_CAPACITY), font, 30);
-            capturedDisplay.setFillColor(Color::Green);
-            capturedDisplay.setPosition(20, 45);
-            window.draw(capturedDisplay);
-            
-            Text livesDisplay("Lives: " + to_string(playerLives), font, 40);
-            livesDisplay.setFillColor(Color::Magenta);
-            livesDisplay.setPosition(70, 0);
-            window.draw(livesDisplay);
-
-            scoreText.setString("Score: " + to_string(playerScore));
-            window.draw(scoreText);
-
-            if (comboStreak >= 3)
-            {
-                comboText.setString("COMBO x" + to_string(comboStreak) + "!");
-                window.draw(comboText);
-            }
-
-            levelText.setString("LEVEL " + to_string(currentLevel));
-            window.draw(levelText);
-
-            Text powerupStatus("", font, 25);
-            powerupStatus.setFillColor(Color::Cyan);
-            powerupStatus.setPosition(20, 80);
-
-            string activeEffects = "";
-            if (hasSpeedBoost) activeEffects += "SPEED ";
-            if (hasRangeBoost) activeEffects += "RANGE ";
-            if (hasPowerBoost) activeEffects += "POWER ";
-
-            if (activeEffects != "")
-            {
-                powerupStatus.setString("Active: " + activeEffects);
-                window.draw(powerupStatus);
-            }
-
-            Text controlsHint("E: Single Shot | R: Vacuum Burst | WASD: Aim Direction", font, 20);
-            controlsHint.setFillColor(Color(255, 255, 255, 150));
-            controlsHint.setPosition(screen_x / 2 - 250, screen_y - 30);
-            window.draw(controlsHint);
-
-            window.display();
-
-        } // End of game loop
-     
-        lvlMusic.stop();
-        lvl2Music.stop();
-        for (int i = 0; i < height; i++)
+        // Draw ghosts
+        for (int i = 0; i < enemyCount; i++)
         {
-            delete[] lvl[i];
+            EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
+            window.draw(EnemySprite);
         }
-        delete[] lvl;
+
+        // Draw skeletons
+        for (int i = 0; i < skeletonCount; i++)
+        {
+            skeletonAnimCounter[i]++;
+            if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
+            {
+                skeletonAnimCounter[i] = 0;
+                skeletonAnimFrame[i]++;
+                if (skeletonAnimFrame[i] >= 4)
+                    skeletonAnimFrame[i] = 0;
+            }
+
+            SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
+
+            int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
+            int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
+
+            if (skeletonDirection[i] == 1)
+                SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+            else
+                SkeletonSprite.setTextureRect(IntRect(0, 0, texW, texH));
+
+            float skeletonScale = 2.0f;
+            float XoffsetSkeleton = (64 * skeletonScale - SkeletonWidth) / 2.0f;
+            float YoffsetSkeleton = (64 * skeletonScale - SkeletonHeight);
+
+            SkeletonSprite.setPosition(skeletonsX[i] - XoffsetSkeleton, skeletonsY[i] - YoffsetSkeleton);
+            window.draw(SkeletonSprite);
+        }
         
-    } // End of playagain loop
+        // Draw Level 2 enemies
+        if (currentLevel == 2)
+        {
+            for (int i = 0; i < invisibleCount; i++)
+            {
+                if (invisibleIsVisible[i])
+                {
+                    InvisibleSprite.setPosition(invisiblesX[i], invisiblesY[i]);
+                    window.draw(InvisibleSprite);
+                }
+            }
+            
+            for (int i = 0; i < chelnovCount; i++)
+            {
+                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
+                int texW = ChelnovTexture.getSize().x;
+                int texH = ChelnovTexture.getSize().y;
+                if (chelnovDirection[i] == 1)
+                    ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+                else
+                    ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                window.draw(ChelnovSprite);
+            }
+            
+            for (int i = 0; i < chelnovProjCount; i++)
+            {
+                if (chelnovProjActive[i])
+                {
+                    chelnovProjSprite.setPosition(chelnovProjX[i], chelnovProjY[i]);
+                    window.draw(chelnovProjSprite);
+                }
+            }
+        }
+        
+        // Draw projectiles
+        for (int p = 0; p < projectileCount; p++)
+        {
+            if (!projectileActive[p]) continue;
+            
+            projectileAnimCounter[p]++;
+            if (projectileAnimCounter[p] >= projectileAnimSpeed)
+            {
+                projectileAnimCounter[p] = 0;
+                projectileAnimFrame[p]++;
+                if (projectileAnimFrame[p] >= 4)
+                    projectileAnimFrame[p] = 0;
+            }
+            
+            int texW, texH;
+            if (projectileType[p] == 1)
+            {
+                projectileSprite.setTexture(ghostRollTex[projectileAnimFrame[p]], true);
+                texW = ghostRollTex[projectileAnimFrame[p]].getSize().x;
+                texH = ghostRollTex[projectileAnimFrame[p]].getSize().y;
+            }
+            else
+            {
+                projectileSprite.setTexture(skeletonRollTex[projectileAnimFrame[p]], true);
+                texW = skeletonRollTex[projectileAnimFrame[p]].getSize().x;
+                texH = skeletonRollTex[projectileAnimFrame[p]].getSize().y;
+            }
+            
+            if (projectileDirection[p] == 1)
+                projectileSprite.setTextureRect(IntRect(0, 0, texW, texH));
+            else
+                projectileSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+            
+            projectileSprite.setPosition(projectilesX[p], projectilesY[p]);
+            window.draw(projectileSprite);
+        }
+        
+        // Draw powerups
+        for (int i = 0; i < powerupCount; i++)
+        {
+            if (!powerupActive[i]) continue;
+            
+            float floatOffset = sin(powerupAnimTimer[i] * 3.0f) * 5.0f;
+            
+            switch(powerupType[i])
+            {
+                case 1: powerupSprite.setTexture(speedPowerupTex); break;
+                case 2: powerupSprite.setTexture(rangePowerupTex); break;
+                case 3: powerupSprite.setTexture(powerPowerupTex); break;
+                case 4: powerupSprite.setTexture(lifePowerupTex); break;
+            }
+            
+            powerupSprite.setPosition(powerupsX[i], powerupsY[i] + floatOffset);
+            window.draw(powerupSprite);
+        }
+        
+        // UI
+        Text capturedDisplay("Captured: " + to_string(capturedCount) + "/" + to_string(MAX_CAPACITY), font, 30);
+        capturedDisplay.setFillColor(Color::Green);
+        capturedDisplay.setPosition(20, 45);
+        window.draw(capturedDisplay);
+        
+        Text livesDisplay("Lives: " + to_string(playerLives), font, 40);
+        livesDisplay.setFillColor(Color::Magenta);
+        livesDisplay.setPosition(70, 0);
+        window.draw(livesDisplay);
+
+        scoreText.setString("Score: " + to_string(playerScore));
+        window.draw(scoreText);
+
+        if (comboStreak >= 3)
+        {
+            comboText.setString("COMBO x" + to_string(comboStreak) + "!");
+            window.draw(comboText);
+        }
+
+        levelText.setString("LEVEL " + to_string(currentLevel));
+        window.draw(levelText);
+
+        // NEW: Wave display for Level 2
+        if (currentLevel == 2 && useWaveSpawning)
+        {
+            Text waveText("Wave: " + to_string(currentWave + 1) + "/" + to_string(maxWaves), font, 35);
+            waveText.setFillColor(Color::Red);
+            waveText.setPosition(screen_x / 2 - 100, 60);
+            window.draw(waveText);
+            
+            // Show countdown between waves
+            if (currentWave < maxWaves && waveSpawned[currentWave] && 
+                enemyCount == 0 && skeletonCount == 0 && invisibleCount == 0 && chelnovCount == 0)
+            {
+                int timeUntilNext = (int)(timeBetweenWaves - waveTimer);
+                if (timeUntilNext > 0)
+                {
+                    Text nextWaveText("Next wave in: " + to_string(timeUntilNext), font, 30);
+                    nextWaveText.setFillColor(Color::Yellow);
+                    nextWaveText.setPosition(screen_x / 2 - 120, 100);
+                    window.draw(nextWaveText);
+                }
+            }
+        }
+
+        Text powerupStatus("", font, 25);
+        powerupStatus.setFillColor(Color::Cyan);
+        powerupStatus.setPosition(20, 80);
+
+        string activeEffects = "";
+        if (hasSpeedBoost) activeEffects += "SPEED ";
+        if (hasRangeBoost) activeEffects += "RANGE ";
+        if (hasPowerBoost) activeEffects += "POWER ";
+
+        if (activeEffects != "")
+        {
+            powerupStatus.setString("Active: " + activeEffects);
+            window.draw(powerupStatus);
+        }
+
+        Text controlsHint("E: Single Shot | R: Vacuum Burst | WASD: Aim Direction", font, 20);
+        controlsHint.setFillColor(Color(255, 255, 255, 150));
+        controlsHint.setPosition(screen_x / 2 - 250, screen_y - 30);
+        window.draw(controlsHint);
+
+        window.display();
+
+    } // End of game loop
+ 
+    lvlMusic.stop();
+    lvl2Music.stop();
+    for (int i = 0; i < height; i++)
+    {
+        delete[] lvl[i];
+    }
+    delete[] lvl;
     
-    return 0;
+} // End of playagain loop
+
+return 0;
 }

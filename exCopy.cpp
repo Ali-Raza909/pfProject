@@ -132,14 +132,18 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
                 blockSprite.setPosition(j * cell_size, i * cell_size);
                 window.draw(blockSprite);
             }
-            // Draw LEFT slope '/'
-            else if (lvl[i][j] == '/')
+            // Draw LEFT slope '/' or 'l' (left part of diagonal)
+            // 'l' = left/top part of diagonal tile
+            // '/' = alternative notation for down-left slope
+            else if (lvl[i][j] == '/' || lvl[i][j] == 'l')
             {
                 slopeLeftSpr.setPosition(j * cell_size, i * cell_size);
                 window.draw(slopeLeftSpr);
             }
-            // Draw RIGHT slope '\'
-            else if (lvl[i][j] == '\\')
+            // Draw RIGHT slope '\' or 'r' (right part of diagonal)
+            // 'r' = right/bottom part of diagonal tile
+            // '\' = alternative notation for down-right slope
+            else if (lvl[i][j] == '\\' || lvl[i][j] == 'r')
             {
                 slopeRightSpr.setPosition(j * cell_size, i * cell_size);
                 window.draw(slopeRightSpr);
@@ -196,8 +200,9 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
                 landed = true;
             }
         }
-        // TYPE C: Slope tiles '/' or '\' - treat as platforms
-        else if (block_left == '/' || block_right == '/' || block_left == '\\' || block_right == '\\')
+        // TYPE C: Slope tiles '/', '\', 'l', or 'r' - treat as platforms
+        else if (block_left == '/' || block_right == '/' || block_left == '\\' || block_right == '\\' ||
+                 block_left == 'l' || block_right == 'l' || block_left == 'r' || block_right == 'r')
         {
             float block_top_pixel = feet_row * cell_size;
             const float tolerance = 4.0f;
@@ -519,16 +524,240 @@ void applySliding(char **lvl, float &player_x, float player_y, int PlayerHeight,
     
     float slideSpeed = 30.0f;
     
-    // If on left slope '/', slide left
-    if (tile_left == '/' || tile_right == '/')
+    // If on left slope '/' or 'l', slide left
+    if (tile_left == '/' || tile_right == '/' || tile_left == 'l' || tile_right == 'l')
     {
         player_x -= slideSpeed * dt;
     }
-    // If on right slope '\', slide right
-    else if (tile_left == '\\' || tile_right == '\\')
+    // If on right slope '\' or 'r', slide right
+    else if (tile_left == '\\' || tile_right == '\\' || tile_left == 'r' || tile_right == 'r')
     {
         player_x += slideSpeed * dt;
     }
+}
+
+// --- LEVEL 2 RANDOMIZED SLANT PLATFORM GENERATION ---
+// This function creates:
+// 1. A diagonal slant using 'l' (left half) and 'r' (right half) tiles
+// 2. Horizontal platforms that DON'T cut through the slant
+// 
+// Tile types used:
+// 'l' = left part of diagonal (top-left corner filled)
+// 'r' = right part of diagonal (bottom-right corner filled)  
+// '-' = horizontal platform
+// '#' = solid wall/floor
+// ' ' = empty space
+
+void generateLevel2Design(char **lvl, int platHeight, int platWidth)
+{
+    // --- 1. CLEAR THE LEVEL ---
+    for (int i = 0; i < platHeight; i++)
+    {
+        for (int j = 0; j < platWidth; j++)
+        {
+            lvl[i][j] = ' ';
+        }
+    }
+    
+    // --- 2. CREATE SOLID BOUNDARIES ---
+    // Floor (row 11)
+    for (int j = 0; j < platWidth; j++)
+    {
+        lvl[11][j] = '#';
+    }
+    // Left wall (column 0)
+    for (int i = 0; i < platHeight; i++)
+    {
+        lvl[i][0] = '#';
+    }
+    // Right wall (column 18 for width=20)
+    for (int i = 0; i < platHeight; i++)
+    {
+        lvl[i][platWidth - 2] = '#';
+    }
+    
+    // --- 3. GENERATE THE SLANTED PLATFORM ---
+    int rowMinBound = 2, rowMaxBound = 4;   // Starting row range
+    int colMinBound = 3, colMaxBound = 6;   // Starting column range for down-right slant
+    
+    // Random starting position
+    int randTopRow = rowMinBound + rand() % (rowMaxBound - rowMinBound + 1);
+    int randTopCol = colMinBound + rand() % (colMaxBound - colMinBound + 1);
+    
+    // Random slant length (5 to 8 tiles)
+    int slantLength = 5 + rand() % 4;
+    
+    // Random direction: 0 = down-right (\), 1 = down-left (/)
+    int direction = rand() % 2;
+    
+    // Adjust starting column for down-left direction
+    if (direction == 1)
+    {
+        // Start from right side for down-left slant
+        randTopCol = (platWidth - 4) - rand() % 4; // columns 12-15 for width=20
+    }
+    
+    // Make sure slant stays within bounds
+    if (direction == 0) // Down-right
+    {
+        if (randTopCol + slantLength > platWidth - 3)
+            slantLength = platWidth - 3 - randTopCol;
+    }
+    else // Down-left
+    {
+        if (randTopCol - slantLength < 2)
+            slantLength = randTopCol - 2;
+    }
+    
+    // Ensure minimum length
+    if (slantLength < 4) slantLength = 4;
+    
+    // Draw the slant - each step has 'l' (left/top part) and 'r' (right/bottom part)
+    for (int step = 0; step < slantLength; step++)
+    {
+        int row = randTopRow + step;
+        int col;
+        
+        if (direction == 0) // Down-right (\)
+        {
+            col = randTopCol + step;
+            if (row < 11 && col > 0 && col < platWidth - 2)
+            {
+                lvl[row][col] = 'l';      // Left/top part of this diagonal step
+                if (row + 1 < 11)
+                    lvl[row + 1][col] = 'r';  // Right/bottom part below
+            }
+        }
+        else // Down-left (/)
+        {
+            col = randTopCol - step;
+            if (row < 11 && col > 0 && col < platWidth - 2)
+            {
+                lvl[row][col] = 'r';      // Right/top part of this diagonal step
+                if (row + 1 < 11)
+                    lvl[row + 1][col] = 'l';  // Left/bottom part below
+            }
+        }
+    }
+    
+    // --- 4. GENERATE HORIZONTAL PLATFORMS ---
+    // Only place platforms on rows that don't have slant tiles
+    // and whose row above also doesn't have slant tiles
+    
+    int minPlatformLength = 3;
+    
+    // Define platform rows (skip row 0 and 1, and row 11 which is floor)
+    int platformRows[] = {2, 4, 6, 8, 10};
+    int numPlatformRows = 5;
+    
+    for (int p = 0; p < numPlatformRows; p++)
+    {
+        int row = platformRows[p];
+        if (row <= 0 || row >= 11) continue;
+        
+        // Check if this row or the row above has ANY slant tiles
+        bool rowHasSlant = false;
+        bool aboveRowHasSlant = false;
+        
+        for (int j = 0; j < platWidth; j++)
+        {
+            if (lvl[row][j] == 'l' || lvl[row][j] == 'r')
+                rowHasSlant = true;
+            if (row > 0 && (lvl[row - 1][j] == 'l' || lvl[row - 1][j] == 'r'))
+                aboveRowHasSlant = true;
+        }
+        
+        // If row has slant, we need to place platforms only in clear areas
+        // Find continuous empty sections and place platforms there
+        
+        int sectionStart = -1;
+        for (int j = 1; j < platWidth - 2; j++)
+        {
+            bool canPlace = (lvl[row][j] == ' ');
+            
+            // Also check if slant is directly above or below (leave gap)
+            if (row > 0 && (lvl[row - 1][j] == 'l' || lvl[row - 1][j] == 'r'))
+                canPlace = false;
+            if (row < 11 && (lvl[row + 1][j] == 'l' || lvl[row + 1][j] == 'r'))
+                canPlace = false;
+            
+            if (canPlace && sectionStart == -1)
+            {
+                sectionStart = j;
+            }
+            else if (!canPlace && sectionStart != -1)
+            {
+                // End of a clear section - place platform if long enough
+                int sectionLength = j - sectionStart;
+                if (sectionLength >= minPlatformLength)
+                {
+                    // Randomize platform within this section
+                    int platStart = sectionStart + rand() % 2;
+                    int platLength = minPlatformLength + rand() % (sectionLength - minPlatformLength + 1);
+                    if (platStart + platLength > j) platLength = j - platStart;
+                    
+                    for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
+                    {
+                        if (lvl[row][k] == ' ')
+                            lvl[row][k] = '-';
+                    }
+                }
+                sectionStart = -1;
+            }
+        }
+        
+        // Handle section that goes to the end
+        if (sectionStart != -1)
+        {
+            int sectionLength = (platWidth - 2) - sectionStart;
+            if (sectionLength >= minPlatformLength)
+            {
+                int platStart = sectionStart;
+                int platLength = minPlatformLength + rand() % (sectionLength - minPlatformLength + 1);
+                
+                for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
+                {
+                    if (lvl[row][k] == ' ')
+                        lvl[row][k] = '-';
+                }
+            }
+        }
+    }
+    
+    // --- 5. ENSURE SOME GUARANTEED PLATFORMS FOR NAVIGATION ---
+    // Add platforms at edges if they're empty
+    
+    // Top-left area (row 2)
+    bool hasTopLeft = false;
+    for (int j = 1; j <= 4; j++)
+        if (lvl[2][j] == '-') hasTopLeft = true;
+    if (!hasTopLeft)
+    {
+        for (int j = 1; j <= 4; j++)
+            if (lvl[2][j] == ' ') lvl[2][j] = '-';
+    }
+    
+    // Top-right area (row 2)
+    bool hasTopRight = false;
+    for (int j = platWidth - 6; j <= platWidth - 3; j++)
+        if (lvl[2][j] == '-') hasTopRight = true;
+    if (!hasTopRight)
+    {
+        for (int j = platWidth - 6; j <= platWidth - 3; j++)
+            if (lvl[2][j] == ' ') lvl[2][j] = '-';
+    }
+    
+    // Bottom platforms (row 10)
+    for (int j = 1; j <= 5; j++)
+        if (lvl[10][j] == ' ') lvl[10][j] = '-';
+    for (int j = platWidth - 6; j <= platWidth - 3; j++)
+        if (lvl[10][j] == ' ') lvl[10][j] = '-';
+    
+    // --- 6. DEBUG OUTPUT ---
+    cout << "=== Level 2 Design Generated ===" << endl;
+    cout << "Slant direction: " << (direction == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
+    cout << "Slant start: row " << randTopRow << ", col " << randTopCol << endl;
+    cout << "Slant length: " << slantLength << " tiles" << endl;
 }
 
 // NEW FUNCTION: Spawn enemies in waves for Level 2
@@ -740,101 +969,15 @@ void generateLevel2Map(char** lvl, int height, int width, int cell_size,
                        bool* chelnovIsShooting, float* chelnovShootPhaseTimer, int& chelnovCount,
                        bool spawnAllEnemies = true) // NEW PARAMETER with default value
 {
-
-    
-    // Clear the map
-    for (int i = 0; i < height; i++)
-    {
-        for (int j = 0; j < width; j++)
-        {
-            lvl[i][j] = ' ';
-        }
-    }
-    
     // Reset enemy counts
     enemyCount = 0;
     skeletonCount = 0;
     invisibleCount = 0;
     chelnovCount = 0;
     
-    // Create floor and walls
-    for (int j = 0; j <= 18; j++)
-        lvl[11][j] = '#';
-    for (int i = 0; i <= 10; i++)
-    {
-        lvl[i][0] = '#';
-        lvl[i][18] = '#';
-    }
-    
-    // Top platforms
-    for (int j = 3; j <= 7; j++) lvl[1][j] = '-';
-    for (int j = 11; j <= 15; j++) lvl[1][j] = '-';
-    
-    // Row 3 - with randomized slopes
-    lvl[3][2] = '-';
-    lvl[3][3] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[3][4] = '-';
-    lvl[3][5] = '-';
-    lvl[3][6] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    lvl[3][12] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[3][13] = '-';
-    lvl[3][14] = '-';
-    lvl[3][15] = (rand() % 2 == 0) ? '\\' : '-';
-    lvl[3][16] = '-';
-    
-    // Row 5 - more platforms with random slopes
-    lvl[5][1] = '-';
-    lvl[5][2] = '-';
-    lvl[5][3] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    lvl[5][7] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[5][8] = '-';
-    lvl[5][9] = '-';
-    lvl[5][10] = (rand() % 2 == 0) ? '\\' : '-';
-    
-    lvl[5][14] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[5][15] = '-';
-    lvl[5][16] = '-';
-    lvl[5][17] = '-';
-    
-    // Row 7 - lower platforms with slopes
-    lvl[7][3] = (rand() % 3 == 0) ? '/' : '-';
-    lvl[7][4] = '-';
-    lvl[7][5] = '-';
-    lvl[7][6] = (rand() % 3 == 0) ? '\\' : '-';
-    
-    lvl[7][12] = (rand() % 3 == 0) ? '/' : '-';
-    lvl[7][13] = '-';
-    lvl[7][14] = '-';
-    lvl[7][15] = (rand() % 3 == 0) ? '\\' : '-';
-    
-    // Central structure
-    lvl[7][8] = '#';
-    lvl[7][9] = '#';
-    lvl[7][10] = '#';
-    lvl[6][8] = '#';
-    lvl[6][10] = '#';
-    lvl[5][8] = '#';
-    lvl[5][9] = '#';
-    lvl[5][10] = '#';
-    lvl[4][9] = '-';
-    lvl[3][8] = '#';
-    lvl[3][9] = '#';
-    lvl[3][10] = '#';
-    
-    // Row 9 - with slopes
-    lvl[9][2] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[9][3] = '-';
-    lvl[9][4] = '-';
-    lvl[9][5] = (rand() % 2 == 0) ? '\\' : '-';
-    lvl[9][6] = '-';
-    
-    lvl[9][12] = '-';
-    lvl[9][13] = (rand() % 2 == 0) ? '/' : '-';
-    lvl[9][14] = '-';
-    lvl[9][15] = '-';
-    lvl[9][16] = (rand() % 2 == 0) ? '\\' : '-';
+    // --- USE THE RANDOMIZED LEVEL DESIGN FUNCTION ---
+    // This generates walls, floor, slanted platform, and horizontal platforms
+    generateLevel2Design(lvl, height, width);
     
     // MODIFIED: Only spawn enemies if requested
     if (spawnAllEnemies)

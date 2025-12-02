@@ -2311,7 +2311,8 @@ if (projectileAnimCounter[p] >= projectileAnimSpeed)
                                     invisibleVisibilityTimer, invisibleTeleportTimer, invisibleCount,                     
                                     chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
                                     chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
-                                    chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount);                                
+                                    chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount)
+                                    ;                                
                                 
                                 MAX_CAPACITY = 5;
                                 

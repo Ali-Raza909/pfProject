@@ -118,6 +118,8 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
                    Texture &blockTexture, Sprite &blockSprite, 
                    Texture &slopeLeft, Sprite &slopeLeftSpr,
                    Texture &slopeRight, Sprite &slopeRightSpr,
+                   Texture &slopeLeftMirror, Sprite &slopeLeftMirrorSpr, 
+                   Texture &slopeRightMirror, Sprite &slopeRightMirrorSpr,
                    const int height, const int width, const int cell_size)
 {
     window.draw(bgSprite);
@@ -147,6 +149,16 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
             {
                 slopeRightSpr.setPosition(j * cell_size, i * cell_size);
                 window.draw(slopeRightSpr);
+            }
+            else if (lvl[i][j] == 'L')
+            {
+                slopeLeftMirrorSpr.setPosition(j * cell_size, i * cell_size);
+                window.draw(slopeLeftMirrorSpr);
+            }
+            else if (lvl[i][j] == 'R')
+            {
+                slopeRightMirrorSpr.setPosition(j * cell_size, i * cell_size);
+                window.draw(slopeRightMirrorSpr);
             }
         }
     }
@@ -202,7 +214,8 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
         }
         // TYPE C: Slope tiles '/', '\', 'l', or 'r' - treat as platforms
         else if (block_left == '/' || block_right == '/' || block_left == '\\' || block_right == '\\' ||
-                 block_left == 'l' || block_right == 'l' || block_left == 'r' || block_right == 'r')
+         block_left == 'l' || block_right == 'l' || block_left == 'r' || block_right == 'r' ||
+         block_left == 'L' || block_right == 'L' || block_left == 'R' || block_right == 'R')
         {
             float block_top_pixel = feet_row * cell_size;
             const float tolerance = 4.0f;
@@ -511,7 +524,9 @@ int beamThick = 30 * vacuumPower * rangeMultiplier;
 }
 
 // Function to apply sliding on slopes (Level 2 feature)
-void applySliding(char **lvl, float &player_x, float player_y, int PlayerHeight, int PlayerWidth, int cell_size, int height, int width, float dt, bool onGround)
+// Function to apply diagonal sliding on slopes (Level 2 feature)
+void applySliding(char **lvl, float &player_x, float &player_y, int PlayerHeight, int PlayerWidth, 
+                  int cell_size, int height, int width, float dt, bool &onGround, float &velocityY)
 {
     if (!onGround) return;
     
@@ -522,17 +537,50 @@ void applySliding(char **lvl, float &player_x, float player_y, int PlayerHeight,
     char tile_left = get_tile(lvl, feet_row, feet_col_left, height, width);
     char tile_right = get_tile(lvl, feet_row, feet_col_right, height, width);
     
-    float slideSpeed = 30.0f;
+    float slideSpeedX = 80.0f;  // Horizontal slide speed
+    float slideSpeedY = 80.0f;  // Vertical slide speed (going down)
     
-    // If on left slope '/' or 'l', slide left
-    if (tile_left == '/' || tile_right == '/' || tile_left == 'l' || tile_right == 'l')
+    bool onSlope = false;
+    int slideDirectionX = 0;  // -1 = left, 1 = right
+    
+    // Down-right slope (\) using 'l' and 'r' - slide right and down
+    if (tile_left == 'l' || tile_right == 'l' || tile_left == 'r' || tile_right == 'r')
     {
-        player_x -= slideSpeed * dt;
+        onSlope = true;
+        slideDirectionX = 1;  // Slide right
     }
-    // If on right slope '\' or 'r', slide right
-    else if (tile_left == '\\' || tile_right == '\\' || tile_left == 'r' || tile_right == 'r')
+    // Down-left slope (/) using 'L' and 'R' - slide left and down
+    else if (tile_left == 'L' || tile_right == 'L' || tile_left == 'R' || tile_right == 'R')
     {
-        player_x += slideSpeed * dt;
+        onSlope = true;
+        slideDirectionX = -1;  // Slide left
+    }
+    
+    if (onSlope)
+    {
+        // Move horizontally
+        player_x += slideSpeedX * slideDirectionX * dt;
+        
+        // Move down the slope (add to Y position)
+        float newY = player_y + slideSpeedY * dt;
+        
+        // Check if we can move down (not hitting floor)
+        int new_feet_row = (int)(newY + PlayerHeight) / cell_size;
+        char below_left = get_tile(lvl, new_feet_row, (int)player_x / cell_size, height, width);
+        char below_right = get_tile(lvl, new_feet_row, (int)(player_x + PlayerWidth) / cell_size, height, width);
+        
+        // Only slide down if not hitting solid floor
+        if (below_left != '#' && below_right != '#')
+        {
+            player_y = newY;
+            
+            // Keep player "attached" to slope by giving small downward velocity
+            // This prevents floating
+            if (velocityY < slideSpeedY)
+            {
+                velocityY = slideSpeedY * 0.5f;
+            }
+        }
     }
 }
 
@@ -586,7 +634,7 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
     int randTopCol = colMinBound + rand() % (colMaxBound - colMinBound + 1);
 
     int slantLength = 5 + rand() % 4;
-    int direction = rand() % 2;
+    int direction = rand() % 2;  
 
     if (direction == 1)
     {
@@ -627,16 +675,16 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
             col = randTopCol - step;
             if (row < 11 && col > 0 && col < platWidth - 2)
             {
-                lvl[row][col] = 'r';
+                lvl[row][col] = 'L';
                 if (row + 1 < 11)
-                    lvl[row + 1][col] = 'l';
+                    lvl[row + 1][col] = 'R';
             }
         }
     }
 
     // --- 4. GENERATE HORIZONTAL PLATFORMS ---
     int minPlatformLength = 3;
-    int platformRows[] = {2, 4, 6, 8, 10};
+    int platformRows[] = {2, 4, 6,8, 9};       //10->9
     int numPlatformRows = 5;
 
     for (int p = 0; p < numPlatformRows; p++)
@@ -704,47 +752,50 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
 
                 for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
                 {
-                    if (lvl[row - 1][k] == ' ' && row != 10)
+                    if (lvl[row - 1][k] == ' ' && row != 9)
                         lvl[row - 1][k] = '-';
-                    else if (row == 10 && lvl[row][k] == ' ')
+                    else if (row == 9 && lvl[row][k] == ' ')
                         lvl[row][k] = '-';
                 }
             }
         }
     }
 
-    // --- 5. ENSURE GUARANTEED PLATFORMS ---
-    bool hasTopLeft = false;
-    for (int j = 1; j <= 4; j++)
-        if (lvl[2][j] == '-')
-            hasTopLeft = true;
+    // --- 5. ENSURE GUARANTEED PLATFORMS (WITH GAPS) ---
+bool hasTopLeft = false;
+for (int j = 1; j <= 4; j++)
+    if (lvl[2][j] == '-')
+        hasTopLeft = true;
 
-    if (!hasTopLeft)
-    {
-        for (int j = 1; j <= 4; j++)
-            if (lvl[1][j] == ' ')
-                lvl[1][j] = '-';
-    }
+if (!hasTopLeft)
+{
+    // Create platform with a gap (only columns 1-2, leave 3-4 empty)
+    for (int j = 1; j <= 2; j++)
+        if (lvl[1][j] == ' ')
+            lvl[1][j] = '-';
+}
 
-    bool hasTopRight = false;
-    for (int j = platWidth - 6; j <= platWidth - 3; j++)
-        if (lvl[2][j] == '-')
-            hasTopRight = true;
+bool hasTopRight = false;
+for (int j = platWidth - 6; j <= platWidth - 3; j++)
+    if (lvl[2][j] == '-')
+        hasTopRight = true;
 
-    if (!hasTopRight)
-    {
-        for (int j = platWidth - 6; j <= platWidth - 3; j++)
-            if (lvl[1][j] == ' ')
-                lvl[1][j] = '-';
-    }
+if (!hasTopRight)
+{
+    // Create platform with a gap (only last 2 columns, leave others empty)
+    for (int j = platWidth - 4; j <= platWidth - 3; j++)
+        if (lvl[1][j] == ' ')
+            lvl[1][j] = '-';
+}
 
-    for (int j = 1; j <= 5; j++)
-        if (lvl[10][j] == ' ')
-            lvl[10][j] = '-';
+// Bottom platforms with gaps
+for (int j = 1; j <= 3; j++)  // Reduced from 5 to 3
+    if (lvl[9][j] == ' ')
+        lvl[9][j] = '-';
 
-    for (int j = platWidth - 6; j <= platWidth - 3; j++)
-        if (lvl[10][j] == ' ')
-            lvl[10][j] = '-';
+for (int j = platWidth - 5; j <= platWidth - 3; j++)  // Reduced range
+    if (lvl[9][j] == ' ')
+        lvl[9][j] = '-';
 
     // --- 6. DEBUG OUTPUT ---
     cout << "=== Level 2 Design Generated ===" << endl;
@@ -1388,6 +1439,19 @@ if (!slopeRightTexture.loadFromFile("Data/blocks/slopeleft.png"))
 
 slopeLeftSprite.setTexture(slopeLeftTexture);
 slopeRightSprite.setTexture(slopeRightTexture);
+
+// for down left slope load new sprites
+
+Texture slopeLeftMirrorTexture, slopeRightMirrorTexture;
+Sprite slopeLeftMirrorSprite, slopeRightMirrorSprite;
+
+if (!slopeLeftMirrorTexture.loadFromFile("Data/blocks/slopeleft1.png"))
+    cout << "slopeleft_mirror.png missing!\n";
+if (!slopeRightMirrorTexture.loadFromFile("Data/blocks/sloperight1.png"))
+    cout << "sloperight_mirror.png missing!\n";
+
+slopeLeftMirrorSprite.setTexture(slopeLeftMirrorTexture);
+slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
 
         Music lvlMusic;
         lvlMusic.openFromFile("Data/mus.ogg");
@@ -2093,10 +2157,11 @@ isMoving = 0;
         player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
         
         // Apply sliding on slopes (Level 2)
-        if (currentLevel == 2)
-        {
-            applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround);
-        }
+        // Apply sliding on slopes (Level 2)
+if (currentLevel == 2)
+{
+    applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround, velocityY);
+}
 
         // Ghost enemy loop
         for (int i = 0; i < enemyCount; i++)
@@ -2912,13 +2977,13 @@ else if (currentLevel == 2)
         // Rendering
       if (currentLevel == 1){
 display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite,
-slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
+slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,slopeLeftMirrorTexture, slopeLeftMirrorSprite, slopeRightMirrorTexture, slopeRightMirrorSprite,
 height, width, cell_size);
 }
 else if(currentLevel == 2)
 {
 display_level(window, lvl, bgTex2, bgSprite2, blockTexture2, blockSprite2,
-slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
+slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,slopeLeftMirrorTexture, slopeLeftMirrorSprite, slopeRightMirrorTexture, slopeRightMirrorSprite,
 height, width, cell_size);
 }
 

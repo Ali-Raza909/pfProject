@@ -118,6 +118,8 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
                    Texture &blockTexture, Sprite &blockSprite, 
                    Texture &slopeLeft, Sprite &slopeLeftSpr,
                    Texture &slopeRight, Sprite &slopeRightSpr,
+                   Texture &slopeLeftMirror, Sprite &slopeLeftMirrorSpr, 
+                   Texture &slopeRightMirror, Sprite &slopeRightMirrorSpr,
                    const int height, const int width, const int cell_size)
 {
     window.draw(bgSprite);
@@ -132,17 +134,31 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
                 blockSprite.setPosition(j * cell_size, i * cell_size);
                 window.draw(blockSprite);
             }
-            // Draw LEFT slope '/'
-            else if (lvl[i][j] == '/')
+            // Draw LEFT slope '/' or 'l' (left part of diagonal)
+            // 'l' = left/top part of diagonal tile
+            // '/' = alternative notation for down-left slope
+            else if (lvl[i][j] == '/' || lvl[i][j] == 'l')
             {
                 slopeLeftSpr.setPosition(j * cell_size, i * cell_size);
                 window.draw(slopeLeftSpr);
             }
-            // Draw RIGHT slope '\'
-            else if (lvl[i][j] == '\\')
+            // Draw RIGHT slope '\' or 'r' (right part of diagonal)
+            // 'r' = right/bottom part of diagonal tile
+            // '\' = alternative notation for down-right slope
+            else if (lvl[i][j] == '\\' || lvl[i][j] == 'r')
             {
                 slopeRightSpr.setPosition(j * cell_size, i * cell_size);
                 window.draw(slopeRightSpr);
+            }
+            else if (lvl[i][j] == 'L')
+            {
+                slopeLeftMirrorSpr.setPosition(j * cell_size, i * cell_size);
+                window.draw(slopeLeftMirrorSpr);
+            }
+            else if (lvl[i][j] == 'R')
+            {
+                slopeRightMirrorSpr.setPosition(j * cell_size, i * cell_size);
+                window.draw(slopeRightMirrorSpr);
             }
         }
     }
@@ -196,8 +212,10 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
                 landed = true;
             }
         }
-        // TYPE C: Slope tiles '/' or '\' - treat as platforms
-        else if (block_left == '/' || block_right == '/' || block_left == '\\' || block_right == '\\')
+        // TYPE C: Slope tiles '/', '\', 'l', or 'r' - treat as platforms
+        else if (block_left == '/' || block_right == '/' || block_left == '\\' || block_right == '\\' ||
+         block_left == 'l' || block_right == 'l' || block_left == 'r' || block_right == 'r' ||
+         block_left == 'L' || block_right == 'L' || block_left == 'R' || block_right == 'R')
         {
             float block_top_pixel = feet_row * cell_size;
             const float tolerance = 4.0f;
@@ -506,7 +524,9 @@ int beamThick = 30 * vacuumPower * rangeMultiplier;
 }
 
 // Function to apply sliding on slopes (Level 2 feature)
-void applySliding(char **lvl, float &player_x, float player_y, int PlayerHeight, int PlayerWidth, int cell_size, int height, int width, float dt, bool onGround)
+// Function to apply diagonal sliding on slopes (Level 2 feature)
+void applySliding(char **lvl, float &player_x, float &player_y, int PlayerHeight, int PlayerWidth, 
+                  int cell_size, int height, int width, float dt, bool &onGround, float &velocityY)
 {
     if (!onGround) return;
     
@@ -517,281 +537,300 @@ void applySliding(char **lvl, float &player_x, float player_y, int PlayerHeight,
     char tile_left = get_tile(lvl, feet_row, feet_col_left, height, width);
     char tile_right = get_tile(lvl, feet_row, feet_col_right, height, width);
     
-    float slideSpeed = 30.0f;
+    float slideSpeedX = 80.0f;  // Horizontal slide speed
+    float slideSpeedY = 80.0f;  // Vertical slide speed (going down)
     
-    // If on left slope '/', slide left
-    if (tile_left == '/' || tile_right == '/')
+    bool onSlope = false;
+    int slideDirectionX = 0;  // -1 = left, 1 = right
+    
+    // Down-right slope (\) using 'l' and 'r' - slide right and down
+    if (tile_left == 'l' || tile_right == 'l' || tile_left == 'r' || tile_right == 'r')
     {
-        player_x -= slideSpeed * dt;
+        onSlope = true;
+        slideDirectionX = 1;  // Slide right
     }
-    // If on right slope '\', slide right
-    else if (tile_left == '\\' || tile_right == '\\')
+    // Down-left slope (/) using 'L' and 'R' - slide left and down
+    else if (tile_left == 'L' || tile_right == 'L' || tile_left == 'R' || tile_right == 'R')
     {
-        player_x += slideSpeed * dt;
+        onSlope = true;
+        slideDirectionX = -1;  // Slide left
+    }
+    
+    if (onSlope)
+    {
+        // Move horizontally
+        player_x += slideSpeedX * slideDirectionX * dt;
+        
+        // Move down the slope (add to Y position)
+        float newY = player_y + slideSpeedY * dt;
+        
+        // Check if we can move down (not hitting floor)
+        int new_feet_row = (int)(newY + PlayerHeight) / cell_size;
+        char below_left = get_tile(lvl, new_feet_row, (int)player_x / cell_size, height, width);
+        char below_right = get_tile(lvl, new_feet_row, (int)(player_x + PlayerWidth) / cell_size, height, width);
+        
+        // Only slide down if not hitting solid floor
+        if (below_left != '#' && below_right != '#')
+        {
+            player_y = newY;
+            
+            // Keep player "attached" to slope by giving small downward velocity
+            // This prevents floating
+            if (velocityY < slideSpeedY)
+            {
+                velocityY = slideSpeedY * 0.5f;
+            }
+        }
     }
 }
 
-// --- LEVEL 2 RANDOMIZED DESIGN GENERATION ---
-// This function generates ONLY the level layout (walls, platforms, slants)
-// Enemy spawning is handled separately
-// Tile types:
-// '#' = solid wall/floor (cannot pass through)
-// '-' = horizontal platform (can jump through from below)
-// '/' = slant going down-left (top-right to bottom-left) - player slides left
-// '\' = slant going down-right (top-left to bottom-right) - player slides right
+// --- LEVEL 2 RANDOMIZED SLANT PLATFORM GENERATION ---
+// This function creates:
+// 1. A diagonal slant using 'l' (left half) and 'r' (right half) tiles
+// 2. Horizontal platforms that DON'T cut through the slant
+// 
+// Tile types used:
+// 'l' = left part of diagonal (top-left corner filled)
+// 'r' = right part of diagonal (bottom-right corner filled)  
+// '-' = horizontal platform
+// '#' = solid wall/floor
 // ' ' = empty space
 
-void generateLevel2Design(char **lvl, int height, int width)
+void generateLevel2Design(char **lvl, int platHeight, int platWidth)
 {
-    // Clear the level first
-    for (int i = 0; i < height; i++)
+    // --- 1. CLEAR THE LEVEL ---
+    for (int i = 0; i < platHeight; i++)
     {
-        for (int j = 0; j < width; j++)
+        for (int j = 0; j < platWidth; j++)
         {
             lvl[i][j] = ' ';
         }
     }
-    
-    // --- 1. CREATE SOLID BOUNDARIES (WALLS AND FLOOR) ---
-    // Floor (row 11 - bottom solid floor)
-    for (int j = 0; j < width; j++)
+
+    // --- 2. CREATE SOLID BOUNDARIES ---
+    // Floor (row 11)
+    for (int j = 0; j < platWidth; j++)
     {
         lvl[11][j] = '#';
     }
-    
+
     // Left wall (column 0)
-    for (int i = 0; i < height; i++)
+    for (int i = 0; i < platHeight; i++)
     {
         lvl[i][0] = '#';
     }
-    
-    // Right wall (column width-2, which is 18 for width=20)
-    for (int i = 0; i < height; i++)
+
+    // Right wall (column 18 for width=20)
+    for (int i = 0; i < platHeight; i++)
     {
-        lvl[i][width - 2] = '#';
+        lvl[i][platWidth - 2] = '#';
     }
+
+    // --- 3. GENERATE THE SLANTED PLATFORM ---
+    // Random direction: 0 = down-right (\), 1 = down-left (/)
+    int direction = rand() % 2;
     
-    // --- 2. GENERATE THE SLANTED PLATFORM ---
-    // Random direction: 0 = top-left to bottom-right (\), 1 = top-right to bottom-left (/)
-    int slantDirection = rand() % 2;
+    // Slant length between 5 and 10 blocks
+    int slantLength = 5 + rand() % 6;
     
-    // Random starting row (between row 2 and row 4)
-    int slantStartRow = 2 + rand() % 3;
+    int randTopRow, randTopCol;
     
-    // Random slant length (5 to 7 tiles diagonally)
-    int slantLength = 5 + rand() % 3;
-    
-    // Determine starting column based on direction
-    // Must leave at least 2 blocks on each side for player navigation
-    int slantStartCol;
-    
-    if (slantDirection == 0) // Going down-right (\)
+    if (direction == 0) // Down-right: start from TOP-LEFT 6x6 square
     {
-        // Start from left side, columns 2-5
-        slantStartCol = 2 + rand() % 4;
+        // Top-left square: rows 1-6, columns 1-6
+        randTopRow = 1 + rand() % 4;  // rows 1-4 (leave room for slant to go down)
+        randTopCol = 1 + rand() % 4;  // columns 1-4
         
-        // Make sure slant doesn't exceed right boundary (leave 2 blocks)
-        if (slantStartCol + slantLength > width - 4)
-        {
-            slantLength = width - 4 - slantStartCol;
-        }
+        // Make sure slant doesn't go off screen
+        if (randTopRow + slantLength > 10) 
+            slantLength = 10 - randTopRow;
+        if (randTopCol + slantLength > platWidth - 3)
+            slantLength = platWidth - 3 - randTopCol;
     }
-    else // Going down-left (/)
+    else // Down-left: start from TOP-RIGHT 6x6 square
     {
-        // Start from right side, columns 12-15 (for width=20)
-        slantStartCol = (width - 6) - rand() % 4;
+        // Top-right square: rows 1-6, columns (width-7) to (width-2)
+        randTopRow = 1 + rand() % 4;  // rows 1-4
+        randTopCol = (platWidth - 6) + rand() % 4;  // columns 12-15 for width=20
         
-        // Make sure slant doesn't exceed left boundary (leave 2 blocks)
-        if (slantStartCol - slantLength < 2)
-        {
-            slantLength = slantStartCol - 2;
-        }
+        // Make sure slant doesn't go off screen
+        if (randTopRow + slantLength > 10)
+            slantLength = 10 - randTopRow;
+        if (randTopCol - slantLength < 2)
+            slantLength = randTopCol - 2;
     }
-    
+
     // Ensure minimum slant length
-    if (slantLength < 4) slantLength = 4;
+    if (slantLength < 5) slantLength = 5;
     
-    // Draw the slanted platform
-    for (int i = 0; i < slantLength; i++)
+    // Track slant positions for platform avoidance
+    bool slantOccupied[14][20] = {false};
+
+    // Draw the slant tiles
+    for (int step = 0; step < slantLength; step++)
     {
-        int row = slantStartRow + i;
+        int row = randTopRow + step;
         int col;
+
+        if (direction == 0) // Down-right
+        {
+            col = randTopCol + step;
+            if (row < 11 && col > 0 && col < platWidth - 2)
+            {
+                lvl[row][col] = 'l';
+                slantOccupied[row][col] = true;
+                if (row + 1 < 11)
+                {
+                    lvl[row + 1][col] = 'r';
+                    slantOccupied[row + 1][col] = true;
+                }
+            }
+        }
+        else // Down-left
+        {
+            col = randTopCol - step;
+            if (row < 11 && col > 0 && col < platWidth - 2)
+            {
+                lvl[row][col] = 'L';
+                slantOccupied[row][col] = true;
+                if (row + 1 < 11)
+                {
+                    lvl[row + 1][col] = 'R';
+                    slantOccupied[row + 1][col] = true;
+                }
+            }
+        }
+    }
+    
+    // --- 4. ADD PLATFORM CONNECTING SLANT TOP TO WALL ---
+    // Platform at the same row as slant start, going back to the wall
+    if (direction == 0) // Down-right: platform goes LEFT from slant top to wall
+    {
+        for (int j = 1; j < randTopCol; j++)
+        {
+            if (lvl[randTopRow][j] == ' ')
+                lvl[randTopRow][j] = '-';
+        }
+    }
+    else // Down-left: platform goes RIGHT from slant top to wall
+    {
+        for (int j = randTopCol + 1; j < platWidth - 2; j++)
+        {
+            if (lvl[randTopRow][j] == ' ')
+                lvl[randTopRow][j] = '-';
+        }
+    }
+
+    // --- 5. GENERATE HORIZONTAL PLATFORMS ---
+    // Platform rows with AT LEAST 3 rows gap between them (player height ~1.5 blocks)
+    // Row 11 is floor, so valid platform rows: 3, 6, 9 (3 rows apart = 2 empty rows between)
+    int platformRows[] = {3, 6, 9};
+    int numPlatformRows = 3;
+    
+    // Max platform length: 4-6 blocks
+    int minPlatLength = 3;
+    int maxPlatLength = 5;
+
+    for (int p = 0; p < numPlatformRows; p++)
+    {
+        int row = platformRows[p];
         
-        if (slantDirection == 0) // Down-right (\)
+        // Skip if too close to slant start row
+        if (abs(row - randTopRow) < 2) continue;
+        
+        // Check for slant tiles in this row and adjacent rows
+        // Need 3 rows clear above the platform for player movement
+        
+        // LEFT SIDE PLATFORM (columns 1-8)
+        bool leftClear = true;
+        for (int checkRow = row - 2; checkRow <= row + 1; checkRow++)
         {
-            col = slantStartCol + i;
-            if (row < 11 && col > 0 && col < width - 2)
+            if (checkRow < 0 || checkRow >= 12) continue;
+            for (int j = 1; j <= 8; j++)
             {
-                lvl[row][col] = '\\';
+                if (slantOccupied[checkRow][j]) leftClear = false;
             }
         }
-        else // Down-left (/)
+        
+        if (leftClear)
         {
-            col = slantStartCol - i;
-            if (row < 11 && col > 0 && col < width - 2)
+            // Find a clear section for platform
+            int platStart = 1 + rand() % 2;
+            int platLength = minPlatLength + rand() % (maxPlatLength - minPlatLength + 1);
+            
+            for (int j = platStart; j < platStart + platLength && j <= 6; j++)
             {
-                lvl[row][col] = '/';
+                if (lvl[row][j] == ' ' && !slantOccupied[row][j])
+                    lvl[row][j] = '-';
+            }
+        }
+        
+        // RIGHT SIDE PLATFORM (columns 10-17)
+        bool rightClear = true;
+        for (int checkRow = row - 2; checkRow <= row + 1; checkRow++)
+        {
+            if (checkRow < 0 || checkRow >= 12) continue;
+            for (int j = 10; j <= platWidth - 3; j++)
+            {
+                if (slantOccupied[checkRow][j]) rightClear = false;
+            }
+        }
+        
+        if (rightClear)
+        {
+            int platStart = 11 + rand() % 2;
+            int platLength = minPlatLength + rand() % (maxPlatLength - minPlatLength + 1);
+            
+            for (int j = platStart; j < platStart + platLength && j <= platWidth - 3; j++)
+            {
+                if (lvl[row][j] == ' ' && !slantOccupied[row][j])
+                    lvl[row][j] = '-';
             }
         }
     }
     
-    // --- 3. GENERATE HORIZONTAL PLATFORMS ---
-    // These platforms should NOT overlap with the slant
-    // Create platforms at different heights
-    
-    // Helper lambda-style check: is this position part of the slant?
-    // We'll check manually in the loops below
-    
-    // Platform configuration: row, startCol, length
-    // We'll generate some fixed positions and some random ones
-    
-    // Top area platforms (rows 2-3)
-    // Left side platform
-    int topLeftStart = 1;
-    int topLeftEnd = 5 + rand() % 2; // 5-6 tiles
-    for (int j = topLeftStart; j <= topLeftEnd && j < width - 2; j++)
-    {
-        if (lvl[2][j] == ' ') // Only place if not slant
-        {
-            lvl[2][j] = '-';
-        }
-    }
-    
-    // Right side platform
-    int topRightEnd = width - 3;
-    int topRightStart = topRightEnd - (4 + rand() % 2); // 4-5 tiles
-    for (int j = topRightStart; j <= topRightEnd; j++)
-    {
-        if (lvl[2][j] == ' ')
-        {
-            lvl[2][j] = '-';
-        }
-    }
-    
-    // Middle-upper platforms (rows 4-5)
-    // Small platform on left
-    int midUpLeftStart = 1 + rand() % 2;
-    int midUpLeftEnd = midUpLeftStart + 3 + rand() % 2;
-    for (int j = midUpLeftStart; j <= midUpLeftEnd && j < width - 2; j++)
-    {
-        if (lvl[4][j] == ' ')
-        {
-            lvl[4][j] = '-';
-        }
-    }
-    
-    // Small platform on right
-    int midUpRightEnd = width - 3 - rand() % 2;
-    int midUpRightStart = midUpRightEnd - (3 + rand() % 2);
-    for (int j = midUpRightStart; j <= midUpRightEnd; j++)
-    {
-        if (lvl[4][j] == ' ')
-        {
-            lvl[4][j] = '-';
-        }
-    }
-    
-    // Middle platforms (rows 6-7)
-    // Platform on left side
-    int midLeftStart = 1;
-    int midLeftEnd = 4 + rand() % 3;
-    for (int j = midLeftStart; j <= midLeftEnd && j < width - 2; j++)
-    {
-        if (lvl[6][j] == ' ')
-        {
-            lvl[6][j] = '-';
-        }
-    }
-    
-    // Platform on right side  
-    int midRightEnd = width - 3;
-    int midRightStart = midRightEnd - (3 + rand() % 3);
-    for (int j = midRightStart; j <= midRightEnd; j++)
-    {
-        if (lvl[6][j] == ' ')
-        {
-            lvl[6][j] = '-';
-        }
-    }
-    
-    // Lower-middle platforms (row 8)
-    // Small scattered platforms
-    int lowMidStart1 = 2 + rand() % 3;
-    int lowMidEnd1 = lowMidStart1 + 2 + rand() % 2;
-    for (int j = lowMidStart1; j <= lowMidEnd1 && j < width - 2; j++)
-    {
-        if (lvl[8][j] == ' ')
-        {
-            lvl[8][j] = '-';
-        }
-    }
-    
-    int lowMidStart2 = width - 6 - rand() % 3;
-    int lowMidEnd2 = lowMidStart2 + 2 + rand() % 2;
-    for (int j = lowMidStart2; j <= lowMidEnd2 && j < width - 2; j++)
-    {
-        if (lvl[8][j] == ' ')
-        {
-            lvl[8][j] = '-';
-        }
-    }
-    
-    // Lower platforms (row 10) - just above floor
-    // Wide platforms for easier navigation at bottom
-    int lowLeftStart = 1;
-    int lowLeftEnd = 6 + rand() % 2;
-    for (int j = lowLeftStart; j <= lowLeftEnd && j < width - 2; j++)
-    {
-        if (lvl[10][j] == ' ')
-        {
-            lvl[10][j] = '-';
-        }
-    }
-    
-    int lowRightEnd = width - 3;
-    int lowRightStart = lowRightEnd - (5 + rand() % 2);
-    for (int j = lowRightStart; j <= lowRightEnd; j++)
-    {
-        if (lvl[10][j] == ' ')
-        {
-            lvl[10][j] = '-';
-        }
-    }
-    
-    // --- 4. ADD A MIDDLE CONNECTING PLATFORM ---
-    // To ensure players can traverse the level, add a platform in the middle area
-    // This should be placed where the slant ISN'T
+    // --- 6. ADD CONNECTING/MIDDLE PLATFORMS FOR NAVIGATION ---
+    // Add a middle platform to help player traverse between sides
+    // Place it opposite to where the slant is
     int middleRow = 5;
-    int middlePlatformStart, middlePlatformEnd;
-    
-    if (slantDirection == 0) // Slant goes down-right, so middle platform on right side
+    if (direction == 0) // Slant on left side, add platform on right-center
     {
-        middlePlatformStart = width / 2 + 2;
-        middlePlatformEnd = middlePlatformStart + 3;
-    }
-    else // Slant goes down-left, so middle platform on left side
-    {
-        middlePlatformEnd = width / 2 - 2;
-        middlePlatformStart = middlePlatformEnd - 3;
-    }
-    
-    for (int j = middlePlatformStart; j <= middlePlatformEnd && j > 0 && j < width - 2; j++)
-    {
-        if (lvl[middleRow][j] == ' ')
+        for (int j = 8; j <= 11; j++)
         {
-            lvl[middleRow][j] = '-';
+            if (lvl[middleRow][j] == ' ' && !slantOccupied[middleRow][j])
+                lvl[middleRow][j] = '-';
+        }
+    }
+    else // Slant on right side, add platform on left-center
+    {
+        for (int j = 6; j <= 9; j++)
+        {
+            if (lvl[middleRow][j] == ' ' && !slantOccupied[middleRow][j])
+                lvl[middleRow][j] = '-';
         }
     }
     
-    // --- 5. OUTPUT DEBUG INFO ---
-    cout << "=== Level 2 Generated ===" << endl;
-    cout << "Slant direction: " << (slantDirection == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
-    cout << "Slant start: row " << slantStartRow << ", col " << slantStartCol << endl;
+    // --- 7. ENSURE NO PLATFORMS ON ROW 10 (too close to ground) ---
+    // Row 10 would create only 1 block gap to floor at row 11
+    for (int j = 0; j < platWidth; j++)
+    {
+        if (lvl[10][j] == '-')
+            lvl[10][j] = ' ';
+    }
+
+    // --- 8. DEBUG OUTPUT ---
+    cout << "=== Level 2 Design Generated ===" << endl;
+    cout << "Slant direction: " << (direction == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
+    cout << "Slant start: row " << randTopRow << ", col " << randTopCol << endl;
     cout << "Slant length: " << slantLength << " tiles" << endl;
+    cout << "Platform connecting to wall at row " << randTopRow << endl;
 }
 
+
+
+
 // NEW FUNCTION: Spawn enemies in waves for Level 2
-// NEW FUNCTION: Spawn enemies in waves for Level 2
+
 void spawnWave(int waveNumber, int cell_size,
                float* enemiesX, float* enemiesY, float* enemySpeed, int* enemyDirection,
                float* platformLeftEdge, float* platformRightEdge, int& enemyCount,
@@ -1006,6 +1045,7 @@ void generateLevel2Map(char** lvl, int height, int width, int cell_size,
     chelnovCount = 0;
     
     // --- USE THE RANDOMIZED LEVEL DESIGN FUNCTION ---
+    // This generates walls, floor, slanted platform, and horizontal platforms
     generateLevel2Design(lvl, height, width);
     
     // MODIFIED: Only spawn enemies if requested
@@ -1235,6 +1275,15 @@ int main()
         nextLevelText.setFillColor(Color::Cyan);
         nextLevelText.setPosition(280, 550);
         
+        // --- LEVEL CLEAR CELEBRATION IMAGE ---
+        // Single player image displayed on stage clear screen
+        Texture levelClearTex;
+        Sprite levelClearSprite;
+        levelClearTex.loadFromFile("Data/levelClear.png");
+        levelClearSprite.setTexture(levelClearTex);
+        levelClearSprite.setScale(3.0f, 3.0f); // Make it big and visible
+        // Position will be set when displayed
+        
         // Level indicator text
         Text levelText("LEVEL 1", font, 40);
         levelText.setFillColor(Color::White);
@@ -1414,13 +1463,26 @@ blockSprite2.setTexture(blockTexture2);
 Texture slopeLeftTexture, slopeRightTexture;
 Sprite slopeLeftSprite, slopeRightSprite;
 
-if (!slopeLeftTexture.loadFromFile("Data/blocks/slopeleft.png"))
+if (!slopeLeftTexture.loadFromFile("Data/blocks/sloperight.png"))
     cout << "slope_left.png missing!\n";
-if (!slopeRightTexture.loadFromFile("Data/blocks/sloperight.png"))
+if (!slopeRightTexture.loadFromFile("Data/blocks/slopeleft.png"))
     cout << "slope_right.png missing!\n";
 
 slopeLeftSprite.setTexture(slopeLeftTexture);
 slopeRightSprite.setTexture(slopeRightTexture);
+
+// for down left slope load new sprites
+
+Texture slopeLeftMirrorTexture, slopeRightMirrorTexture;
+Sprite slopeLeftMirrorSprite, slopeRightMirrorSprite;
+
+if (!slopeLeftMirrorTexture.loadFromFile("Data/blocks/slopeleft1.png"))
+    cout << "slopeleft_mirror.png missing!\n";
+if (!slopeRightMirrorTexture.loadFromFile("Data/blocks/sloperight1.png"))
+    cout << "sloperight_mirror.png missing!\n";
+
+slopeLeftMirrorSprite.setTexture(slopeLeftMirrorTexture);
+slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
 
         Music lvlMusic;
         lvlMusic.openFromFile("Data/mus.ogg");
@@ -1468,6 +1530,40 @@ slopeRightSprite.setTexture(slopeRightTexture);
         EnemyTexture.loadFromFile("Data/ghost.png");
         EnemySprite.setTexture(EnemyTexture);
         EnemySprite.setScale(2, 2);
+        
+        // --- GHOST WALKING ANIMATION ---
+        Texture ghostWalkTex[4];
+        ghostWalkTex[0].loadFromFile("Data/ghostWalk/walk1.png");
+        ghostWalkTex[1].loadFromFile("Data/ghostWalk/walk2.png");
+        ghostWalkTex[2].loadFromFile("Data/ghostWalk/walk3.png");
+        ghostWalkTex[3].loadFromFile("Data/ghostWalk/walk4.png");
+        
+        int ghostAnimFrame[maxEnemyCount];
+        int ghostAnimCounter[maxEnemyCount];
+        int ghostAnimSpeed = 8;
+        
+        for (int i = 0; i < maxEnemyCount; i++)
+        {
+            ghostAnimFrame[i] = 0;
+            ghostAnimCounter[i] = 0;
+        }
+        
+        // --- GHOST SUCKING ANIMATION ---
+        Texture ghostSuckTex[4];
+        ghostSuckTex[0].loadFromFile("Data/ghostSuck/suck1.png");
+        ghostSuckTex[1].loadFromFile("Data/ghostSuck/suck2.png");
+        ghostSuckTex[2].loadFromFile("Data/ghostSuck/suck3.png");
+        ghostSuckTex[3].loadFromFile("Data/ghostSuck/suck4.png");
+        
+        int ghostSuckFrame[maxEnemyCount];
+        int ghostSuckCounter[maxEnemyCount];
+        int ghostSuckSpeed = 5;
+        
+        for (int i = 0; i < maxEnemyCount; i++)
+        {
+            ghostSuckFrame[i] = 0;
+            ghostSuckCounter[i] = 0;
+        }
 
         // Skeleton enemies
         int skeletonCount = 0;
@@ -1505,6 +1601,23 @@ slopeRightSprite.setTexture(slopeRightTexture);
         skeletonWalkTex[2].loadFromFile("Data/skeletonWalk/walk3.png");
         skeletonWalkTex[3].loadFromFile("Data/skeletonWalk/walk4.png");
         
+        // --- SKELETON SUCKING ANIMATION ---
+        Texture skeletonSuckTex[4];
+        skeletonSuckTex[0].loadFromFile("Data/skeletonSuck/suck1.png");
+        skeletonSuckTex[1].loadFromFile("Data/skeletonSuck/suck2.png");
+        skeletonSuckTex[2].loadFromFile("Data/skeletonSuck/suck3.png");
+        skeletonSuckTex[3].loadFromFile("Data/skeletonSuck/suck4.png");
+        
+        int skeletonSuckFrame[maxSkeletonCount];
+        int skeletonSuckCounter[maxSkeletonCount];
+        int skeletonSuckSpeed = 5;
+        
+        for (int i = 0; i < maxSkeletonCount; i++)
+        {
+            skeletonSuckFrame[i] = 0;
+            skeletonSuckCounter[i] = 0;
+        }
+        
         // Invisible Man enemies (Level 2 only)
         int invisibleCount = 0;
         const int maxInvisibleCount = 5;
@@ -1533,6 +1646,36 @@ slopeRightSprite.setTexture(slopeRightTexture);
         InvisibleSprite.setTexture(InvisibleTexture);
         InvisibleSprite.setScale(2, 2);
         
+        // --- INVISIBLE MAN WALKING ANIMATION ---
+        Texture invisibleWalkTex[4];
+        invisibleWalkTex[0].loadFromFile("Data/invisibleMan/walk1.png");
+        invisibleWalkTex[1].loadFromFile("Data/invisibleMan/walk2.png");
+        invisibleWalkTex[2].loadFromFile("Data/invisibleMan/walk3.png");
+        invisibleWalkTex[3].loadFromFile("Data/invisibleMan/walk4.png");
+        
+        int invisibleAnimFrame[maxInvisibleCount];
+        int invisibleAnimCounter[maxInvisibleCount];
+        int invisibleAnimSpeed = 8;
+        
+        // --- INVISIBLE MAN SUCKING ANIMATION ---
+        Texture invisibleSuckTex[4];
+        invisibleSuckTex[0].loadFromFile("Data/invisibleMan/suck1.png");
+        invisibleSuckTex[1].loadFromFile("Data/invisibleMan/suck2.png");
+        invisibleSuckTex[2].loadFromFile("Data/invisibleMan/suck3.png");
+        invisibleSuckTex[3].loadFromFile("Data/invisibleMan/suck4.png");
+        
+        int invisibleSuckFrame[maxInvisibleCount];
+        int invisibleSuckCounter[maxInvisibleCount];
+        int invisibleSuckSpeed = 5;
+        
+        for (int i = 0; i < maxInvisibleCount; i++)
+        {
+            invisibleAnimFrame[i] = 0;
+            invisibleAnimCounter[i] = 0;
+            invisibleSuckFrame[i] = 0;
+            invisibleSuckCounter[i] = 0;
+        }
+        
         // Chelnov enemies (Level 2 only)
         int chelnovCount = 0;
         const int maxChelnovCount = 5;
@@ -1560,6 +1703,36 @@ slopeRightSprite.setTexture(slopeRightTexture);
         }
         ChelnovSprite.setTexture(ChelnovTexture);
         ChelnovSprite.setScale(2, 2);
+        
+        // --- CHELNOV WALKING ANIMATION ---
+        Texture chelnovWalkTex[4];
+        chelnovWalkTex[0].loadFromFile("Data/chelnov/walk1.png");
+        chelnovWalkTex[1].loadFromFile("Data/chelnov/walk2.png");
+        chelnovWalkTex[2].loadFromFile("Data/chelnov/walk3.png");
+        chelnovWalkTex[3].loadFromFile("Data/chelnov/walk4.png");
+        
+        int chelnovAnimFrame[maxChelnovCount];
+        int chelnovAnimCounter[maxChelnovCount];
+        int chelnovAnimSpeed = 8;
+        
+        // --- CHELNOV SUCKING ANIMATION ---
+        Texture chelnovSuckTex[4];
+        chelnovSuckTex[0].loadFromFile("Data/chelnov/suck1.png");
+        chelnovSuckTex[1].loadFromFile("Data/chelnov/suck2.png");
+        chelnovSuckTex[2].loadFromFile("Data/chelnov/suck3.png");
+        chelnovSuckTex[3].loadFromFile("Data/chelnov/suck4.png");
+        
+        int chelnovSuckFrame[maxChelnovCount];
+        int chelnovSuckCounter[maxChelnovCount];
+        int chelnovSuckSpeed = 5;
+        
+        for (int i = 0; i < maxChelnovCount; i++)
+        {
+            chelnovAnimFrame[i] = 0;
+            chelnovAnimCounter[i] = 0;
+            chelnovSuckFrame[i] = 0;
+            chelnovSuckCounter[i] = 0;
+        }
         
         // Chelnov projectiles
         const int maxChelnovProjectiles = 10;
@@ -2126,10 +2299,11 @@ isMoving = 0;
         player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
         
         // Apply sliding on slopes (Level 2)
-        if (currentLevel == 2)
-        {
-            applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround);
-        }
+        // Apply sliding on slopes (Level 2)
+if (currentLevel == 2)
+{
+    applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround, velocityY);
+}
 
         // Ghost enemy loop
         for (int i = 0; i < enemyCount; i++)
@@ -2835,6 +3009,12 @@ else if (currentLevel == 2)
                     nextLevelText.setString("Press ENTER to Play Again");
                 window.draw(nextLevelText);
                 
+                // Draw level clear celebration player image
+                float clearSpriteX = screen_x / 2 - (levelClearTex.getSize().x * 3.0f) / 2;
+                float clearSpriteY = screen_y / 2 + 50;
+                levelClearSprite.setPosition(clearSpriteX, clearSpriteY);
+                window.draw(levelClearSprite);
+                
                 window.display();
             }
         }
@@ -2945,13 +3125,13 @@ else if (currentLevel == 2)
         // Rendering
       if (currentLevel == 1){
 display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite,
-slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
+slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,slopeLeftMirrorTexture, slopeLeftMirrorSprite, slopeRightMirrorTexture, slopeRightMirrorSprite,
 height, width, cell_size);
 }
 else if(currentLevel == 2)
 {
 display_level(window, lvl, bgTex2, bgSprite2, blockTexture2, blockSprite2,
-slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,
+slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,slopeLeftMirrorTexture, slopeLeftMirrorSprite, slopeRightMirrorTexture, slopeRightMirrorSprite,
 height, width, cell_size);
 }
 
@@ -2983,29 +3163,91 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
         collBox.setOutlineThickness(2);
         window.draw(collBox);
 
-        // Draw ghosts
+        // Draw ghosts with walking/sucking animation
         for (int i = 0; i < enemyCount; i++)
         {
+            // Check if this ghost is being sucked
+            if (enemyIsCaught[i])
+            {
+                // Play sucking animation
+                ghostSuckCounter[i]++;
+                if (ghostSuckCounter[i] >= ghostSuckSpeed)
+                {
+                    ghostSuckCounter[i] = 0;
+                    ghostSuckFrame[i]++;
+                    if (ghostSuckFrame[i] >= 4)
+                        ghostSuckFrame[i] = 0;
+                }
+                EnemySprite.setTexture(ghostSuckTex[ghostSuckFrame[i]], true);
+            }
+            else
+            {
+                // Play walking animation
+                ghostAnimCounter[i]++;
+                if (ghostAnimCounter[i] >= ghostAnimSpeed)
+                {
+                    ghostAnimCounter[i] = 0;
+                    ghostAnimFrame[i]++;
+                    if (ghostAnimFrame[i] >= 4)
+                        ghostAnimFrame[i] = 0;
+                }
+                EnemySprite.setTexture(ghostWalkTex[ghostAnimFrame[i]], true);
+                
+                // Reset suck animation
+                ghostSuckFrame[i] = 0;
+                ghostSuckCounter[i] = 0;
+            }
+            
+            // Flip sprite based on direction
+            int texW = EnemySprite.getTexture()->getSize().x;
+            int texH = EnemySprite.getTexture()->getSize().y;
+            
+            if (enemyDirection[i] == 1) // Moving right - flip
+                EnemySprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+            else // Moving left - normal
+                EnemySprite.setTextureRect(IntRect(0, 0, texW, texH));
+            
             EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
             window.draw(EnemySprite);
         }
 
-        // Draw skeletons
+        // Draw skeletons with walking/sucking animation
         for (int i = 0; i < skeletonCount; i++)
         {
-            skeletonAnimCounter[i]++;
-            if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
+            // Check if this skeleton is being sucked
+            if (skeletonIsCaught[i])
             {
-                skeletonAnimCounter[i] = 0;
-                skeletonAnimFrame[i]++;
-                if (skeletonAnimFrame[i] >= 4)
-                    skeletonAnimFrame[i] = 0;
+                // Play sucking animation
+                skeletonSuckCounter[i]++;
+                if (skeletonSuckCounter[i] >= skeletonSuckSpeed)
+                {
+                    skeletonSuckCounter[i] = 0;
+                    skeletonSuckFrame[i]++;
+                    if (skeletonSuckFrame[i] >= 4)
+                        skeletonSuckFrame[i] = 0;
+                }
+                SkeletonSprite.setTexture(skeletonSuckTex[skeletonSuckFrame[i]], true);
+            }
+            else
+            {
+                // Play walking animation
+                skeletonAnimCounter[i]++;
+                if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
+                {
+                    skeletonAnimCounter[i] = 0;
+                    skeletonAnimFrame[i]++;
+                    if (skeletonAnimFrame[i] >= 4)
+                        skeletonAnimFrame[i] = 0;
+                }
+                SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
+                
+                // Reset suck animation
+                skeletonSuckFrame[i] = 0;
+                skeletonSuckCounter[i] = 0;
             }
 
-            SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
-
-            int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
-            int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
+            int texW = SkeletonSprite.getTexture()->getSize().x;
+            int texH = SkeletonSprite.getTexture()->getSize().y;
 
             if (skeletonDirection[i] == 1)
                 SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
@@ -3020,27 +3262,99 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
             window.draw(SkeletonSprite);
         }
         
-        // Draw Level 2 enemies
+        // Draw Level 2 enemies with animations
         if (currentLevel == 2)
         {
+            // Draw Invisible Man with walking/sucking animation
             for (int i = 0; i < invisibleCount; i++)
             {
                 if (invisibleIsVisible[i])
                 {
+                    if (invisibleIsCaught[i])
+                    {
+                        // Play sucking animation
+                        invisibleSuckCounter[i]++;
+                        if (invisibleSuckCounter[i] >= invisibleSuckSpeed)
+                        {
+                            invisibleSuckCounter[i] = 0;
+                            invisibleSuckFrame[i]++;
+                            if (invisibleSuckFrame[i] >= 4)
+                                invisibleSuckFrame[i] = 0;
+                        }
+                        InvisibleSprite.setTexture(invisibleSuckTex[invisibleSuckFrame[i]], true);
+                    }
+                    else
+                    {
+                        // Play walking animation
+                        invisibleAnimCounter[i]++;
+                        if (invisibleAnimCounter[i] >= invisibleAnimSpeed)
+                        {
+                            invisibleAnimCounter[i] = 0;
+                            invisibleAnimFrame[i]++;
+                            if (invisibleAnimFrame[i] >= 4)
+                                invisibleAnimFrame[i] = 0;
+                        }
+                        InvisibleSprite.setTexture(invisibleWalkTex[invisibleAnimFrame[i]], true);
+                        
+                        invisibleSuckFrame[i] = 0;
+                        invisibleSuckCounter[i] = 0;
+                    }
+                    
+                    int texW = InvisibleSprite.getTexture()->getSize().x;
+                    int texH = InvisibleSprite.getTexture()->getSize().y;
+                    
+                    if (invisibleDirection[i] == 1)
+                        InvisibleSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+                    else
+                        InvisibleSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                    
                     InvisibleSprite.setPosition(invisiblesX[i], invisiblesY[i]);
                     window.draw(InvisibleSprite);
                 }
             }
             
+            // Draw Chelnov with walking/sucking animation
             for (int i = 0; i < chelnovCount; i++)
             {
-                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
-                int texW = ChelnovTexture.getSize().x;
-                int texH = ChelnovTexture.getSize().y;
+                if (chelnovIsCaught[i])
+                {
+                    // Play sucking animation
+                    chelnovSuckCounter[i]++;
+                    if (chelnovSuckCounter[i] >= chelnovSuckSpeed)
+                    {
+                        chelnovSuckCounter[i] = 0;
+                        chelnovSuckFrame[i]++;
+                        if (chelnovSuckFrame[i] >= 4)
+                            chelnovSuckFrame[i] = 0;
+                    }
+                    ChelnovSprite.setTexture(chelnovSuckTex[chelnovSuckFrame[i]], true);
+                }
+                else
+                {
+                    // Play walking animation
+                    chelnovAnimCounter[i]++;
+                    if (chelnovAnimCounter[i] >= chelnovAnimSpeed)
+                    {
+                        chelnovAnimCounter[i] = 0;
+                        chelnovAnimFrame[i]++;
+                        if (chelnovAnimFrame[i] >= 4)
+                            chelnovAnimFrame[i] = 0;
+                    }
+                    ChelnovSprite.setTexture(chelnovWalkTex[chelnovAnimFrame[i]], true);
+                    
+                    chelnovSuckFrame[i] = 0;
+                    chelnovSuckCounter[i] = 0;
+                }
+                
+                int texW = ChelnovSprite.getTexture()->getSize().x;
+                int texH = ChelnovSprite.getTexture()->getSize().y;
+                
                 if (chelnovDirection[i] == 1)
                     ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
                 else
                     ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                
+                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
                 window.draw(ChelnovSprite);
             }
             

@@ -627,181 +627,203 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
     }
 
     // --- 3. GENERATE THE SLANTED PLATFORM ---
-    int rowMinBound = 2, rowMaxBound = 4;
-    int colMinBound = 3, colMaxBound = 6;
-
-    int randTopRow = rowMinBound + rand() % (rowMaxBound - rowMinBound + 1);
-    int randTopCol = colMinBound + rand() % (colMaxBound - colMinBound + 1);
-
-    int slantLength = 5 + rand() % 4;
-    int direction = rand() % 2;  
-
-    if (direction == 1)
+    // Random direction: 0 = down-right (\), 1 = down-left (/)
+    int direction = rand() % 2;
+    
+    // Slant length between 5 and 10 blocks
+    int slantLength = 5 + rand() % 6;
+    
+    int randTopRow, randTopCol;
+    
+    if (direction == 0) // Down-right: start from TOP-LEFT 6x6 square
     {
-        randTopCol = (platWidth - 4) - rand() % 4;
-    }
-
-    if (direction == 0)
-    {
+        // Top-left square: rows 1-6, columns 1-6
+        randTopRow = 1 + rand() % 4;  // rows 1-4 (leave room for slant to go down)
+        randTopCol = 1 + rand() % 4;  // columns 1-4
+        
+        // Make sure slant doesn't go off screen
+        if (randTopRow + slantLength > 10) 
+            slantLength = 10 - randTopRow;
         if (randTopCol + slantLength > platWidth - 3)
             slantLength = platWidth - 3 - randTopCol;
     }
-    else
+    else // Down-left: start from TOP-RIGHT 6x6 square
     {
+        // Top-right square: rows 1-6, columns (width-7) to (width-2)
+        randTopRow = 1 + rand() % 4;  // rows 1-4
+        randTopCol = (platWidth - 6) + rand() % 4;  // columns 12-15 for width=20
+        
+        // Make sure slant doesn't go off screen
+        if (randTopRow + slantLength > 10)
+            slantLength = 10 - randTopRow;
         if (randTopCol - slantLength < 2)
             slantLength = randTopCol - 2;
     }
 
-    if (slantLength < 4)
-        slantLength = 4;
+    // Ensure minimum slant length
+    if (slantLength < 5) slantLength = 5;
+    
+    // Track slant positions for platform avoidance
+    bool slantOccupied[14][20] = {false};
 
+    // Draw the slant tiles
     for (int step = 0; step < slantLength; step++)
     {
         int row = randTopRow + step;
         int col;
 
-        if (direction == 0)
+        if (direction == 0) // Down-right
         {
             col = randTopCol + step;
             if (row < 11 && col > 0 && col < platWidth - 2)
             {
                 lvl[row][col] = 'l';
+                slantOccupied[row][col] = true;
                 if (row + 1 < 11)
+                {
                     lvl[row + 1][col] = 'r';
+                    slantOccupied[row + 1][col] = true;
+                }
             }
         }
-        else
+        else // Down-left
         {
             col = randTopCol - step;
             if (row < 11 && col > 0 && col < platWidth - 2)
             {
                 lvl[row][col] = 'L';
+                slantOccupied[row][col] = true;
                 if (row + 1 < 11)
+                {
                     lvl[row + 1][col] = 'R';
+                    slantOccupied[row + 1][col] = true;
+                }
             }
         }
     }
+    
+    // --- 4. ADD PLATFORM CONNECTING SLANT TOP TO WALL ---
+    // Platform at the same row as slant start, going back to the wall
+    if (direction == 0) // Down-right: platform goes LEFT from slant top to wall
+    {
+        for (int j = 1; j < randTopCol; j++)
+        {
+            if (lvl[randTopRow][j] == ' ')
+                lvl[randTopRow][j] = '-';
+        }
+    }
+    else // Down-left: platform goes RIGHT from slant top to wall
+    {
+        for (int j = randTopCol + 1; j < platWidth - 2; j++)
+        {
+            if (lvl[randTopRow][j] == ' ')
+                lvl[randTopRow][j] = '-';
+        }
+    }
 
-    // --- 4. GENERATE HORIZONTAL PLATFORMS ---
-    int minPlatformLength = 3;
-    int platformRows[] = {2, 4, 6,8, 9};       //10->9
-    int numPlatformRows = 5;
+    // --- 5. GENERATE HORIZONTAL PLATFORMS ---
+    // Platform rows with AT LEAST 3 rows gap between them (player height ~1.5 blocks)
+    // Row 11 is floor, so valid platform rows: 3, 6, 9 (3 rows apart = 2 empty rows between)
+    int platformRows[] = {3, 6, 9};
+    int numPlatformRows = 3;
+    
+    // Max platform length: 4-6 blocks
+    int minPlatLength = 3;
+    int maxPlatLength = 5;
 
     for (int p = 0; p < numPlatformRows; p++)
     {
         int row = platformRows[p];
-        if (row <= 0 || row >= 11)
-            continue;
-
-        bool rowHasSlant = false;
-        bool aboveRowHasSlant = false;
-
-        for (int j = 0; j < platWidth; j++)
+        
+        // Skip if too close to slant start row
+        if (abs(row - randTopRow) < 2) continue;
+        
+        // Check for slant tiles in this row and adjacent rows
+        // Need 3 rows clear above the platform for player movement
+        
+        // LEFT SIDE PLATFORM (columns 1-8)
+        bool leftClear = true;
+        for (int checkRow = row - 2; checkRow <= row + 1; checkRow++)
         {
-            if (lvl[row][j] == 'l' || lvl[row][j] == 'r')
-                rowHasSlant = true;
-
-            if (row > 0 && (lvl[row - 1][j] == 'l' || lvl[row - 1][j] == 'r'))
-                aboveRowHasSlant = true;
-        }
-
-        int sectionStart = -1;
-
-        for (int j = 1; j < platWidth - 2; j++)
-        {
-            bool canPlace = (lvl[row][j] == ' ');
-
-            if (row > 0 && (lvl[row - 1][j] == 'l' || lvl[row - 1][j] == 'r'))
-                canPlace = false;
-            if (row < 11 && (lvl[row + 1][j] == 'l' || lvl[row + 1][j] == 'r'))
-                canPlace = false;
-
-            if (canPlace && sectionStart == -1)
+            if (checkRow < 0 || checkRow >= 12) continue;
+            for (int j = 1; j <= 8; j++)
             {
-                sectionStart = j;
-            }
-            else if (!canPlace && sectionStart != -1)
-            {
-                int sectionLength = j - sectionStart;
-                if (sectionLength >= minPlatformLength)
-                {
-                    int platStart = sectionStart + rand() % 2;
-                    int platLength = minPlatformLength + rand() % (sectionLength - minPlatformLength + 1);
-                    if (platStart + platLength > j)
-                        platLength = j - platStart;
-
-                    for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
-                    {
-                        if (lvl[row - 1][k] == ' ' && row != 10)
-                            lvl[row - 1][k] = '-';
-                        else if (row == 10 && lvl[row][k] == ' ')
-                            lvl[row][k] = '-';
-                    }
-                }
-                sectionStart = -1;
+                if (slantOccupied[checkRow][j]) leftClear = false;
             }
         }
-
-        if (sectionStart != -1)
+        
+        if (leftClear)
         {
-            int sectionLength = (platWidth - 2) - sectionStart;
-            if (sectionLength >= minPlatformLength)
+            // Find a clear section for platform
+            int platStart = 1 + rand() % 2;
+            int platLength = minPlatLength + rand() % (maxPlatLength - minPlatLength + 1);
+            
+            for (int j = platStart; j < platStart + platLength && j <= 6; j++)
             {
-                int platStart = sectionStart;
-                int platLength = minPlatformLength + rand() % (sectionLength - minPlatformLength + 1);
-
-                for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
-                {
-                    if (lvl[row - 1][k] == ' ' && row != 9)
-                        lvl[row - 1][k] = '-';
-                    else if (row == 9 && lvl[row][k] == ' ')
-                        lvl[row][k] = '-';
-                }
+                if (lvl[row][j] == ' ' && !slantOccupied[row][j])
+                    lvl[row][j] = '-';
+            }
+        }
+        
+        // RIGHT SIDE PLATFORM (columns 10-17)
+        bool rightClear = true;
+        for (int checkRow = row - 2; checkRow <= row + 1; checkRow++)
+        {
+            if (checkRow < 0 || checkRow >= 12) continue;
+            for (int j = 10; j <= platWidth - 3; j++)
+            {
+                if (slantOccupied[checkRow][j]) rightClear = false;
+            }
+        }
+        
+        if (rightClear)
+        {
+            int platStart = 11 + rand() % 2;
+            int platLength = minPlatLength + rand() % (maxPlatLength - minPlatLength + 1);
+            
+            for (int j = platStart; j < platStart + platLength && j <= platWidth - 3; j++)
+            {
+                if (lvl[row][j] == ' ' && !slantOccupied[row][j])
+                    lvl[row][j] = '-';
             }
         }
     }
+    
+    // --- 6. ADD CONNECTING/MIDDLE PLATFORMS FOR NAVIGATION ---
+    // Add a middle platform to help player traverse between sides
+    // Place it opposite to where the slant is
+    int middleRow = 5;
+    if (direction == 0) // Slant on left side, add platform on right-center
+    {
+        for (int j = 8; j <= 11; j++)
+        {
+            if (lvl[middleRow][j] == ' ' && !slantOccupied[middleRow][j])
+                lvl[middleRow][j] = '-';
+        }
+    }
+    else // Slant on right side, add platform on left-center
+    {
+        for (int j = 6; j <= 9; j++)
+        {
+            if (lvl[middleRow][j] == ' ' && !slantOccupied[middleRow][j])
+                lvl[middleRow][j] = '-';
+        }
+    }
+    
+    // --- 7. ENSURE NO PLATFORMS ON ROW 10 (too close to ground) ---
+    // Row 10 would create only 1 block gap to floor at row 11
+    for (int j = 0; j < platWidth; j++)
+    {
+        if (lvl[10][j] == '-')
+            lvl[10][j] = ' ';
+    }
 
-    // --- 5. ENSURE GUARANTEED PLATFORMS (WITH GAPS) ---
-bool hasTopLeft = false;
-for (int j = 1; j <= 4; j++)
-    if (lvl[2][j] == '-')
-        hasTopLeft = true;
-
-if (!hasTopLeft)
-{
-    // Create platform with a gap (only columns 1-2, leave 3-4 empty)
-    for (int j = 1; j <= 2; j++)
-        if (lvl[1][j] == ' ')
-            lvl[1][j] = '-';
-}
-
-bool hasTopRight = false;
-for (int j = platWidth - 6; j <= platWidth - 3; j++)
-    if (lvl[2][j] == '-')
-        hasTopRight = true;
-
-if (!hasTopRight)
-{
-    // Create platform with a gap (only last 2 columns, leave others empty)
-    for (int j = platWidth - 4; j <= platWidth - 3; j++)
-        if (lvl[1][j] == ' ')
-            lvl[1][j] = '-';
-}
-
-// Bottom platforms with gaps
-for (int j = 1; j <= 3; j++)  // Reduced from 5 to 3
-    if (lvl[9][j] == ' ')
-        lvl[9][j] = '-';
-
-for (int j = platWidth - 5; j <= platWidth - 3; j++)  // Reduced range
-    if (lvl[9][j] == ' ')
-        lvl[9][j] = '-';
-
-    // --- 6. DEBUG OUTPUT ---
+    // --- 8. DEBUG OUTPUT ---
     cout << "=== Level 2 Design Generated ===" << endl;
     cout << "Slant direction: " << (direction == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
     cout << "Slant start: row " << randTopRow << ", col " << randTopCol << endl;
     cout << "Slant length: " << slantLength << " tiles" << endl;
+    cout << "Platform connecting to wall at row " << randTopRow << endl;
 }
 
 
@@ -1253,6 +1275,15 @@ int main()
         nextLevelText.setFillColor(Color::Cyan);
         nextLevelText.setPosition(280, 550);
         
+        // --- LEVEL CLEAR CELEBRATION IMAGE ---
+        // Single player image displayed on stage clear screen
+        Texture levelClearTex;
+        Sprite levelClearSprite;
+        levelClearTex.loadFromFile("Data/levelClear.png");
+        levelClearSprite.setTexture(levelClearTex);
+        levelClearSprite.setScale(3.0f, 3.0f); // Make it big and visible
+        // Position will be set when displayed
+        
         // Level indicator text
         Text levelText("LEVEL 1", font, 40);
         levelText.setFillColor(Color::White);
@@ -1499,6 +1530,40 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         EnemyTexture.loadFromFile("Data/ghost.png");
         EnemySprite.setTexture(EnemyTexture);
         EnemySprite.setScale(2, 2);
+        
+        // --- GHOST WALKING ANIMATION ---
+        Texture ghostWalkTex[4];
+        ghostWalkTex[0].loadFromFile("Data/ghostWalk/walk1.png");
+        ghostWalkTex[1].loadFromFile("Data/ghostWalk/walk2.png");
+        ghostWalkTex[2].loadFromFile("Data/ghostWalk/walk3.png");
+        ghostWalkTex[3].loadFromFile("Data/ghostWalk/walk4.png");
+        
+        int ghostAnimFrame[maxEnemyCount];
+        int ghostAnimCounter[maxEnemyCount];
+        int ghostAnimSpeed = 8;
+        
+        for (int i = 0; i < maxEnemyCount; i++)
+        {
+            ghostAnimFrame[i] = 0;
+            ghostAnimCounter[i] = 0;
+        }
+        
+        // --- GHOST SUCKING ANIMATION ---
+        Texture ghostSuckTex[4];
+        ghostSuckTex[0].loadFromFile("Data/ghostSuck/suck1.png");
+        ghostSuckTex[1].loadFromFile("Data/ghostSuck/suck2.png");
+        ghostSuckTex[2].loadFromFile("Data/ghostSuck/suck3.png");
+        ghostSuckTex[3].loadFromFile("Data/ghostSuck/suck4.png");
+        
+        int ghostSuckFrame[maxEnemyCount];
+        int ghostSuckCounter[maxEnemyCount];
+        int ghostSuckSpeed = 5;
+        
+        for (int i = 0; i < maxEnemyCount; i++)
+        {
+            ghostSuckFrame[i] = 0;
+            ghostSuckCounter[i] = 0;
+        }
 
         // Skeleton enemies
         int skeletonCount = 0;
@@ -1536,6 +1601,23 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         skeletonWalkTex[2].loadFromFile("Data/skeletonWalk/walk3.png");
         skeletonWalkTex[3].loadFromFile("Data/skeletonWalk/walk4.png");
         
+        // --- SKELETON SUCKING ANIMATION ---
+        Texture skeletonSuckTex[4];
+        skeletonSuckTex[0].loadFromFile("Data/skeletonSuck/suck1.png");
+        skeletonSuckTex[1].loadFromFile("Data/skeletonSuck/suck2.png");
+        skeletonSuckTex[2].loadFromFile("Data/skeletonSuck/suck3.png");
+        skeletonSuckTex[3].loadFromFile("Data/skeletonSuck/suck4.png");
+        
+        int skeletonSuckFrame[maxSkeletonCount];
+        int skeletonSuckCounter[maxSkeletonCount];
+        int skeletonSuckSpeed = 5;
+        
+        for (int i = 0; i < maxSkeletonCount; i++)
+        {
+            skeletonSuckFrame[i] = 0;
+            skeletonSuckCounter[i] = 0;
+        }
+        
         // Invisible Man enemies (Level 2 only)
         int invisibleCount = 0;
         const int maxInvisibleCount = 5;
@@ -1564,6 +1646,36 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         InvisibleSprite.setTexture(InvisibleTexture);
         InvisibleSprite.setScale(2, 2);
         
+        // --- INVISIBLE MAN WALKING ANIMATION ---
+        Texture invisibleWalkTex[4];
+        invisibleWalkTex[0].loadFromFile("Data/invisibleMan/walk1.png");
+        invisibleWalkTex[1].loadFromFile("Data/invisibleMan/walk2.png");
+        invisibleWalkTex[2].loadFromFile("Data/invisibleMan/walk3.png");
+        invisibleWalkTex[3].loadFromFile("Data/invisibleMan/walk4.png");
+        
+        int invisibleAnimFrame[maxInvisibleCount];
+        int invisibleAnimCounter[maxInvisibleCount];
+        int invisibleAnimSpeed = 8;
+        
+        // --- INVISIBLE MAN SUCKING ANIMATION ---
+        Texture invisibleSuckTex[4];
+        invisibleSuckTex[0].loadFromFile("Data/invisibleMan/suck1.png");
+        invisibleSuckTex[1].loadFromFile("Data/invisibleMan/suck2.png");
+        invisibleSuckTex[2].loadFromFile("Data/invisibleMan/suck3.png");
+        invisibleSuckTex[3].loadFromFile("Data/invisibleMan/suck4.png");
+        
+        int invisibleSuckFrame[maxInvisibleCount];
+        int invisibleSuckCounter[maxInvisibleCount];
+        int invisibleSuckSpeed = 5;
+        
+        for (int i = 0; i < maxInvisibleCount; i++)
+        {
+            invisibleAnimFrame[i] = 0;
+            invisibleAnimCounter[i] = 0;
+            invisibleSuckFrame[i] = 0;
+            invisibleSuckCounter[i] = 0;
+        }
+        
         // Chelnov enemies (Level 2 only)
         int chelnovCount = 0;
         const int maxChelnovCount = 5;
@@ -1591,6 +1703,36 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         }
         ChelnovSprite.setTexture(ChelnovTexture);
         ChelnovSprite.setScale(2, 2);
+        
+        // --- CHELNOV WALKING ANIMATION ---
+        Texture chelnovWalkTex[4];
+        chelnovWalkTex[0].loadFromFile("Data/chelnov/walk1.png");
+        chelnovWalkTex[1].loadFromFile("Data/chelnov/walk2.png");
+        chelnovWalkTex[2].loadFromFile("Data/chelnov/walk3.png");
+        chelnovWalkTex[3].loadFromFile("Data/chelnov/walk4.png");
+        
+        int chelnovAnimFrame[maxChelnovCount];
+        int chelnovAnimCounter[maxChelnovCount];
+        int chelnovAnimSpeed = 8;
+        
+        // --- CHELNOV SUCKING ANIMATION ---
+        Texture chelnovSuckTex[4];
+        chelnovSuckTex[0].loadFromFile("Data/chelnov/suck1.png");
+        chelnovSuckTex[1].loadFromFile("Data/chelnov/suck2.png");
+        chelnovSuckTex[2].loadFromFile("Data/chelnov/suck3.png");
+        chelnovSuckTex[3].loadFromFile("Data/chelnov/suck4.png");
+        
+        int chelnovSuckFrame[maxChelnovCount];
+        int chelnovSuckCounter[maxChelnovCount];
+        int chelnovSuckSpeed = 5;
+        
+        for (int i = 0; i < maxChelnovCount; i++)
+        {
+            chelnovAnimFrame[i] = 0;
+            chelnovAnimCounter[i] = 0;
+            chelnovSuckFrame[i] = 0;
+            chelnovSuckCounter[i] = 0;
+        }
         
         // Chelnov projectiles
         const int maxChelnovProjectiles = 10;
@@ -2867,6 +3009,12 @@ else if (currentLevel == 2)
                     nextLevelText.setString("Press ENTER to Play Again");
                 window.draw(nextLevelText);
                 
+                // Draw level clear celebration player image
+                float clearSpriteX = screen_x / 2 - (levelClearTex.getSize().x * 3.0f) / 2;
+                float clearSpriteY = screen_y / 2 + 50;
+                levelClearSprite.setPosition(clearSpriteX, clearSpriteY);
+                window.draw(levelClearSprite);
+                
                 window.display();
             }
         }
@@ -3015,29 +3163,91 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
         collBox.setOutlineThickness(2);
         window.draw(collBox);
 
-        // Draw ghosts
+        // Draw ghosts with walking/sucking animation
         for (int i = 0; i < enemyCount; i++)
         {
+            // Check if this ghost is being sucked
+            if (enemyIsCaught[i])
+            {
+                // Play sucking animation
+                ghostSuckCounter[i]++;
+                if (ghostSuckCounter[i] >= ghostSuckSpeed)
+                {
+                    ghostSuckCounter[i] = 0;
+                    ghostSuckFrame[i]++;
+                    if (ghostSuckFrame[i] >= 4)
+                        ghostSuckFrame[i] = 0;
+                }
+                EnemySprite.setTexture(ghostSuckTex[ghostSuckFrame[i]], true);
+            }
+            else
+            {
+                // Play walking animation
+                ghostAnimCounter[i]++;
+                if (ghostAnimCounter[i] >= ghostAnimSpeed)
+                {
+                    ghostAnimCounter[i] = 0;
+                    ghostAnimFrame[i]++;
+                    if (ghostAnimFrame[i] >= 4)
+                        ghostAnimFrame[i] = 0;
+                }
+                EnemySprite.setTexture(ghostWalkTex[ghostAnimFrame[i]], true);
+                
+                // Reset suck animation
+                ghostSuckFrame[i] = 0;
+                ghostSuckCounter[i] = 0;
+            }
+            
+            // Flip sprite based on direction
+            int texW = EnemySprite.getTexture()->getSize().x;
+            int texH = EnemySprite.getTexture()->getSize().y;
+            
+            if (enemyDirection[i] == 1) // Moving right - flip
+                EnemySprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+            else // Moving left - normal
+                EnemySprite.setTextureRect(IntRect(0, 0, texW, texH));
+            
             EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
             window.draw(EnemySprite);
         }
 
-        // Draw skeletons
+        // Draw skeletons with walking/sucking animation
         for (int i = 0; i < skeletonCount; i++)
         {
-            skeletonAnimCounter[i]++;
-            if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
+            // Check if this skeleton is being sucked
+            if (skeletonIsCaught[i])
             {
-                skeletonAnimCounter[i] = 0;
-                skeletonAnimFrame[i]++;
-                if (skeletonAnimFrame[i] >= 4)
-                    skeletonAnimFrame[i] = 0;
+                // Play sucking animation
+                skeletonSuckCounter[i]++;
+                if (skeletonSuckCounter[i] >= skeletonSuckSpeed)
+                {
+                    skeletonSuckCounter[i] = 0;
+                    skeletonSuckFrame[i]++;
+                    if (skeletonSuckFrame[i] >= 4)
+                        skeletonSuckFrame[i] = 0;
+                }
+                SkeletonSprite.setTexture(skeletonSuckTex[skeletonSuckFrame[i]], true);
+            }
+            else
+            {
+                // Play walking animation
+                skeletonAnimCounter[i]++;
+                if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
+                {
+                    skeletonAnimCounter[i] = 0;
+                    skeletonAnimFrame[i]++;
+                    if (skeletonAnimFrame[i] >= 4)
+                        skeletonAnimFrame[i] = 0;
+                }
+                SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
+                
+                // Reset suck animation
+                skeletonSuckFrame[i] = 0;
+                skeletonSuckCounter[i] = 0;
             }
 
-            SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
-
-            int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
-            int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
+            int texW = SkeletonSprite.getTexture()->getSize().x;
+            int texH = SkeletonSprite.getTexture()->getSize().y;
 
             if (skeletonDirection[i] == 1)
                 SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
@@ -3052,27 +3262,99 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
             window.draw(SkeletonSprite);
         }
         
-        // Draw Level 2 enemies
+        // Draw Level 2 enemies with animations
         if (currentLevel == 2)
         {
+            // Draw Invisible Man with walking/sucking animation
             for (int i = 0; i < invisibleCount; i++)
             {
                 if (invisibleIsVisible[i])
                 {
+                    if (invisibleIsCaught[i])
+                    {
+                        // Play sucking animation
+                        invisibleSuckCounter[i]++;
+                        if (invisibleSuckCounter[i] >= invisibleSuckSpeed)
+                        {
+                            invisibleSuckCounter[i] = 0;
+                            invisibleSuckFrame[i]++;
+                            if (invisibleSuckFrame[i] >= 4)
+                                invisibleSuckFrame[i] = 0;
+                        }
+                        InvisibleSprite.setTexture(invisibleSuckTex[invisibleSuckFrame[i]], true);
+                    }
+                    else
+                    {
+                        // Play walking animation
+                        invisibleAnimCounter[i]++;
+                        if (invisibleAnimCounter[i] >= invisibleAnimSpeed)
+                        {
+                            invisibleAnimCounter[i] = 0;
+                            invisibleAnimFrame[i]++;
+                            if (invisibleAnimFrame[i] >= 4)
+                                invisibleAnimFrame[i] = 0;
+                        }
+                        InvisibleSprite.setTexture(invisibleWalkTex[invisibleAnimFrame[i]], true);
+                        
+                        invisibleSuckFrame[i] = 0;
+                        invisibleSuckCounter[i] = 0;
+                    }
+                    
+                    int texW = InvisibleSprite.getTexture()->getSize().x;
+                    int texH = InvisibleSprite.getTexture()->getSize().y;
+                    
+                    if (invisibleDirection[i] == 1)
+                        InvisibleSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+                    else
+                        InvisibleSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                    
                     InvisibleSprite.setPosition(invisiblesX[i], invisiblesY[i]);
                     window.draw(InvisibleSprite);
                 }
             }
             
+            // Draw Chelnov with walking/sucking animation
             for (int i = 0; i < chelnovCount; i++)
             {
-                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
-                int texW = ChelnovTexture.getSize().x;
-                int texH = ChelnovTexture.getSize().y;
+                if (chelnovIsCaught[i])
+                {
+                    // Play sucking animation
+                    chelnovSuckCounter[i]++;
+                    if (chelnovSuckCounter[i] >= chelnovSuckSpeed)
+                    {
+                        chelnovSuckCounter[i] = 0;
+                        chelnovSuckFrame[i]++;
+                        if (chelnovSuckFrame[i] >= 4)
+                            chelnovSuckFrame[i] = 0;
+                    }
+                    ChelnovSprite.setTexture(chelnovSuckTex[chelnovSuckFrame[i]], true);
+                }
+                else
+                {
+                    // Play walking animation
+                    chelnovAnimCounter[i]++;
+                    if (chelnovAnimCounter[i] >= chelnovAnimSpeed)
+                    {
+                        chelnovAnimCounter[i] = 0;
+                        chelnovAnimFrame[i]++;
+                        if (chelnovAnimFrame[i] >= 4)
+                            chelnovAnimFrame[i] = 0;
+                    }
+                    ChelnovSprite.setTexture(chelnovWalkTex[chelnovAnimFrame[i]], true);
+                    
+                    chelnovSuckFrame[i] = 0;
+                    chelnovSuckCounter[i] = 0;
+                }
+                
+                int texW = ChelnovSprite.getTexture()->getSize().x;
+                int texH = ChelnovSprite.getTexture()->getSize().y;
+                
                 if (chelnovDirection[i] == 1)
                     ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
                 else
                     ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                
+                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
                 window.draw(ChelnovSprite);
             }
             

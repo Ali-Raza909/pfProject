@@ -627,203 +627,181 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
     }
 
     // --- 3. GENERATE THE SLANTED PLATFORM ---
-    // Random direction: 0 = down-right (\), 1 = down-left (/)
-    int direction = rand() % 2;
-    
-    // Slant length between 5 and 10 blocks
-    int slantLength = 5 + rand() % 6;
-    
-    int randTopRow, randTopCol;
-    
-    if (direction == 0) // Down-right: start from TOP-LEFT 6x6 square
+    int rowMinBound = 2, rowMaxBound = 4;
+    int colMinBound = 3, colMaxBound = 6;
+
+    int randTopRow = rowMinBound + rand() % (rowMaxBound - rowMinBound + 1);
+    int randTopCol = colMinBound + rand() % (colMaxBound - colMinBound + 1);
+
+    int slantLength = 5 + rand() % 4;
+    int direction = rand() % 2;  
+
+    if (direction == 1)
     {
-        // Top-left square: rows 1-6, columns 1-6
-        randTopRow = 1 + rand() % 4;  // rows 1-4 (leave room for slant to go down)
-        randTopCol = 1 + rand() % 4;  // columns 1-4
-        
-        // Make sure slant doesn't go off screen
-        if (randTopRow + slantLength > 10) 
-            slantLength = 10 - randTopRow;
+        randTopCol = (platWidth - 4) - rand() % 4;
+    }
+
+    if (direction == 0)
+    {
         if (randTopCol + slantLength > platWidth - 3)
             slantLength = platWidth - 3 - randTopCol;
     }
-    else // Down-left: start from TOP-RIGHT 6x6 square
+    else
     {
-        // Top-right square: rows 1-6, columns (width-7) to (width-2)
-        randTopRow = 1 + rand() % 4;  // rows 1-4
-        randTopCol = (platWidth - 6) + rand() % 4;  // columns 12-15 for width=20
-        
-        // Make sure slant doesn't go off screen
-        if (randTopRow + slantLength > 10)
-            slantLength = 10 - randTopRow;
         if (randTopCol - slantLength < 2)
             slantLength = randTopCol - 2;
     }
 
-    // Ensure minimum slant length
-    if (slantLength < 5) slantLength = 5;
-    
-    // Track slant positions for platform avoidance
-    bool slantOccupied[14][20] = {false};
+    if (slantLength < 4)
+        slantLength = 4;
 
-    // Draw the slant tiles
     for (int step = 0; step < slantLength; step++)
     {
         int row = randTopRow + step;
         int col;
 
-        if (direction == 0) // Down-right
+        if (direction == 0)
         {
             col = randTopCol + step;
             if (row < 11 && col > 0 && col < platWidth - 2)
             {
                 lvl[row][col] = 'l';
-                slantOccupied[row][col] = true;
                 if (row + 1 < 11)
-                {
                     lvl[row + 1][col] = 'r';
-                    slantOccupied[row + 1][col] = true;
-                }
             }
         }
-        else // Down-left
+        else
         {
             col = randTopCol - step;
             if (row < 11 && col > 0 && col < platWidth - 2)
             {
                 lvl[row][col] = 'L';
-                slantOccupied[row][col] = true;
                 if (row + 1 < 11)
-                {
                     lvl[row + 1][col] = 'R';
-                    slantOccupied[row + 1][col] = true;
-                }
             }
         }
     }
-    
-    // --- 4. ADD PLATFORM CONNECTING SLANT TOP TO WALL ---
-    // Platform at the same row as slant start, going back to the wall
-    if (direction == 0) // Down-right: platform goes LEFT from slant top to wall
-    {
-        for (int j = 1; j < randTopCol; j++)
-        {
-            if (lvl[randTopRow][j] == ' ')
-                lvl[randTopRow][j] = '-';
-        }
-    }
-    else // Down-left: platform goes RIGHT from slant top to wall
-    {
-        for (int j = randTopCol + 1; j < platWidth - 2; j++)
-        {
-            if (lvl[randTopRow][j] == ' ')
-                lvl[randTopRow][j] = '-';
-        }
-    }
 
-    // --- 5. GENERATE HORIZONTAL PLATFORMS ---
-    // Platform rows with AT LEAST 3 rows gap between them (player height ~1.5 blocks)
-    // Row 11 is floor, so valid platform rows: 3, 6, 9 (3 rows apart = 2 empty rows between)
-    int platformRows[] = {3, 6, 9};
-    int numPlatformRows = 3;
-    
-    // Max platform length: 4-6 blocks
-    int minPlatLength = 3;
-    int maxPlatLength = 5;
+    // --- 4. GENERATE HORIZONTAL PLATFORMS ---
+    int minPlatformLength = 3;
+    int platformRows[] = {2, 4, 6,8, 9};       //10->9
+    int numPlatformRows = 5;
 
     for (int p = 0; p < numPlatformRows; p++)
     {
         int row = platformRows[p];
-        
-        // Skip if too close to slant start row
-        if (abs(row - randTopRow) < 2) continue;
-        
-        // Check for slant tiles in this row and adjacent rows
-        // Need 3 rows clear above the platform for player movement
-        
-        // LEFT SIDE PLATFORM (columns 1-8)
-        bool leftClear = true;
-        for (int checkRow = row - 2; checkRow <= row + 1; checkRow++)
+        if (row <= 0 || row >= 11)
+            continue;
+
+        bool rowHasSlant = false;
+        bool aboveRowHasSlant = false;
+
+        for (int j = 0; j < platWidth; j++)
         {
-            if (checkRow < 0 || checkRow >= 12) continue;
-            for (int j = 1; j <= 8; j++)
+            if (lvl[row][j] == 'l' || lvl[row][j] == 'r')
+                rowHasSlant = true;
+
+            if (row > 0 && (lvl[row - 1][j] == 'l' || lvl[row - 1][j] == 'r'))
+                aboveRowHasSlant = true;
+        }
+
+        int sectionStart = -1;
+
+        for (int j = 1; j < platWidth - 2; j++)
+        {
+            bool canPlace = (lvl[row][j] == ' ');
+
+            if (row > 0 && (lvl[row - 1][j] == 'l' || lvl[row - 1][j] == 'r'))
+                canPlace = false;
+            if (row < 11 && (lvl[row + 1][j] == 'l' || lvl[row + 1][j] == 'r'))
+                canPlace = false;
+
+            if (canPlace && sectionStart == -1)
             {
-                if (slantOccupied[checkRow][j]) leftClear = false;
+                sectionStart = j;
+            }
+            else if (!canPlace && sectionStart != -1)
+            {
+                int sectionLength = j - sectionStart;
+                if (sectionLength >= minPlatformLength)
+                {
+                    int platStart = sectionStart + rand() % 2;
+                    int platLength = minPlatformLength + rand() % (sectionLength - minPlatformLength + 1);
+                    if (platStart + platLength > j)
+                        platLength = j - platStart;
+
+                    for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
+                    {
+                        if (lvl[row - 1][k] == ' ' && row != 10)
+                            lvl[row - 1][k] = '-';
+                        else if (row == 10 && lvl[row][k] == ' ')
+                            lvl[row][k] = '-';
+                    }
+                }
+                sectionStart = -1;
             }
         }
-        
-        if (leftClear)
+
+        if (sectionStart != -1)
         {
-            // Find a clear section for platform
-            int platStart = 1 + rand() % 2;
-            int platLength = minPlatLength + rand() % (maxPlatLength - minPlatLength + 1);
-            
-            for (int j = platStart; j < platStart + platLength && j <= 6; j++)
+            int sectionLength = (platWidth - 2) - sectionStart;
+            if (sectionLength >= minPlatformLength)
             {
-                if (lvl[row][j] == ' ' && !slantOccupied[row][j])
-                    lvl[row][j] = '-';
+                int platStart = sectionStart;
+                int platLength = minPlatformLength + rand() % (sectionLength - minPlatformLength + 1);
+
+                for (int k = platStart; k < platStart + platLength && k < platWidth - 2; k++)
+                {
+                    if (lvl[row - 1][k] == ' ' && row != 9)
+                        lvl[row - 1][k] = '-';
+                    else if (row == 9 && lvl[row][k] == ' ')
+                        lvl[row][k] = '-';
+                }
             }
         }
-        
-        // RIGHT SIDE PLATFORM (columns 10-17)
-        bool rightClear = true;
-        for (int checkRow = row - 2; checkRow <= row + 1; checkRow++)
-        {
-            if (checkRow < 0 || checkRow >= 12) continue;
-            for (int j = 10; j <= platWidth - 3; j++)
-            {
-                if (slantOccupied[checkRow][j]) rightClear = false;
-            }
-        }
-        
-        if (rightClear)
-        {
-            int platStart = 11 + rand() % 2;
-            int platLength = minPlatLength + rand() % (maxPlatLength - minPlatLength + 1);
-            
-            for (int j = platStart; j < platStart + platLength && j <= platWidth - 3; j++)
-            {
-                if (lvl[row][j] == ' ' && !slantOccupied[row][j])
-                    lvl[row][j] = '-';
-            }
-        }
-    }
-    
-    // --- 6. ADD CONNECTING/MIDDLE PLATFORMS FOR NAVIGATION ---
-    // Add a middle platform to help player traverse between sides
-    // Place it opposite to where the slant is
-    int middleRow = 5;
-    if (direction == 0) // Slant on left side, add platform on right-center
-    {
-        for (int j = 8; j <= 11; j++)
-        {
-            if (lvl[middleRow][j] == ' ' && !slantOccupied[middleRow][j])
-                lvl[middleRow][j] = '-';
-        }
-    }
-    else // Slant on right side, add platform on left-center
-    {
-        for (int j = 6; j <= 9; j++)
-        {
-            if (lvl[middleRow][j] == ' ' && !slantOccupied[middleRow][j])
-                lvl[middleRow][j] = '-';
-        }
-    }
-    
-    // --- 7. ENSURE NO PLATFORMS ON ROW 10 (too close to ground) ---
-    // Row 10 would create only 1 block gap to floor at row 11
-    for (int j = 0; j < platWidth; j++)
-    {
-        if (lvl[10][j] == '-')
-            lvl[10][j] = ' ';
     }
 
-    // --- 8. DEBUG OUTPUT ---
+    // --- 5. ENSURE GUARANTEED PLATFORMS (WITH GAPS) ---
+bool hasTopLeft = false;
+for (int j = 1; j <= 4; j++)
+    if (lvl[2][j] == '-')
+        hasTopLeft = true;
+
+if (!hasTopLeft)
+{
+    // Create platform with a gap (only columns 1-2, leave 3-4 empty)
+    for (int j = 1; j <= 2; j++)
+        if (lvl[1][j] == ' ')
+            lvl[1][j] = '-';
+}
+
+bool hasTopRight = false;
+for (int j = platWidth - 6; j <= platWidth - 3; j++)
+    if (lvl[2][j] == '-')
+        hasTopRight = true;
+
+if (!hasTopRight)
+{
+    // Create platform with a gap (only last 2 columns, leave others empty)
+    for (int j = platWidth - 4; j <= platWidth - 3; j++)
+        if (lvl[1][j] == ' ')
+            lvl[1][j] = '-';
+}
+
+// Bottom platforms with gaps
+for (int j = 1; j <= 3; j++)  // Reduced from 5 to 3
+    if (lvl[9][j] == ' ')
+        lvl[9][j] = '-';
+
+for (int j = platWidth - 5; j <= platWidth - 3; j++)  // Reduced range
+    if (lvl[9][j] == ' ')
+        lvl[9][j] = '-';
+
+    // --- 6. DEBUG OUTPUT ---
     cout << "=== Level 2 Design Generated ===" << endl;
     cout << "Slant direction: " << (direction == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
     cout << "Slant start: row " << randTopRow << ", col " << randTopCol << endl;
     cout << "Slant length: " << slantLength << " tiles" << endl;
-    cout << "Platform connecting to wall at row " << randTopRow << endl;
 }
 
 
@@ -1147,7 +1125,11 @@ int main()
        
        // Level tracking variables
        int currentLevel = 1;
+       int selectedStartLevel = 1;  // NEW: Track which level player selected from menu
        bool showStageClear = false;
+       
+       // NEW: Character type flag for Phase 2 (360 rotation for yellow)
+       bool isYellowCharacter = false;
        
        // NEW: Wave spawning system variables
        bool useWaveSpawning = false;
@@ -1156,6 +1138,57 @@ int main()
        float waveTimer = 0.0f;
        float timeBetweenWaves = 5.0f; // 5 seconds between waves
        bool waveSpawned[4] = {false, false, false, false};
+       
+       // ============================================================================
+       // BOSS LEVEL (LEVEL 3) VARIABLES
+       // ============================================================================
+       
+       // Boss variables
+       int bossHealth = 6;  // Boss starts with 6 health
+       int maxBossHealth = 6;
+       float bossX = 0;
+       float bossY = 0;
+       int bossWidth = 200;
+       int bossHeight = 180;
+       bool bossIsAngry = false;  // Becomes true when health <= 2
+       bool bossDefeated = false;
+       
+       // Minion variables (dynamically spawned by boss)
+       int maxMinions = 20;
+       float* minionsX = NULL;
+       float* minionsY = NULL;
+       float* minionSpeed = NULL;
+       int* minionDirection = NULL;
+       float* minionVelocityY = NULL;
+       bool* minionOnGround = NULL;
+       bool* minionIsCaught = NULL;
+       bool* minionFollowingPlayer = NULL;  // For angry mode
+       int minionCount = 0;
+       int minionWidth = 48;
+       int minionHeight = 48;
+       float minionSpawnTimer = 0.0f;
+       float minionSpawnInterval = 3.0f;  // Spawn minions every 3 seconds
+       
+       // Tentacle variables (dynamic array that resizes)
+       int maxTentacles = 10;
+       float* tentaclesX = NULL;
+       float* tentaclesY = NULL;
+       int* tentacleWidth = NULL;
+       int* tentacleHeight = NULL;
+       float* tentacleTimer = NULL;      // How long tentacle has been active
+       float* tentacleDuration = NULL;   // How long tentacle will stay
+       bool* tentacleActive = NULL;
+       int tentacleCount = 0;
+       float tentacleSpawnTimer = 0.0f;
+       float tentacleSpawnInterval = 4.0f;  // Check to spawn tentacle every 4 seconds
+       
+       // Level 3 specific dimensions (1.5x scaling)
+       int level3Height = 21;  // 14 * 1.5 = 21
+       int level3Width = 30;   // 20 * 1.5 = 30
+       int level3CellSize = 42; // 64 / 1.5 ≈ 42 to fit same screen
+       
+       // Boss level map (separate from regular lvl)
+       char** bossLvl = NULL;
        
         const float dt = 0.018f; // dt to smooth everything 0.018
         srand(time(0));          //  Initialize random seed for skeleton jump timing
@@ -1275,15 +1308,6 @@ int main()
         nextLevelText.setFillColor(Color::Cyan);
         nextLevelText.setPosition(280, 550);
         
-        // --- LEVEL CLEAR CELEBRATION IMAGE ---
-        // Single player image displayed on stage clear screen
-        Texture levelClearTex;
-        Sprite levelClearSprite;
-        levelClearTex.loadFromFile("Data/levelClear.png");
-        levelClearSprite.setTexture(levelClearTex);
-        levelClearSprite.setScale(3.0f, 3.0f); // Make it big and visible
-        // Position will be set when displayed
-        
         // Level indicator text
         Text levelText("LEVEL 1", font, 40);
         levelText.setFillColor(Color::White);
@@ -1347,6 +1371,9 @@ int main()
                 {
                     if (e.key.code == Keyboard::Num1)
                     {
+                        // YELLOW CHARACTER - has 360 rotation in Phase 2
+                        isYellowCharacter = true;
+                        
                         PlayerTexture.loadFromFile("Data/player.png");
                         PlayerSprite.setTexture(PlayerTexture);
                         PlayerSprite.setScale(scale, scale);
@@ -1378,6 +1405,9 @@ int main()
                     }
                     if (e.key.code == Keyboard::Num2)
                     {
+                        // GREEN CHARACTER - keeps original 90 degree rotation
+                        isYellowCharacter = false;
+                        
                         PlayerTexture.loadFromFile("Data/greenPlayer/idle1.png");
                         PlayerSprite.setTexture(PlayerTexture);
                         PlayerSprite.setScale(scale, scale);
@@ -1422,6 +1452,157 @@ int main()
 
         if (!characterSelected)
             return 0;
+
+        // ============================================================================
+        // LEVEL SELECTION MENU
+        // ============================================================================
+        Text levelSelectTitle("SELECT LEVEL", font, 90);
+        levelSelectTitle.setFillColor(Color::Cyan);
+        levelSelectTitle.setPosition(320, 120);
+
+        Text level1Option("Press 1 - Level 1 (Classic)", font, 50);
+        level1Option.setFillColor(Color::White);
+        level1Option.setPosition(280, 300);
+
+        Text level2Option("Press 2 - Level 2 (Slopes & Waves)", font, 50);
+        level2Option.setFillColor(Color::White);
+        level2Option.setPosition(200, 400);
+
+        Text level3Option("Press 3 - Boss Level (Octopus)", font, 50);
+        level3Option.setFillColor(Color(255, 100, 100)); // Reddish - Boss level
+        level3Option.setPosition(180, 500);
+
+        Text backOption("Press ESC to go back", font, 40);
+        backOption.setFillColor(Color::Red);
+        backOption.setPosition(380, 650);
+        
+        // Selection indicator for arrow key navigation
+        int menuSelectedLevel = 1;
+        Text selectionIndicator(">", font, 50);
+        selectionIndicator.setFillColor(Color::Yellow);
+
+        bool levelSelected = false;
+        
+        while (window.isOpen() && !levelSelected)
+        {
+            Event e;
+            while (window.pollEvent(e))
+            {
+                if (e.type == Event::Closed)
+                    window.close();
+                    
+                if (e.type == Event::KeyPressed)
+                {
+                    // Direct number key selection
+                    if (e.key.code == Keyboard::Num1)
+                    {
+                        selectedStartLevel = 1;
+                        currentLevel = 1;
+                        levelSelected = true;
+                        cout << "Level 1 selected!" << endl;
+                    }
+                    else if (e.key.code == Keyboard::Num2)
+                    {
+                        selectedStartLevel = 2;
+                        currentLevel = 2;
+                        useWaveSpawning = true;
+                        levelSelected = true;
+                        cout << "Level 2 selected!" << endl;
+                    }
+                    else if (e.key.code == Keyboard::Num3)
+                    {
+                        // Boss Level
+                        selectedStartLevel = 3;
+                        currentLevel = 3;
+                        levelSelected = true;
+                        cout << "Boss Level (Level 3) selected!" << endl;
+                    }
+                    // Arrow key navigation
+                    else if (e.key.code == Keyboard::Up)
+                    {
+                        menuSelectedLevel--;
+                        if (menuSelectedLevel < 1) menuSelectedLevel = 3;
+                    }
+                    else if (e.key.code == Keyboard::Down)
+                    {
+                        menuSelectedLevel++;
+                        if (menuSelectedLevel > 3) menuSelectedLevel = 1;
+                    }
+                    // Enter to confirm arrow selection
+                    else if (e.key.code == Keyboard::Enter)
+                    {
+                        if (menuSelectedLevel == 1)
+                        {
+                            selectedStartLevel = 1;
+                            currentLevel = 1;
+                            levelSelected = true;
+                            cout << "Level 1 selected!" << endl;
+                        }
+                        else if (menuSelectedLevel == 2)
+                        {
+                            selectedStartLevel = 2;
+                            currentLevel = 2;
+                            useWaveSpawning = true;
+                            levelSelected = true;
+                            cout << "Level 2 selected!" << endl;
+                        }
+                        else if (menuSelectedLevel == 3)
+                        {
+                            selectedStartLevel = 3;
+                            currentLevel = 3;
+                            levelSelected = true;
+                            cout << "Boss Level (Level 3) selected!" << endl;
+                        }
+                    }
+                    else if (e.key.code == Keyboard::Escape)
+                    {
+                        window.close();
+                        return 0;
+                    }
+                }
+            }
+            
+            // Update selection indicator position
+            if (menuSelectedLevel == 1)
+                selectionIndicator.setPosition(240, 300);
+            else if (menuSelectedLevel == 2)
+                selectionIndicator.setPosition(160, 400);
+            else if (menuSelectedLevel == 3)
+                selectionIndicator.setPosition(140, 500);
+            
+            // Highlight selected option
+            level1Option.setFillColor(menuSelectedLevel == 1 ? Color::Yellow : Color::White);
+            level2Option.setFillColor(menuSelectedLevel == 2 ? Color::Yellow : Color::White);
+            level3Option.setFillColor(menuSelectedLevel == 3 ? Color::Yellow : Color(255, 100, 100));
+
+            // Draw the menu
+            window.clear(Color::Black);
+            window.draw(menuBGSprite);
+            window.draw(levelSelectTitle);
+            window.draw(selectionIndicator);
+            window.draw(level1Option);
+            window.draw(level2Option);
+            window.draw(level3Option);
+            window.draw(backOption);
+            
+            // Show which character was selected
+            Text charInfo("", font, 30);
+            charInfo.setFillColor(Color::Green);
+            charInfo.setPosition(20, 20);
+            if (isYellowCharacter)
+                charInfo.setString("Character: Yellow (Fast)");
+            else
+                charInfo.setString("Character: Green (Strong Vacuum)");
+            window.draw(charInfo);
+            
+            window.display();
+        }
+
+        if (!levelSelected)
+            return 0;
+        // ============================================================================
+        // END OF LEVEL SELECTION MENU
+        // ============================================================================
 
         Texture bgTex;
         Sprite bgSprite;
@@ -1499,6 +1680,103 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         lvl2Music.setVolume(20);
         lvl2Music.setLoop(true);
 
+        // ============================================================================
+        // BOSS LEVEL (LEVEL 3) ASSETS
+        // ============================================================================
+        
+        // Level 3 Background
+        Texture bgTex3;
+        Sprite bgSprite3;
+        if (!bgTex3.loadFromFile("Data/bg3.png"))
+        {
+            cout << "bg3.png missing! Using bg.png as fallback.\n";
+            bgTex3.loadFromFile("Data/bg.png");
+        }
+        bgSprite3.setTexture(bgTex3);
+        bgSprite3.setScale(
+            float(screen_x) / bgTex3.getSize().x,
+            float(screen_y) / bgTex3.getSize().y
+        );
+        
+        // Level 3 Block
+        Texture blockTexture3;
+        Sprite blockSprite3;
+        if (!blockTexture3.loadFromFile("Data/block3.png"))
+        {
+            cout << "block3.png missing! Using block1.png as fallback.\n";
+            blockTexture3.loadFromFile("Data/block1.png");
+        }
+        blockSprite3.setTexture(blockTexture3);
+        
+        // Level 3 Music
+        Music lvl3Music;
+        if (!lvl3Music.openFromFile("Data/mus3.ogg"))
+        {
+            cout << "mus3.ogg missing! Using mus.ogg as fallback.\n";
+            lvl3Music.openFromFile("Data/mus.ogg");
+        }
+        lvl3Music.setVolume(25);
+        lvl3Music.setLoop(true);
+        
+        // Octopus Boss Textures
+        Texture bossTexture;
+        Sprite bossSprite;
+        if (!bossTexture.loadFromFile("Data/boss/octopus.png"))
+        {
+            cout << "octopus.png missing!\n";
+        }
+        bossSprite.setTexture(bossTexture);
+        bossSprite.setScale(3.0f, 3.0f);
+        
+        // Octopus Boss Angry Texture
+        Texture bossAngryTexture;
+        if (!bossAngryTexture.loadFromFile("Data/boss/octopus_angry.png"))
+        {
+            cout << "octopus_angry.png missing! Will use color tint.\n";
+        }
+        
+        // Tentacle Texture
+        Texture tentacleTexture;
+        Sprite tentacleSprite;
+        if (!tentacleTexture.loadFromFile("Data/boss/tentacle.png"))
+        {
+            cout << "tentacle.png missing!\n";
+        }
+        tentacleSprite.setTexture(tentacleTexture);
+        tentacleSprite.setScale(2.0f, 2.0f);
+        
+        // Minion Texture
+        Texture minionTexture;
+        Sprite minionSprite;
+        if (!minionTexture.loadFromFile("Data/boss/minion.png"))
+        {
+            cout << "minion.png missing! Using ghost as fallback.\n";
+            minionTexture.loadFromFile("Data/ghost.png");
+        }
+        minionSprite.setTexture(minionTexture);
+        minionSprite.setScale(1.5f, 1.5f);
+        
+        // Minion Roll Textures (for projectile state)
+        Texture minionRollTex[4];
+        if (!minionRollTex[0].loadFromFile("Data/boss/minion_roll1.png"))
+        {
+            cout << "minion_roll textures missing! Using ghost roll as fallback.\n";
+            minionRollTex[0].loadFromFile("Data/ghostRoll/roll1.png");
+            minionRollTex[1].loadFromFile("Data/ghostRoll/roll2.png");
+            minionRollTex[2].loadFromFile("Data/ghostRoll/roll3.png");
+            minionRollTex[3].loadFromFile("Data/ghostRoll/roll4.png");
+        }
+        else
+        {
+            minionRollTex[1].loadFromFile("Data/boss/minion_roll2.png");
+            minionRollTex[2].loadFromFile("Data/boss/minion_roll3.png");
+            minionRollTex[3].loadFromFile("Data/boss/minion_roll4.png");
+        }
+        
+        // ============================================================================
+        // END OF BOSS LEVEL ASSETS
+        // ============================================================================
+
         float player_x = 850.0f;
         float player_y = 450.f;
 
@@ -1530,40 +1808,6 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         EnemyTexture.loadFromFile("Data/ghost.png");
         EnemySprite.setTexture(EnemyTexture);
         EnemySprite.setScale(2, 2);
-        
-        // --- GHOST WALKING ANIMATION ---
-        Texture ghostWalkTex[4];
-        ghostWalkTex[0].loadFromFile("Data/ghostWalk/walk1.png");
-        ghostWalkTex[1].loadFromFile("Data/ghostWalk/walk2.png");
-        ghostWalkTex[2].loadFromFile("Data/ghostWalk/walk3.png");
-        ghostWalkTex[3].loadFromFile("Data/ghostWalk/walk4.png");
-        
-        int ghostAnimFrame[maxEnemyCount];
-        int ghostAnimCounter[maxEnemyCount];
-        int ghostAnimSpeed = 8;
-        
-        for (int i = 0; i < maxEnemyCount; i++)
-        {
-            ghostAnimFrame[i] = 0;
-            ghostAnimCounter[i] = 0;
-        }
-        
-        // --- GHOST SUCKING ANIMATION ---
-        Texture ghostSuckTex[4];
-        ghostSuckTex[0].loadFromFile("Data/ghostSuck/suck1.png");
-        ghostSuckTex[1].loadFromFile("Data/ghostSuck/suck2.png");
-        ghostSuckTex[2].loadFromFile("Data/ghostSuck/suck3.png");
-        ghostSuckTex[3].loadFromFile("Data/ghostSuck/suck4.png");
-        
-        int ghostSuckFrame[maxEnemyCount];
-        int ghostSuckCounter[maxEnemyCount];
-        int ghostSuckSpeed = 5;
-        
-        for (int i = 0; i < maxEnemyCount; i++)
-        {
-            ghostSuckFrame[i] = 0;
-            ghostSuckCounter[i] = 0;
-        }
 
         // Skeleton enemies
         int skeletonCount = 0;
@@ -1601,23 +1845,6 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         skeletonWalkTex[2].loadFromFile("Data/skeletonWalk/walk3.png");
         skeletonWalkTex[3].loadFromFile("Data/skeletonWalk/walk4.png");
         
-        // --- SKELETON SUCKING ANIMATION ---
-        Texture skeletonSuckTex[4];
-        skeletonSuckTex[0].loadFromFile("Data/skeletonSuck/suck1.png");
-        skeletonSuckTex[1].loadFromFile("Data/skeletonSuck/suck2.png");
-        skeletonSuckTex[2].loadFromFile("Data/skeletonSuck/suck3.png");
-        skeletonSuckTex[3].loadFromFile("Data/skeletonSuck/suck4.png");
-        
-        int skeletonSuckFrame[maxSkeletonCount];
-        int skeletonSuckCounter[maxSkeletonCount];
-        int skeletonSuckSpeed = 5;
-        
-        for (int i = 0; i < maxSkeletonCount; i++)
-        {
-            skeletonSuckFrame[i] = 0;
-            skeletonSuckCounter[i] = 0;
-        }
-        
         // Invisible Man enemies (Level 2 only)
         int invisibleCount = 0;
         const int maxInvisibleCount = 5;
@@ -1646,36 +1873,6 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         InvisibleSprite.setTexture(InvisibleTexture);
         InvisibleSprite.setScale(2, 2);
         
-        // --- INVISIBLE MAN WALKING ANIMATION ---
-        Texture invisibleWalkTex[4];
-        invisibleWalkTex[0].loadFromFile("Data/invisibleMan/walk1.png");
-        invisibleWalkTex[1].loadFromFile("Data/invisibleMan/walk2.png");
-        invisibleWalkTex[2].loadFromFile("Data/invisibleMan/walk3.png");
-        invisibleWalkTex[3].loadFromFile("Data/invisibleMan/walk4.png");
-        
-        int invisibleAnimFrame[maxInvisibleCount];
-        int invisibleAnimCounter[maxInvisibleCount];
-        int invisibleAnimSpeed = 8;
-        
-        // --- INVISIBLE MAN SUCKING ANIMATION ---
-        Texture invisibleSuckTex[4];
-        invisibleSuckTex[0].loadFromFile("Data/invisibleMan/suck1.png");
-        invisibleSuckTex[1].loadFromFile("Data/invisibleMan/suck2.png");
-        invisibleSuckTex[2].loadFromFile("Data/invisibleMan/suck3.png");
-        invisibleSuckTex[3].loadFromFile("Data/invisibleMan/suck4.png");
-        
-        int invisibleSuckFrame[maxInvisibleCount];
-        int invisibleSuckCounter[maxInvisibleCount];
-        int invisibleSuckSpeed = 5;
-        
-        for (int i = 0; i < maxInvisibleCount; i++)
-        {
-            invisibleAnimFrame[i] = 0;
-            invisibleAnimCounter[i] = 0;
-            invisibleSuckFrame[i] = 0;
-            invisibleSuckCounter[i] = 0;
-        }
-        
         // Chelnov enemies (Level 2 only)
         int chelnovCount = 0;
         const int maxChelnovCount = 5;
@@ -1703,36 +1900,6 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         }
         ChelnovSprite.setTexture(ChelnovTexture);
         ChelnovSprite.setScale(2, 2);
-        
-        // --- CHELNOV WALKING ANIMATION ---
-        Texture chelnovWalkTex[4];
-        chelnovWalkTex[0].loadFromFile("Data/chelnov/walk1.png");
-        chelnovWalkTex[1].loadFromFile("Data/chelnov/walk2.png");
-        chelnovWalkTex[2].loadFromFile("Data/chelnov/walk3.png");
-        chelnovWalkTex[3].loadFromFile("Data/chelnov/walk4.png");
-        
-        int chelnovAnimFrame[maxChelnovCount];
-        int chelnovAnimCounter[maxChelnovCount];
-        int chelnovAnimSpeed = 8;
-        
-        // --- CHELNOV SUCKING ANIMATION ---
-        Texture chelnovSuckTex[4];
-        chelnovSuckTex[0].loadFromFile("Data/chelnov/suck1.png");
-        chelnovSuckTex[1].loadFromFile("Data/chelnov/suck2.png");
-        chelnovSuckTex[2].loadFromFile("Data/chelnov/suck3.png");
-        chelnovSuckTex[3].loadFromFile("Data/chelnov/suck4.png");
-        
-        int chelnovSuckFrame[maxChelnovCount];
-        int chelnovSuckCounter[maxChelnovCount];
-        int chelnovSuckSpeed = 5;
-        
-        for (int i = 0; i < maxChelnovCount; i++)
-        {
-            chelnovAnimFrame[i] = 0;
-            chelnovAnimCounter[i] = 0;
-            chelnovSuckFrame[i] = 0;
-            chelnovSuckCounter[i] = 0;
-        }
         
         // Chelnov projectiles
         const int maxChelnovProjectiles = 10;
@@ -1889,104 +2056,284 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
                 lvl[i][j] = ' ';
         }
 
-        // Level 1 layout (your original)
-        lvl[1][3] = '-'; lvl[1][4] = '-'; lvl[1][5] = '-'; lvl[1][6] = '-';
-        lvl[1][7] = '-'; lvl[1][8] = '-'; lvl[1][9] = '-'; lvl[1][10] = '-';
-        lvl[1][11] = '-'; lvl[1][12] = '-'; lvl[1][13] = '-'; lvl[1][14] = '-';
-
-        lvl[9][3] = '-'; lvl[9][4] = '-'; lvl[9][5] = '-'; lvl[9][6] = '-';
-        lvl[9][7] = '-'; lvl[9][8] = '-'; lvl[9][9] = '-'; lvl[9][10] = '-';
-        lvl[9][11] = '-'; lvl[9][12] = '-'; lvl[9][13] = '-'; lvl[9][14] = '-';
-
-        lvl[8][8] = '-'; lvl[8][9] = '-';
-        lvl[7][1] = '-'; lvl[7][2] = '-'; lvl[7][3] = '-';
-        lvl[7][9] = '-'; lvl[7][8] = '-'; lvl[7][7] = '-'; lvl[7][10] = '-';
-        lvl[7][14] = '-'; lvl[7][15] = '-'; lvl[7][16] = '-';
-        lvl[6][7] = '-'; lvl[6][10] = '-';
-        lvl[5][7] = '-'; lvl[5][10] = '-';
-        lvl[5][3] = '-'; lvl[5][4] = '-'; lvl[5][5] = '-'; lvl[5][6] = '-';
-        lvl[5][11] = '-'; lvl[5][12] = '-'; lvl[5][13] = '-'; lvl[5][14] = '-';
-        lvl[4][7] = '-'; lvl[4][10] = '-';
-        lvl[3][7] = '-'; lvl[3][10] = '-'; lvl[3][8] = '-'; lvl[3][9] = '-';
-        lvl[3][1] = '-'; lvl[3][2] = '-'; lvl[3][3] = '-';
-        lvl[3][16] = '-'; lvl[3][15] = '-'; lvl[3][14] = '-';
-        lvl[2][8] = '-'; lvl[2][9] = '-';
-
-        // Floor and Sides
-        for (int j = 0; j <= 18; j++) lvl[11][j] = '#';
-        for (int i = 0; i <= 10; i++) { lvl[i][0] = '#'; lvl[i][18] = '#'; }
-        lvl[7][17] = '#'; lvl[3][17] = '#';
-        lvl[2][8] = '#'; lvl[2][9] = '#';
-        lvl[8][8] = '#'; lvl[8][9] = '#';
-        lvl[7][7] = '#'; lvl[7][8] = '#'; lvl[7][9] = '#'; lvl[7][10] = '#';
-        lvl[6][7] = '#'; lvl[6][10] = '#';
-        lvl[5][7] = '#'; lvl[5][10] = '#';
-        lvl[4][7] = '#'; lvl[4][10] = '#';
-        lvl[3][7] = '#'; lvl[3][8] = '#'; lvl[3][9] = '#'; lvl[3][10] = '#';
-
-        // Enemy spawn markers
-        lvl[0][5] = 'e'; lvl[0][12] = 'e'; lvl[2][2] = 'e'; lvl[2][15] = 'e';
-        lvl[4][4] = 'e'; lvl[4][13] = 'e'; lvl[8][6] = 'e'; lvl[8][10] = 'e';
-        lvl[0][7] = 's'; lvl[0][10] = 's'; lvl[2][4] = 's'; lvl[2][13] = 's';
-
-        // Initialize ghosts
-        for (int r = 0; r < height; r++)
+        // ============================================================================
+        // INITIALIZE LEVEL BASED ON MENU SELECTION
+        // ============================================================================
+        if (currentLevel == 1)
         {
-            for (int c = 0; c < width; c++)
+            // --- LEVEL 1 INITIALIZATION ---
+            cout << "Initializing Level 1..." << endl;
+            
+            // Level 1 layout (original)
+            lvl[1][3] = '-'; lvl[1][4] = '-'; lvl[1][5] = '-'; lvl[1][6] = '-';
+            lvl[1][7] = '-'; lvl[1][8] = '-'; lvl[1][9] = '-'; lvl[1][10] = '-';
+            lvl[1][11] = '-'; lvl[1][12] = '-'; lvl[1][13] = '-'; lvl[1][14] = '-';
+
+            lvl[9][3] = '-'; lvl[9][4] = '-'; lvl[9][5] = '-'; lvl[9][6] = '-';
+            lvl[9][7] = '-'; lvl[9][8] = '-'; lvl[9][9] = '-'; lvl[9][10] = '-';
+            lvl[9][11] = '-'; lvl[9][12] = '-'; lvl[9][13] = '-'; lvl[9][14] = '-';
+
+            lvl[8][8] = '-'; lvl[8][9] = '-';
+            lvl[7][1] = '-'; lvl[7][2] = '-'; lvl[7][3] = '-';
+            lvl[7][9] = '-'; lvl[7][8] = '-'; lvl[7][7] = '-'; lvl[7][10] = '-';
+            lvl[7][14] = '-'; lvl[7][15] = '-'; lvl[7][16] = '-';
+            lvl[6][7] = '-'; lvl[6][10] = '-';
+            lvl[5][7] = '-'; lvl[5][10] = '-';
+            lvl[5][3] = '-'; lvl[5][4] = '-'; lvl[5][5] = '-'; lvl[5][6] = '-';
+            lvl[5][11] = '-'; lvl[5][12] = '-'; lvl[5][13] = '-'; lvl[5][14] = '-';
+            lvl[4][7] = '-'; lvl[4][10] = '-';
+            lvl[3][7] = '-'; lvl[3][10] = '-'; lvl[3][8] = '-'; lvl[3][9] = '-';
+            lvl[3][1] = '-'; lvl[3][2] = '-'; lvl[3][3] = '-';
+            lvl[3][16] = '-'; lvl[3][15] = '-'; lvl[3][14] = '-';
+            lvl[2][8] = '-'; lvl[2][9] = '-';
+
+            // Floor and Sides
+            for (int j = 0; j <= 18; j++) lvl[11][j] = '#';
+            for (int i = 0; i <= 10; i++) { lvl[i][0] = '#'; lvl[i][18] = '#'; }
+            lvl[7][17] = '#'; lvl[3][17] = '#';
+            lvl[2][8] = '#'; lvl[2][9] = '#';
+            lvl[8][8] = '#'; lvl[8][9] = '#';
+            lvl[7][7] = '#'; lvl[7][8] = '#'; lvl[7][9] = '#'; lvl[7][10] = '#';
+            lvl[6][7] = '#'; lvl[6][10] = '#';
+            lvl[5][7] = '#'; lvl[5][10] = '#';
+            lvl[4][7] = '#'; lvl[4][10] = '#';
+            lvl[3][7] = '#'; lvl[3][8] = '#'; lvl[3][9] = '#'; lvl[3][10] = '#';
+
+            // Enemy spawn markers
+            lvl[0][5] = 'e'; lvl[0][12] = 'e'; lvl[2][2] = 'e'; lvl[2][15] = 'e';
+            lvl[4][4] = 'e'; lvl[4][13] = 'e'; lvl[8][6] = 'e'; lvl[8][10] = 'e';
+            lvl[0][7] = 's'; lvl[0][10] = 's'; lvl[2][4] = 's'; lvl[2][13] = 's';
+
+            // Initialize ghosts from markers
+            for (int r = 0; r < height; r++)
             {
-                if (lvl[r][c] == 'e' && enemyCount < maxEnemyCount)
+                for (int c = 0; c < width; c++)
                 {
-                    int platformRow = r + 1;
-                    char below = get_tile(lvl, platformRow, c, height, width);
-                    if (below == '-' || below == '#')
+                    if (lvl[r][c] == 'e' && enemyCount < maxEnemyCount)
                     {
-                        enemiesX[enemyCount] = c * cell_size;
-                        enemiesY[enemyCount] = r * cell_size;
-                        int leftEdge = c + 1;
-                        int rightEdge = c + 1;
-                        while (leftEdge > 0 && (lvl[platformRow][leftEdge - 1] == '-' || lvl[platformRow][leftEdge - 1] == '#'))
-                            leftEdge--;
-                        while (rightEdge < width - 1 && (lvl[platformRow][rightEdge + 1] == '-' || lvl[platformRow][rightEdge + 1] == '#'))
-                            rightEdge++;
-                        platformLeftEdge[enemyCount] = leftEdge * cell_size + 10;
-                        platformRightEdge[enemyCount] = (rightEdge + 1) * cell_size - 48 - 10;
-                        enemySpeed[enemyCount] = 15.f;
-                        enemyDirection[enemyCount] = 1;
-                        enemyCount++;
+                        int platformRow = r + 1;
+                        char below = get_tile(lvl, platformRow, c, height, width);
+                        if (below == '-' || below == '#')
+                        {
+                            enemiesX[enemyCount] = c * cell_size;
+                            enemiesY[enemyCount] = r * cell_size;
+                            int leftEdge = c + 1;
+                            int rightEdge = c + 1;
+                            while (leftEdge > 0 && (lvl[platformRow][leftEdge - 1] == '-' || lvl[platformRow][leftEdge - 1] == '#'))
+                                leftEdge--;
+                            while (rightEdge < width - 1 && (lvl[platformRow][rightEdge + 1] == '-' || lvl[platformRow][rightEdge + 1] == '#'))
+                                rightEdge++;
+                            platformLeftEdge[enemyCount] = leftEdge * cell_size + 10;
+                            platformRightEdge[enemyCount] = (rightEdge + 1) * cell_size - 48 - 10;
+                            enemySpeed[enemyCount] = 15.f;
+                            enemyDirection[enemyCount] = 1;
+                            enemyCount++;
+                        }
+                        lvl[r][c] = ' ';
                     }
-                    lvl[r][c] = ' ';
                 }
             }
-        }
-        cout << "Total enemies: " << enemyCount << endl;
+            cout << "Level 1: Total ghosts: " << enemyCount << endl;
 
-        // Initialize skeletons
-        for (int r = 0; r < height; r++)
-        {
-            for (int c = 0; c < width; c++)
+            // Initialize skeletons from markers
+            for (int r = 0; r < height; r++)
             {
-                if (lvl[r][c] == 's' && skeletonCount < maxSkeletonCount)
+                for (int c = 0; c < width; c++)
                 {
-                    skeletonsX[skeletonCount] = c * cell_size;
-                    skeletonsY[skeletonCount] = r * cell_size;
-                    skeletonSpeed[skeletonCount] = 40.f;
-                    skeletonDirection[skeletonCount] = 1;
-                    skeletonVelocityY[skeletonCount] = 0;
-                    skeletonOnGround[skeletonCount] = false;
-                    skeletonJumpTimer[skeletonCount] = 0.f;
-                    skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
-                    skeletonShouldJump[skeletonCount] = false;
-                    skeletonStableFrames[skeletonCount] = 0;
-                    skeletonAnimFrame[skeletonCount] = 0;
-                    skeletonAnimCounter[skeletonCount] = 0;
-                    skeletonCount++;
-                    lvl[r][c] = ' ';
+                    if (lvl[r][c] == 's' && skeletonCount < maxSkeletonCount)
+                    {
+                        skeletonsX[skeletonCount] = c * cell_size;
+                        skeletonsY[skeletonCount] = r * cell_size;
+                        skeletonSpeed[skeletonCount] = 40.f;
+                        skeletonDirection[skeletonCount] = 1;
+                        skeletonVelocityY[skeletonCount] = 0;
+                        skeletonOnGround[skeletonCount] = false;
+                        skeletonJumpTimer[skeletonCount] = 0.f;
+                        skeletonJumpCooldown[skeletonCount] = 1.5f + (rand() % 20) / 10.0f;
+                        skeletonShouldJump[skeletonCount] = false;
+                        skeletonStableFrames[skeletonCount] = 0;
+                        skeletonAnimFrame[skeletonCount] = 0;
+                        skeletonAnimCounter[skeletonCount] = 0;
+                        skeletonCount++;
+                        lvl[r][c] = ' ';
+                    }
                 }
             }
+            cout << "Level 1: Total skeletons: " << skeletonCount << endl;
+            
+            // Set Level 1 capacity
+            MAX_CAPACITY = 3;
+            
+            // Start Level 1 music
+            lvlMusic.play();
         }
-        cout << "Total skeletons: " << skeletonCount << endl;
+        else if (currentLevel == 2)
+        {
+            // --- LEVEL 2 INITIALIZATION ---
+            cout << "Initializing Level 2..." << endl;
+            
+            // Generate Level 2 map (don't spawn all enemies - waves will do it)
+            generateLevel2Map(lvl, height, width, cell_size,
+                enemiesX, enemiesY, enemySpeed, enemyDirection,
+                platformLeftEdge, platformRightEdge, enemyCount,
+                skeletonsX, skeletonsY, skeletonSpeed, skeletonDirection,
+                skeletonVelocityY, skeletonOnGround, skeletonJumpTimer,
+                skeletonJumpCooldown, skeletonShouldJump, skeletonStableFrames,
+                skeletonAnimFrame, skeletonAnimCounter, skeletonCount,
+                invisiblesX, invisiblesY, invisibleSpeed, invisibleDirection,
+                invisibleVelocityY, invisibleOnGround, invisibleIsVisible,
+                invisibleVisibilityTimer, invisibleTeleportTimer, invisibleCount,
+                chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
+                chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
+                chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount,
+                false);  // false = don't spawn all enemies, use wave system
+            
+            // Set Level 2 capacity
+            MAX_CAPACITY = 5;
+            
+            // Reset wave system
+            useWaveSpawning = true;
+            currentWave = 0;
+            waveTimer = 0.0f;
+            for (int w = 0; w < 4; w++) waveSpawned[w] = false;
+            
+            // Start Level 2 music
+            lvl2Music.play();
+            
+            cout << "Level 2 initialized with wave spawning system" << endl;
+        }
+        else if (currentLevel == 3)
+        {
+            // ============================================================================
+            // BOSS LEVEL (LEVEL 3) INITIALIZATION
+            // ============================================================================
+            cout << "Initializing Boss Level (Level 3)..." << endl;
+            
+            // Allocate dynamic arrays for minions
+            minionsX = new float[maxMinions];
+            minionsY = new float[maxMinions];
+            minionSpeed = new float[maxMinions];
+            minionDirection = new int[maxMinions];
+            minionVelocityY = new float[maxMinions];
+            minionOnGround = new bool[maxMinions];
+            minionIsCaught = new bool[maxMinions];
+            minionFollowingPlayer = new bool[maxMinions];
+            minionCount = 0;
+            
+            // Initialize minion arrays
+            for (int i = 0; i < maxMinions; i++)
+            {
+                minionsX[i] = 0;
+                minionsY[i] = 0;
+                minionSpeed[i] = 0;
+                minionDirection[i] = 0;
+                minionVelocityY[i] = 0;
+                minionOnGround[i] = false;
+                minionIsCaught[i] = false;
+                minionFollowingPlayer[i] = false;
+            }
+            
+            // Allocate dynamic arrays for tentacles
+            tentaclesX = new float[maxTentacles];
+            tentaclesY = new float[maxTentacles];
+            tentacleWidth = new int[maxTentacles];
+            tentacleHeight = new int[maxTentacles];
+            tentacleTimer = new float[maxTentacles];
+            tentacleDuration = new float[maxTentacles];
+            tentacleActive = new bool[maxTentacles];
+            tentacleCount = 0;
+            
+            // Initialize tentacle arrays
+            for (int i = 0; i < maxTentacles; i++)
+            {
+                tentaclesX[i] = 0;
+                tentaclesY[i] = 0;
+                tentacleWidth[i] = 40;
+                tentacleHeight[i] = 120;
+                tentacleTimer[i] = 0;
+                tentacleDuration[i] = 0;
+                tentacleActive[i] = false;
+            }
+            
+            // Create boss level map with 1.5x dimensions
+            // Using scaled cell size to fit same screen
+            bossLvl = new char*[level3Height];
+            for (int i = 0; i < level3Height; i++)
+            {
+                bossLvl[i] = new char[level3Width];
+                for (int j = 0; j < level3Width; j++)
+                    bossLvl[i][j] = ' ';
+            }
+            
+            // Boss level layout - simple arena style
+            // Floor at bottom
+            for (int j = 0; j < level3Width; j++)
+                bossLvl[level3Height - 3][j] = '#';
+            
+            // Side walls
+            for (int i = 0; i < level3Height - 3; i++)
+            {
+                bossLvl[i][0] = '#';
+                bossLvl[i][level3Width - 1] = '#';
+            }
+            
+            // Platforms for player to jump on
+            // Left platform
+            for (int j = 2; j < 8; j++)
+                bossLvl[level3Height - 8][j] = '-';
+            
+            // Right platform
+            for (int j = level3Width - 8; j < level3Width - 2; j++)
+                bossLvl[level3Height - 8][j] = '-';
+            
+            // Middle platform
+            for (int j = 12; j < 18; j++)
+                bossLvl[level3Height - 6][j] = '-';
+            
+            // Upper left platform
+            for (int j = 3; j < 9; j++)
+                bossLvl[level3Height - 12][j] = '-';
+            
+            // Upper right platform
+            for (int j = level3Width - 9; j < level3Width - 3; j++)
+                bossLvl[level3Height - 12][j] = '-';
+            
+            // Top middle platform
+            for (int j = 11; j < 19; j++)
+                bossLvl[level3Height - 15][j] = '-';
+            
+            // Initialize boss position (top center of screen)
+            bossX = screen_x / 2 - bossWidth / 2;
+            bossY = 50;
+            bossHealth = maxBossHealth;
+            bossIsAngry = false;
+            bossDefeated = false;
+            
+            // Reset timers
+            minionSpawnTimer = 0.0f;
+            tentacleSpawnTimer = 0.0f;
+            
+            // Player starting position for boss level
+            player_x = screen_x / 2 - PlayerWidth / 2;
+            player_y = (level3Height - 4) * level3CellSize;
+            
+            // No capacity limit in boss level (dynamic capture)
+            MAX_CAPACITY = 999;
+            
+            // Stop other music, start boss music
+            lvlMusic.stop();
+            lvl2Music.stop();
+            lvl3Music.play();
+            
+            cout << "Boss Level initialized!" << endl;
+            cout << "Boss Health: " << bossHealth << "/" << maxBossHealth << endl;
+            cout << "Level dimensions: " << level3Width << "x" << level3Height << " (cell size: " << level3CellSize << ")" << endl;
+        }
+        // ============================================================================
+        // END OF LEVEL INITIALIZATION
+        // ============================================================================
 
-        // Spawn initial powerups
+        // Spawn initial powerups (works for both levels)
         for (int i = 0; i < 3; i++)
         {
             spawnPowerup(powerupsX, powerupsY, powerupType, powerupActive, 
@@ -2061,6 +2408,221 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
                     }
                 }
             }
+
+            // ============================================================================
+            // BOSS LEVEL (LEVEL 3) GAME LOGIC
+            // ============================================================================
+            if (currentLevel == 3 && !bossDefeated)
+            {
+                // Update spawn timers
+                minionSpawnTimer += dt;
+                tentacleSpawnTimer += dt;
+                
+                // Check if boss is angry (health <= 2)
+                if (bossHealth <= 2 && !bossIsAngry)
+                {
+                    bossIsAngry = true;
+                    minionSpawnInterval = 2.0f;  // Spawn faster when angry
+                    cout << "BOSS IS ANGRY! Minions will now follow the player!" << endl;
+                }
+                
+                // --- SPAWN MINIONS ---
+                if (minionSpawnTimer >= minionSpawnInterval && minionCount < maxMinions)
+                {
+                    minionSpawnTimer = 0.0f;
+                    
+                    // Spawn 1-3 minions at a time
+                    int minionsToSpawn = 1 + rand() % 3;
+                    if (bossIsAngry) minionsToSpawn += 1;  // More minions when angry
+                    
+                    for (int m = 0; m < minionsToSpawn && minionCount < maxMinions; m++)
+                    {
+                        // Spawn minions near the boss
+                        minionsX[minionCount] = bossX + (rand() % bossWidth);
+                        minionsY[minionCount] = bossY + bossHeight;
+                        minionSpeed[minionCount] = 30.0f + (rand() % 20);
+                        minionDirection[minionCount] = (rand() % 2 == 0) ? -1 : 1;
+                        minionVelocityY[minionCount] = 0;
+                        minionOnGround[minionCount] = false;
+                        minionIsCaught[minionCount] = false;
+                        minionFollowingPlayer[minionCount] = bossIsAngry;  // Follow if angry
+                        minionCount++;
+                        
+                        cout << "Minion spawned! Total: " << minionCount << endl;
+                    }
+                }
+                
+                // --- SPAWN TENTACLES ---
+                if (tentacleSpawnTimer >= tentacleSpawnInterval)
+                {
+                    tentacleSpawnTimer = 0.0f;
+                    
+                    // 60% chance to spawn a tentacle
+                    if (rand() % 100 < 60 && tentacleCount < maxTentacles)
+                    {
+                        // Random position on screen
+                        tentaclesX[tentacleCount] = 100 + rand() % (screen_x - 200);
+                        tentaclesY[tentacleCount] = 200 + rand() % (screen_y - 400);
+                        tentacleWidth[tentacleCount] = 40 + rand() % 30;
+                        tentacleHeight[tentacleCount] = 100 + rand() % 80;
+                        tentacleTimer[tentacleCount] = 0.0f;
+                        tentacleDuration[tentacleCount] = 2.0f + (rand() % 40) / 10.0f;  // 2-6 seconds
+                        tentacleActive[tentacleCount] = true;
+                        tentacleCount++;
+                        
+                        cout << "Tentacle spawned! Total: " << tentacleCount << endl;
+                    }
+                }
+                
+                // --- UPDATE TENTACLES ---
+                for (int t = 0; t < tentacleCount; t++)
+                {
+                    if (tentacleActive[t])
+                    {
+                        tentacleTimer[t] += dt;
+                        
+                        // Remove tentacle when duration expires
+                        if (tentacleTimer[t] >= tentacleDuration[t])
+                        {
+                            // Shift remaining tentacles
+                            for (int j = t; j < tentacleCount - 1; j++)
+                            {
+                                tentaclesX[j] = tentaclesX[j + 1];
+                                tentaclesY[j] = tentaclesY[j + 1];
+                                tentacleWidth[j] = tentacleWidth[j + 1];
+                                tentacleHeight[j] = tentacleHeight[j + 1];
+                                tentacleTimer[j] = tentacleTimer[j + 1];
+                                tentacleDuration[j] = tentacleDuration[j + 1];
+                                tentacleActive[j] = tentacleActive[j + 1];
+                            }
+                            tentacleCount--;
+                            t--;
+                        }
+                    }
+                }
+                
+                // --- UPDATE MINIONS ---
+                for (int m = 0; m < minionCount; m++)
+                {
+                    if (minionIsCaught[m]) continue;
+                    
+                    // Apply gravity
+                    minionVelocityY[m] += gravity * dt;
+                    if (minionVelocityY[m] > terminal_Velocity)
+                        minionVelocityY[m] = terminal_Velocity;
+                    
+                    float newMinionY = minionsY[m] + minionVelocityY[m] * dt;
+                    
+                    // Simple floor collision using boss level dimensions
+                    int minionFloorRow = level3Height - 3;
+                    float floorY = minionFloorRow * level3CellSize;
+                    
+                    if (newMinionY + minionHeight >= floorY)
+                    {
+                        newMinionY = floorY - minionHeight;
+                        minionVelocityY[m] = 0;
+                        minionOnGround[m] = true;
+                    }
+                    else
+                    {
+                        minionOnGround[m] = false;
+                    }
+                    
+                    minionsY[m] = newMinionY;
+                    
+                    // Horizontal movement
+                    if (minionFollowingPlayer[m] && minionOnGround[m])
+                    {
+                        // Follow player when angry
+                        if (player_x > minionsX[m] + minionWidth / 2)
+                        {
+                            minionsX[m] += minionSpeed[m] * dt;
+                            minionDirection[m] = 1;
+                        }
+                        else if (player_x < minionsX[m] - minionWidth / 2)
+                        {
+                            minionsX[m] -= minionSpeed[m] * dt;
+                            minionDirection[m] = -1;
+                        }
+                    }
+                    else if (minionOnGround[m])
+                    {
+                        // Normal patrol movement
+                        minionsX[m] += minionSpeed[m] * minionDirection[m] * dt;
+                        
+                        // Bounce off walls
+                        if (minionsX[m] <= level3CellSize)
+                        {
+                            minionsX[m] = level3CellSize;
+                            minionDirection[m] = 1;
+                        }
+                        else if (minionsX[m] + minionWidth >= screen_x - level3CellSize)
+                        {
+                            minionsX[m] = screen_x - level3CellSize - minionWidth;
+                            minionDirection[m] = -1;
+                        }
+                    }
+                    
+                    // --- MINION COLLISION WITH PLAYER ---
+                    if (!isDead && !waitingToRespawn)
+                    {
+                        if ((player_x < minionsX[m] + minionWidth) &&
+                            (player_x + PlayerWidth > minionsX[m]) &&
+                            (player_y < minionsY[m] + minionHeight) &&
+                            (player_y + PlayerHeight > minionsY[m]))
+                        {
+                            isDead = true;
+                            playerLives--;
+                            levelNoDamage = false;
+                            waitingToRespawn = true;
+                            deathDelayCounter = 0.0f;
+                            cout << "Player hit by minion! Lives: " << playerLives << endl;
+                        }
+                    }
+                }
+                
+                // --- TENTACLE COLLISION WITH PLAYER ---
+                if (!isDead && !waitingToRespawn)
+                {
+                    for (int t = 0; t < tentacleCount; t++)
+                    {
+                        if (!tentacleActive[t]) continue;
+                        
+                        if ((player_x < tentaclesX[t] + tentacleWidth[t]) &&
+                            (player_x + PlayerWidth > tentaclesX[t]) &&
+                            (player_y < tentaclesY[t] + tentacleHeight[t]) &&
+                            (player_y + PlayerHeight > tentaclesY[t]))
+                        {
+                            isDead = true;
+                            playerLives--;
+                            levelNoDamage = false;
+                            waitingToRespawn = true;
+                            deathDelayCounter = 0.0f;
+                            cout << "Player hit by tentacle! Lives: " << playerLives << endl;
+                        }
+                    }
+                }
+                
+                // --- BOSS COLLISION WITH PLAYER ---
+                if (!isDead && !waitingToRespawn)
+                {
+                    if ((player_x < bossX + bossWidth) &&
+                        (player_x + PlayerWidth > bossX) &&
+                        (player_y < bossY + bossHeight) &&
+                        (player_y + PlayerHeight > bossY))
+                    {
+                        isDead = true;
+                        playerLives--;
+                        levelNoDamage = false;
+                        waitingToRespawn = true;
+                        deathDelayCounter = 0.0f;
+                        cout << "Player hit by boss! Lives: " << playerLives << endl;
+                    }
+                }
+            }
+            // ============================================================================
+            // END OF BOSS LEVEL GAME LOGIC
+            // ============================================================================
 
             if (comboTimer >= comboTimeout)
                 comboStreak = 0;
@@ -2237,6 +2799,16 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
                      vacFlickerTimer, showVacSprite, dt, chelnovIsCaught, false, vacuumPower,
                      playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
             }
+            
+            // Boss Level (Level 3) vacuum handling for minions
+            if (currentLevel == 3 && minionCount > 0)
+            {
+                handleVacuum(window, vacSprite, vacTexHorz, vacTexVert, 
+                     player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming, 
+                     minionsX, minionsY, minionCount, capturedEnemies, capturedCount, MAX_CAPACITY, 5, 
+                     vacFlickerTimer, showVacSprite, dt, minionIsCaught, false, vacuumPower,
+                     playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
+            }
                   
             // Powerup collection
             for (int i = 0; i < powerupCount; i++)
@@ -2284,8 +2856,20 @@ i--;
 }
 }
 isMoving = 0;
-        playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
-                          PlayerWidth, height, width, dt, isMoving, facing);
+
+        // Player collision and physics - use appropriate level map
+        if (currentLevel == 3)
+        {
+            // Boss Level uses bossLvl map with different dimensions
+            playerCollision_x(bossLvl, player_x, player_y, speed, level3CellSize, PlayerHeight,
+                              PlayerWidth, level3Height, level3Width, dt, isMoving, facing);
+        }
+        else
+        {
+            playerCollision_x(lvl, player_x, player_y, speed, cell_size, PlayerHeight,
+                              PlayerWidth, height, width, dt, isMoving, facing);
+        }
+        
         updatePlayerAnimation(PlayerSprite, facing, isMoving, isDead, onGround, idleTex,
                               walkTex, jumpTex, deadTex, animFrame, deadAnimFrame, animCounter, deadAnimCounter, animSpeed, deadAnimSpeed);
 
@@ -2296,7 +2880,15 @@ isMoving = 0;
             isJumping = true;
         }
 
-        player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
+        // Player gravity - use appropriate level map
+        if (currentLevel == 3)
+        {
+            player_gravity(bossLvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, level3CellSize, PlayerHeight, PlayerWidth, level3Height, level3Width, dt);
+        }
+        else
+        {
+            player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
+        }
         
         // Apply sliding on slopes (Level 2)
         // Apply sliding on slopes (Level 2)
@@ -2628,12 +3220,18 @@ projectileAnimFrame[p] = 0;
 
 float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt;
             
-            int projRow = (int)(projectilesY[p] + ProjectileHeight / 2) / cell_size;
-            int projColRight = (int)(newProjX + ProjectileWidth) / cell_size;
-            int projColLeft = (int)newProjX / cell_size;
+            // Use appropriate level map and dimensions for projectile physics
+            int useCellSize = (currentLevel == 3) ? level3CellSize : cell_size;
+            int useHeight = (currentLevel == 3) ? level3Height : height;
+            int useWidth = (currentLevel == 3) ? level3Width : width;
+            char** useMap = (currentLevel == 3) ? bossLvl : lvl;
             
-            char rightWall = get_tile(lvl, projRow, projColRight, height, width);
-            char leftWall = get_tile(lvl, projRow, projColLeft, height, width);
+            int projRow = (int)(projectilesY[p] + ProjectileHeight / 2) / useCellSize;
+            int projColRight = (int)(newProjX + ProjectileWidth) / useCellSize;
+            int projColLeft = (int)newProjX / useCellSize;
+            
+            char rightWall = get_tile(useMap, projRow, projColRight, useHeight, useWidth);
+            char leftWall = get_tile(useMap, projRow, projColLeft, useHeight, useWidth);
             
             if (projectileDirection[p] == 1 && rightWall == '#')
                 projectileDirection[p] = -1;
@@ -2644,16 +3242,16 @@ float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt
             
             float newProjY = projectilesY[p] + projectileVelocityY[p] * dt;
             
-            int feetRow = (int)(newProjY + ProjectileHeight) / cell_size;
-            int feetColL = (int)projectilesX[p] / cell_size;
-            int feetColR = (int)(projectilesX[p] + ProjectileWidth) / cell_size;
+            int feetRow = (int)(newProjY + ProjectileHeight) / useCellSize;
+            int feetColL = (int)projectilesX[p] / useCellSize;
+            int feetColR = (int)(projectilesX[p] + ProjectileWidth) / useCellSize;
             
-            char floorL = get_tile(lvl, feetRow, feetColL, height, width);
-            char floorR = get_tile(lvl, feetRow, feetColR, height, width);
+            char floorL = get_tile(useMap, feetRow, feetColL, useHeight, useWidth);
+            char floorR = get_tile(useMap, feetRow, feetColR, useHeight, useWidth);
             
-            int headRow = (int)newProjY / cell_size;
-            char ceilL = get_tile(lvl, headRow, feetColL, height, width);
-            char ceilR = get_tile(lvl, headRow, feetColR, height, width);
+            int headRow = (int)newProjY / useCellSize;
+            char ceilL = get_tile(useMap, headRow, feetColL, useHeight, useWidth);
+            char ceilR = get_tile(useMap, headRow, feetColR, useHeight, useWidth);
             
             bool landed = false;
             
@@ -2662,7 +3260,7 @@ float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt
                 if (ceilL == '#' || ceilR == '#')
                 {
                     projectileVelocityY[p] = 0;
-                    projectilesY[p] = (headRow + 1) * cell_size;
+                    projectilesY[p] = (headRow + 1) * useCellSize;
                 }
             }
             
@@ -2672,7 +3270,7 @@ float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt
                     landed = true;
                 else if (floorL == '-' || floorR == '-')
                 {
-                    float blockTop = feetRow * cell_size;
+                    float blockTop = feetRow * useCellSize;
                     if ((projectilesY[p] + ProjectileHeight <= blockTop + 4.0f) && (newProjY + ProjectileHeight >= blockTop))
                         landed = true;
                 }
@@ -2682,7 +3280,7 @@ float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt
             {
                 projectileOnGround[p] = true;
                 projectileVelocityY[p] = 0;
-                projectilesY[p] = (feetRow * cell_size) - ProjectileHeight;
+                projectilesY[p] = (feetRow * useCellSize) - ProjectileHeight;
             }
             else
             {
@@ -2821,6 +3419,130 @@ float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt
                     }
                 }
             }
+            
+            // ============================================================================
+            // BOSS LEVEL (LEVEL 3) PROJECTILE COLLISIONS
+            // ============================================================================
+            if (currentLevel == 3 && !bossDefeated)
+            {
+                bool projectileRemoved = false;
+                
+                // --- PROJECTILE COLLISION WITH BOSS HEAD ---
+                // Only hits the upper portion of the boss (the head)
+                float bossHeadY = bossY;
+                float bossHeadHeight = bossHeight * 0.5f;  // Head is top half
+                
+                if ((projectilesX[p] < bossX + bossWidth) &&
+                    (projectilesX[p] + ProjectileWidth > bossX) &&
+                    (projectilesY[p] < bossHeadY + bossHeadHeight) &&
+                    (projectilesY[p] + ProjectileHeight > bossHeadY))
+                {
+                    // HIT THE BOSS!
+                    bossHealth--;
+                    playerScore += 500;
+                    cout << "BOSS HIT! Health: " << bossHealth << "/" << maxBossHealth << endl;
+                    
+                    if (bossHealth <= 0)
+                    {
+                        bossDefeated = true;
+                        playerScore += 5000;
+                        cout << "BOSS DEFEATED!" << endl;
+                    }
+                    
+                    // Remove the projectile
+                    projectilesX[p] = projectilesX[projectileCount - 1];
+                    projectilesY[p] = projectilesY[projectileCount - 1];
+                    projectileType[p] = projectileType[projectileCount - 1];
+                    projectileDirection[p] = projectileDirection[projectileCount - 1];
+                    projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
+                    projectileActive[p] = projectileActive[projectileCount - 1];
+                    projectileOnGround[p] = projectileOnGround[projectileCount - 1];
+                    projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
+                    projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
+                    projectileCount--;
+                    p--;
+                    projectileRemoved = true;
+                }
+                
+                // --- PROJECTILE COLLISION WITH TENTACLES ---
+                // When projectile hits tentacle, minion is REBORN at that spot
+                if (!projectileRemoved)
+                {
+                    for (int t = 0; t < tentacleCount && !projectileRemoved; t++)
+                    {
+                        if (!tentacleActive[t]) continue;
+                        
+                        if ((projectilesX[p] < tentaclesX[t] + tentacleWidth[t]) &&
+                            (projectilesX[p] + ProjectileWidth > tentaclesX[t]) &&
+                            (projectilesY[p] < tentaclesY[t] + tentacleHeight[t]) &&
+                            (projectilesY[p] + ProjectileHeight > tentaclesY[t]))
+                        {
+                            // MINION REBORN AT THIS SPOT!
+                            if (minionCount < maxMinions)
+                            {
+                                minionsX[minionCount] = projectilesX[p];
+                                minionsY[minionCount] = projectilesY[p];
+                                minionSpeed[minionCount] = 30.0f + (rand() % 20);
+                                minionDirection[minionCount] = (rand() % 2 == 0) ? -1 : 1;
+                                minionVelocityY[minionCount] = 0;
+                                minionOnGround[minionCount] = false;
+                                minionIsCaught[minionCount] = false;
+                                minionFollowingPlayer[minionCount] = bossIsAngry;
+                                minionCount++;
+                                cout << "Minion REBORN from tentacle hit! Total: " << minionCount << endl;
+                            }
+                            
+                            // Remove the projectile
+                            projectilesX[p] = projectilesX[projectileCount - 1];
+                            projectilesY[p] = projectilesY[projectileCount - 1];
+                            projectileType[p] = projectileType[projectileCount - 1];
+                            projectileDirection[p] = projectileDirection[projectileCount - 1];
+                            projectileVelocityY[p] = projectileVelocityY[projectileCount - 1];
+                            projectileActive[p] = projectileActive[projectileCount - 1];
+                            projectileOnGround[p] = projectileOnGround[projectileCount - 1];
+                            projectileAnimFrame[p] = projectileAnimFrame[projectileCount - 1];
+                            projectileAnimCounter[p] = projectileAnimCounter[projectileCount - 1];
+                            projectileCount--;
+                            p--;
+                            projectileRemoved = true;
+                        }
+                    }
+                }
+                
+                // --- PROJECTILE COLLISION WITH MINIONS (defeats them) ---
+                if (!projectileRemoved)
+                {
+                    for (int m = 0; m < minionCount; m++)
+                    {
+                        if ((projectilesX[p] < minionsX[m] + minionWidth) &&
+                            (projectilesX[p] + ProjectileWidth > minionsX[m]) &&
+                            (projectilesY[p] < minionsY[m] + minionHeight) &&
+                            (projectilesY[p] + ProjectileHeight > minionsY[m]))
+                        {
+                            // Defeat minion
+                            int defeatPoints = 100;
+                            addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
+                            multiKillCount++;
+                            multiKillTimer = 0.0f;
+                            
+                            // Remove minion
+                            minionsX[m] = minionsX[minionCount - 1];
+                            minionsY[m] = minionsY[minionCount - 1];
+                            minionSpeed[m] = minionSpeed[minionCount - 1];
+                            minionDirection[m] = minionDirection[minionCount - 1];
+                            minionVelocityY[m] = minionVelocityY[minionCount - 1];
+                            minionOnGround[m] = minionOnGround[minionCount - 1];
+                            minionIsCaught[m] = minionIsCaught[minionCount - 1];
+                            minionFollowingPlayer[m] = minionFollowingPlayer[minionCount - 1];
+                            minionCount--;
+                            m--;
+                        }
+                    }
+                }
+            }
+            // ============================================================================
+            // END OF BOSS LEVEL PROJECTILE COLLISIONS
+            // ============================================================================
         }
 
         // Check if level is complete
@@ -2851,6 +3573,11 @@ else if (currentLevel == 2)
                               capturedCount == 0 && chelnovProjCount == 0 && 
                               projectileCount == 0);
     }
+}
+else if (currentLevel == 3)
+{
+    // Boss level complete when boss is defeated
+    allEnemiesDefeated = bossDefeated;
 }
             
             // DEBUG - Print counts every 60 frames
@@ -2888,6 +3615,14 @@ else if (currentLevel == 2)
                 if (levelTimer < 60.0f) playerScore += 3000;
                 else if (levelTimer < 90.0f) playerScore += 1500;
                 else if (levelTimer < 120.0f) playerScore += 750;
+            }
+            else if (currentLevel == 3)
+            {
+                playerScore += 10000;  // Big bonus for defeating boss
+                if (levelNoDamage) playerScore += 5000;
+                if (levelTimer < 120.0f) playerScore += 5000;
+                else if (levelTimer < 180.0f) playerScore += 2500;
+                else if (levelTimer < 240.0f) playerScore += 1000;
             }
             
             if (speedMultiplier == 1.5f) playerScore += 500;
@@ -2978,6 +3713,127 @@ else if (currentLevel == 2)
                         }
                         else if (currentLevel == 2)
                         {
+                            // TRANSITION TO BOSS LEVEL (LEVEL 3)
+                            currentLevel = 3;
+                            
+                            // Allocate dynamic arrays for minions
+                            minionsX = new float[maxMinions];
+                            minionsY = new float[maxMinions];
+                            minionSpeed = new float[maxMinions];
+                            minionDirection = new int[maxMinions];
+                            minionVelocityY = new float[maxMinions];
+                            minionOnGround = new bool[maxMinions];
+                            minionIsCaught = new bool[maxMinions];
+                            minionFollowingPlayer = new bool[maxMinions];
+                            minionCount = 0;
+                            
+                            for (int i = 0; i < maxMinions; i++)
+                            {
+                                minionsX[i] = 0;
+                                minionsY[i] = 0;
+                                minionSpeed[i] = 0;
+                                minionDirection[i] = 0;
+                                minionVelocityY[i] = 0;
+                                minionOnGround[i] = false;
+                                minionIsCaught[i] = false;
+                                minionFollowingPlayer[i] = false;
+                            }
+                            
+                            // Allocate dynamic arrays for tentacles
+                            tentaclesX = new float[maxTentacles];
+                            tentaclesY = new float[maxTentacles];
+                            tentacleWidth = new int[maxTentacles];
+                            tentacleHeight = new int[maxTentacles];
+                            tentacleTimer = new float[maxTentacles];
+                            tentacleDuration = new float[maxTentacles];
+                            tentacleActive = new bool[maxTentacles];
+                            tentacleCount = 0;
+                            
+                            for (int i = 0; i < maxTentacles; i++)
+                            {
+                                tentaclesX[i] = 0;
+                                tentaclesY[i] = 0;
+                                tentacleWidth[i] = 40;
+                                tentacleHeight[i] = 120;
+                                tentacleTimer[i] = 0;
+                                tentacleDuration[i] = 0;
+                                tentacleActive[i] = false;
+                            }
+                            
+                            // Create boss level map
+                            bossLvl = new char*[level3Height];
+                            for (int i = 0; i < level3Height; i++)
+                            {
+                                bossLvl[i] = new char[level3Width];
+                                for (int j = 0; j < level3Width; j++)
+                                    bossLvl[i][j] = ' ';
+                            }
+                            
+                            // Boss level layout
+                            for (int j = 0; j < level3Width; j++)
+                                bossLvl[level3Height - 3][j] = '#';
+                            
+                            for (int i = 0; i < level3Height - 3; i++)
+                            {
+                                bossLvl[i][0] = '#';
+                                bossLvl[i][level3Width - 1] = '#';
+                            }
+                            
+                            // Platforms
+                            for (int j = 2; j < 8; j++)
+                                bossLvl[level3Height - 8][j] = '-';
+                            for (int j = level3Width - 8; j < level3Width - 2; j++)
+                                bossLvl[level3Height - 8][j] = '-';
+                            for (int j = 12; j < 18; j++)
+                                bossLvl[level3Height - 6][j] = '-';
+                            for (int j = 3; j < 9; j++)
+                                bossLvl[level3Height - 12][j] = '-';
+                            for (int j = level3Width - 9; j < level3Width - 3; j++)
+                                bossLvl[level3Height - 12][j] = '-';
+                            for (int j = 11; j < 19; j++)
+                                bossLvl[level3Height - 15][j] = '-';
+                            
+                            // Initialize boss
+                            bossX = screen_x / 2 - bossWidth / 2;
+                            bossY = 50;
+                            bossHealth = maxBossHealth;
+                            bossIsAngry = false;
+                            bossDefeated = false;
+                            
+                            minionSpawnTimer = 0.0f;
+                            tentacleSpawnTimer = 0.0f;
+                            
+                            // Player position
+                            player_x = screen_x / 2 - PlayerWidth / 2;
+                            player_y = (level3Height - 4) * level3CellSize;
+                            velocityY = 0;
+                            onGround = false;
+                            
+                            MAX_CAPACITY = 999;
+                            
+                            lvl2Music.stop();
+                            lvl3Music.play();
+                            
+                            levelNoDamage = true;
+                            levelTimer = 0.0f;
+                            
+                            capturedCount = 0;
+                            projectileCount = 0;
+                            for (int i = 0; i < MAX_PROJECTILES; i++)
+                                projectileActive[i] = false;
+                            
+                            powerupCount = 0;
+                            hasSpeedBoost = false;
+                            hasRangeBoost = false;
+                            hasPowerBoost = false;
+                            speed = originalSpeed * speedMultiplier;
+                            vacuumPower = originalVacuumPower;
+                            
+                            cout << "Transitioning to Boss Level!" << endl;
+                        }
+                        else if (currentLevel == 3)
+                        {
+                            // GAME COMPLETE - Boss defeated!
                             restartGame = true;
                             playagain = true;
                         }
@@ -2996,8 +3852,10 @@ else if (currentLevel == 2)
                 
                 if (currentLevel == 1)
                     stageBonusText.setString("Level 1 Complete!");
-                else
-                    stageBonusText.setString("Level 2 Complete! You Win!");
+                else if (currentLevel == 2)
+                    stageBonusText.setString("Level 2 Complete!");
+                else if (currentLevel == 3)
+                    stageBonusText.setString("BOSS DEFEATED! YOU WIN!");
                 window.draw(stageBonusText);
                 
                 stageScoreText.setString("Score: " + to_string(playerScore));
@@ -3005,15 +3863,11 @@ else if (currentLevel == 2)
                 
                 if (currentLevel == 1)
                     nextLevelText.setString("Press ENTER for Level 2");
+                else if (currentLevel == 2)
+                    nextLevelText.setString("Press ENTER for Boss Level");
                 else
                     nextLevelText.setString("Press ENTER to Play Again");
                 window.draw(nextLevelText);
-                
-                // Draw level clear celebration player image
-                float clearSpriteX = screen_x / 2 - (levelClearTex.getSize().x * 3.0f) / 2;
-                float clearSpriteY = screen_y / 2 + 50;
-                levelClearSprite.setPosition(clearSpriteX, clearSpriteY);
-                window.draw(levelClearSprite);
                 
                 window.display();
             }
@@ -3134,6 +3988,126 @@ display_level(window, lvl, bgTex2, bgSprite2, blockTexture2, blockSprite2,
 slopeLeftTexture, slopeLeftSprite, slopeRightTexture, slopeRightSprite,slopeLeftMirrorTexture, slopeLeftMirrorSprite, slopeRightMirrorTexture, slopeRightMirrorSprite,
 height, width, cell_size);
 }
+else if (currentLevel == 3)
+{
+    // ============================================================================
+    // BOSS LEVEL RENDERING
+    // ============================================================================
+    
+    // Draw background
+    window.draw(bgSprite3);
+    
+    // Draw boss level tiles
+    for (int i = 0; i < level3Height; i++)
+    {
+        for (int j = 0; j < level3Width; j++)
+        {
+            if (bossLvl[i][j] == '#' || bossLvl[i][j] == '-')
+            {
+                blockSprite3.setPosition(j * level3CellSize, i * level3CellSize);
+                // Scale block to fit smaller cell size
+                float blockScale = (float)level3CellSize / 64.0f;
+                blockSprite3.setScale(blockScale, blockScale);
+                window.draw(blockSprite3);
+            }
+        }
+    }
+    
+    // Draw Boss (Octopus)
+    if (!bossDefeated)
+    {
+        if (bossIsAngry)
+        {
+            // Try to use angry texture, or tint red if not available
+            if (bossAngryTexture.getSize().x > 0)
+                bossSprite.setTexture(bossAngryTexture);
+        }
+        else
+        {
+            bossSprite.setTexture(bossTexture);
+        }
+        bossSprite.setPosition(bossX, bossY);
+        window.draw(bossSprite);
+        
+        // Draw Boss Health Bar
+        RectangleShape healthBarBG;
+        healthBarBG.setSize(Vector2f(200, 20));
+        healthBarBG.setPosition(screen_x / 2 - 100, 20);
+        healthBarBG.setFillColor(Color(50, 50, 50));
+        window.draw(healthBarBG);
+        
+        RectangleShape healthBar;
+        float healthPercent = (float)bossHealth / maxBossHealth;
+        healthBar.setSize(Vector2f(200 * healthPercent, 20));
+        healthBar.setPosition(screen_x / 2 - 100, 20);
+        if (bossIsAngry)
+            healthBar.setFillColor(Color::Red);
+        else
+            healthBar.setFillColor(Color::Green);
+        window.draw(healthBar);
+        
+        // Draw Boss Health Text
+        Text bossHealthText("BOSS: " + to_string(bossHealth) + "/" + to_string(maxBossHealth), font, 20);
+        bossHealthText.setFillColor(Color::White);
+        bossHealthText.setPosition(screen_x / 2 - 50, 45);
+        window.draw(bossHealthText);
+    }
+    
+    // Draw Tentacles
+    for (int t = 0; t < tentacleCount; t++)
+    {
+        if (!tentacleActive[t]) continue;
+        
+        // Scale tentacle sprite
+        float tentScaleX = (float)tentacleWidth[t] / tentacleTexture.getSize().x;
+        float tentScaleY = (float)tentacleHeight[t] / tentacleTexture.getSize().y;
+        tentacleSprite.setScale(tentScaleX, tentScaleY);
+        tentacleSprite.setPosition(tentaclesX[t], tentaclesY[t]);
+        window.draw(tentacleSprite);
+        
+        // Draw tentacle hitbox (debug)
+        RectangleShape tentBox;
+        tentBox.setSize(Vector2f(tentacleWidth[t], tentacleHeight[t]));
+        tentBox.setPosition(tentaclesX[t], tentaclesY[t]);
+        tentBox.setFillColor(Color::Transparent);
+        tentBox.setOutlineColor(Color::Magenta);
+        tentBox.setOutlineThickness(1);
+        window.draw(tentBox);
+    }
+    
+    // Draw Minions
+    for (int m = 0; m < minionCount; m++)
+    {
+        if (minionIsCaught[m]) continue;
+        
+        minionSprite.setPosition(minionsX[m], minionsY[m]);
+        
+        // Flip sprite based on direction
+        int texW = minionTexture.getSize().x;
+        int texH = minionTexture.getSize().y;
+        if (minionDirection[m] == -1)
+            minionSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
+        else
+            minionSprite.setTextureRect(IntRect(0, 0, texW, texH));
+        
+        // Make minions red when following player
+        if (minionFollowingPlayer[m])
+        {
+            // Can't change color directly, but we can draw a red overlay
+        }
+        
+        window.draw(minionSprite);
+    }
+    
+    // Draw "ANGRY!" warning when boss is angry
+    if (bossIsAngry && !bossDefeated)
+    {
+        Text angryText("!! BOSS ANGRY - MINIONS FOLLOWING !!", font, 30);
+        angryText.setFillColor(Color::Red);
+        angryText.setPosition(screen_x / 2 - 250, 80);
+        window.draw(angryText);
+    }
+}
 
 float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
         float Yoffset = (64 * scale - PlayerHeight);
@@ -3163,91 +4137,29 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
         collBox.setOutlineThickness(2);
         window.draw(collBox);
 
-        // Draw ghosts with walking/sucking animation
+        // Draw ghosts
         for (int i = 0; i < enemyCount; i++)
         {
-            // Check if this ghost is being sucked
-            if (enemyIsCaught[i])
-            {
-                // Play sucking animation
-                ghostSuckCounter[i]++;
-                if (ghostSuckCounter[i] >= ghostSuckSpeed)
-                {
-                    ghostSuckCounter[i] = 0;
-                    ghostSuckFrame[i]++;
-                    if (ghostSuckFrame[i] >= 4)
-                        ghostSuckFrame[i] = 0;
-                }
-                EnemySprite.setTexture(ghostSuckTex[ghostSuckFrame[i]], true);
-            }
-            else
-            {
-                // Play walking animation
-                ghostAnimCounter[i]++;
-                if (ghostAnimCounter[i] >= ghostAnimSpeed)
-                {
-                    ghostAnimCounter[i] = 0;
-                    ghostAnimFrame[i]++;
-                    if (ghostAnimFrame[i] >= 4)
-                        ghostAnimFrame[i] = 0;
-                }
-                EnemySprite.setTexture(ghostWalkTex[ghostAnimFrame[i]], true);
-                
-                // Reset suck animation
-                ghostSuckFrame[i] = 0;
-                ghostSuckCounter[i] = 0;
-            }
-            
-            // Flip sprite based on direction
-            int texW = EnemySprite.getTexture()->getSize().x;
-            int texH = EnemySprite.getTexture()->getSize().y;
-            
-            if (enemyDirection[i] == 1) // Moving right - flip
-                EnemySprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-            else // Moving left - normal
-                EnemySprite.setTextureRect(IntRect(0, 0, texW, texH));
-            
             EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
             window.draw(EnemySprite);
         }
 
-        // Draw skeletons with walking/sucking animation
+        // Draw skeletons
         for (int i = 0; i < skeletonCount; i++)
         {
-            // Check if this skeleton is being sucked
-            if (skeletonIsCaught[i])
+            skeletonAnimCounter[i]++;
+            if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
             {
-                // Play sucking animation
-                skeletonSuckCounter[i]++;
-                if (skeletonSuckCounter[i] >= skeletonSuckSpeed)
-                {
-                    skeletonSuckCounter[i] = 0;
-                    skeletonSuckFrame[i]++;
-                    if (skeletonSuckFrame[i] >= 4)
-                        skeletonSuckFrame[i] = 0;
-                }
-                SkeletonSprite.setTexture(skeletonSuckTex[skeletonSuckFrame[i]], true);
-            }
-            else
-            {
-                // Play walking animation
-                skeletonAnimCounter[i]++;
-                if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
-                {
-                    skeletonAnimCounter[i] = 0;
-                    skeletonAnimFrame[i]++;
-                    if (skeletonAnimFrame[i] >= 4)
-                        skeletonAnimFrame[i] = 0;
-                }
-                SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
-                
-                // Reset suck animation
-                skeletonSuckFrame[i] = 0;
-                skeletonSuckCounter[i] = 0;
+                skeletonAnimCounter[i] = 0;
+                skeletonAnimFrame[i]++;
+                if (skeletonAnimFrame[i] >= 4)
+                    skeletonAnimFrame[i] = 0;
             }
 
-            int texW = SkeletonSprite.getTexture()->getSize().x;
-            int texH = SkeletonSprite.getTexture()->getSize().y;
+            SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
+
+            int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
+            int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
 
             if (skeletonDirection[i] == 1)
                 SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
@@ -3262,99 +4174,27 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
             window.draw(SkeletonSprite);
         }
         
-        // Draw Level 2 enemies with animations
+        // Draw Level 2 enemies
         if (currentLevel == 2)
         {
-            // Draw Invisible Man with walking/sucking animation
             for (int i = 0; i < invisibleCount; i++)
             {
                 if (invisibleIsVisible[i])
                 {
-                    if (invisibleIsCaught[i])
-                    {
-                        // Play sucking animation
-                        invisibleSuckCounter[i]++;
-                        if (invisibleSuckCounter[i] >= invisibleSuckSpeed)
-                        {
-                            invisibleSuckCounter[i] = 0;
-                            invisibleSuckFrame[i]++;
-                            if (invisibleSuckFrame[i] >= 4)
-                                invisibleSuckFrame[i] = 0;
-                        }
-                        InvisibleSprite.setTexture(invisibleSuckTex[invisibleSuckFrame[i]], true);
-                    }
-                    else
-                    {
-                        // Play walking animation
-                        invisibleAnimCounter[i]++;
-                        if (invisibleAnimCounter[i] >= invisibleAnimSpeed)
-                        {
-                            invisibleAnimCounter[i] = 0;
-                            invisibleAnimFrame[i]++;
-                            if (invisibleAnimFrame[i] >= 4)
-                                invisibleAnimFrame[i] = 0;
-                        }
-                        InvisibleSprite.setTexture(invisibleWalkTex[invisibleAnimFrame[i]], true);
-                        
-                        invisibleSuckFrame[i] = 0;
-                        invisibleSuckCounter[i] = 0;
-                    }
-                    
-                    int texW = InvisibleSprite.getTexture()->getSize().x;
-                    int texH = InvisibleSprite.getTexture()->getSize().y;
-                    
-                    if (invisibleDirection[i] == 1)
-                        InvisibleSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                    else
-                        InvisibleSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                    
                     InvisibleSprite.setPosition(invisiblesX[i], invisiblesY[i]);
                     window.draw(InvisibleSprite);
                 }
             }
             
-            // Draw Chelnov with walking/sucking animation
             for (int i = 0; i < chelnovCount; i++)
             {
-                if (chelnovIsCaught[i])
-                {
-                    // Play sucking animation
-                    chelnovSuckCounter[i]++;
-                    if (chelnovSuckCounter[i] >= chelnovSuckSpeed)
-                    {
-                        chelnovSuckCounter[i] = 0;
-                        chelnovSuckFrame[i]++;
-                        if (chelnovSuckFrame[i] >= 4)
-                            chelnovSuckFrame[i] = 0;
-                    }
-                    ChelnovSprite.setTexture(chelnovSuckTex[chelnovSuckFrame[i]], true);
-                }
-                else
-                {
-                    // Play walking animation
-                    chelnovAnimCounter[i]++;
-                    if (chelnovAnimCounter[i] >= chelnovAnimSpeed)
-                    {
-                        chelnovAnimCounter[i] = 0;
-                        chelnovAnimFrame[i]++;
-                        if (chelnovAnimFrame[i] >= 4)
-                            chelnovAnimFrame[i] = 0;
-                    }
-                    ChelnovSprite.setTexture(chelnovWalkTex[chelnovAnimFrame[i]], true);
-                    
-                    chelnovSuckFrame[i] = 0;
-                    chelnovSuckCounter[i] = 0;
-                }
-                
-                int texW = ChelnovSprite.getTexture()->getSize().x;
-                int texH = ChelnovSprite.getTexture()->getSize().y;
-                
+                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
+                int texW = ChelnovTexture.getSize().x;
+                int texH = ChelnovTexture.getSize().y;
                 if (chelnovDirection[i] == 1)
                     ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
                 else
                     ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                
-                ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
                 window.draw(ChelnovSprite);
             }
             
@@ -3496,11 +4336,43 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
  
     lvlMusic.stop();
     lvl2Music.stop();
+    lvl3Music.stop();
+    
     for (int i = 0; i < height; i++)
     {
         delete[] lvl[i];
     }
     delete[] lvl;
+    
+    // Cleanup Boss Level dynamic arrays
+    if (bossLvl != NULL)
+    {
+        for (int i = 0; i < level3Height; i++)
+        {
+            delete[] bossLvl[i];
+        }
+        delete[] bossLvl;
+        bossLvl = NULL;
+    }
+    
+    // Cleanup minion arrays
+    if (minionsX != NULL) { delete[] minionsX; minionsX = NULL; }
+    if (minionsY != NULL) { delete[] minionsY; minionsY = NULL; }
+    if (minionSpeed != NULL) { delete[] minionSpeed; minionSpeed = NULL; }
+    if (minionDirection != NULL) { delete[] minionDirection; minionDirection = NULL; }
+    if (minionVelocityY != NULL) { delete[] minionVelocityY; minionVelocityY = NULL; }
+    if (minionOnGround != NULL) { delete[] minionOnGround; minionOnGround = NULL; }
+    if (minionIsCaught != NULL) { delete[] minionIsCaught; minionIsCaught = NULL; }
+    if (minionFollowingPlayer != NULL) { delete[] minionFollowingPlayer; minionFollowingPlayer = NULL; }
+    
+    // Cleanup tentacle arrays
+    if (tentaclesX != NULL) { delete[] tentaclesX; tentaclesX = NULL; }
+    if (tentaclesY != NULL) { delete[] tentaclesY; tentaclesY = NULL; }
+    if (tentacleWidth != NULL) { delete[] tentacleWidth; tentacleWidth = NULL; }
+    if (tentacleHeight != NULL) { delete[] tentacleHeight; tentacleHeight = NULL; }
+    if (tentacleTimer != NULL) { delete[] tentacleTimer; tentacleTimer = NULL; }
+    if (tentacleDuration != NULL) { delete[] tentacleDuration; tentacleDuration = NULL; }
+    if (tentacleActive != NULL) { delete[] tentacleActive; tentacleActive = NULL; }
     
 } // End of playagain loop
 

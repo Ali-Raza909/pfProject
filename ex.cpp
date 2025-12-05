@@ -1669,7 +1669,7 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         lvlMusic.openFromFile("Data/mus.ogg");
         lvlMusic.setVolume(20);
         lvlMusic.setLoop(true);
-        // Music will be played after level initialization
+        lvlMusic.play();
         
         // Level 2 music
         Music lvl2Music;
@@ -1808,25 +1808,6 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         EnemyTexture.loadFromFile("Data/ghost.png");
         EnemySprite.setTexture(EnemyTexture);
         EnemySprite.setScale(2, 2);
-        
-        // Ghost walking animation textures
-        Texture ghostWalkTex[4];
-        ghostWalkTex[0].loadFromFile("Data/ghostWalk/walk1.png");
-        ghostWalkTex[1].loadFromFile("Data/ghostWalk/walk2.png");
-        ghostWalkTex[2].loadFromFile("Data/ghostWalk/walk3.png");
-        ghostWalkTex[3].loadFromFile("Data/ghostWalk/walk4.png");
-        
-        // Ghost animation variables (per ghost)
-        int ghostAnimFrame[maxEnemyCount];
-        int ghostAnimCounter[maxEnemyCount];
-        int ghostAnimSpeed = 8; // frames between animation changes
-        
-        // Initialize ghost animation arrays
-        for (int i = 0; i < maxEnemyCount; i++)
-        {
-            ghostAnimFrame[i] = 0;
-            ghostAnimCounter[i] = 0;
-        }
 
         // Skeleton enemies
         int skeletonCount = 0;
@@ -4156,31 +4137,9 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
         collBox.setOutlineThickness(2);
         window.draw(collBox);
 
-        // Draw ghosts with walking animation
+        // Draw ghosts
         for (int i = 0; i < enemyCount; i++)
         {
-            // Update animation frame
-            ghostAnimCounter[i]++;
-            if (ghostAnimCounter[i] >= ghostAnimSpeed)
-            {
-                ghostAnimCounter[i] = 0;
-                ghostAnimFrame[i]++;
-                if (ghostAnimFrame[i] >= 4)
-                    ghostAnimFrame[i] = 0;
-            }
-            
-            // Set animated texture
-            EnemySprite.setTexture(ghostWalkTex[ghostAnimFrame[i]], true);
-            
-            int texW = ghostWalkTex[ghostAnimFrame[i]].getSize().x;
-            int texH = ghostWalkTex[ghostAnimFrame[i]].getSize().y;
-            
-            // Flip sprite based on direction
-            if (enemyDirection[i] == 1)
-                EnemySprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-            else
-                EnemySprite.setTextureRect(IntRect(0, 0, texW, texH));
-            
             EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
             window.draw(EnemySprite);
         }

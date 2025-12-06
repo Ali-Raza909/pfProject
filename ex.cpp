@@ -1701,7 +1701,7 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         // Level 3 Block
         Texture blockTexture3;
         Sprite blockSprite3;
-        if (!blockTexture3.loadFromFile("Data/block3.png"))
+        if (!blockTexture3.loadFromFile("Data/block3.PNG"))
         {
             cout << "block3.png missing! Using block1.png as fallback.\n";
             blockTexture3.loadFromFile("Data/block1.png");
@@ -1721,7 +1721,7 @@ slopeRightMirrorSprite.setTexture(slopeRightMirrorTexture);
         // Octopus Boss Textures
         Texture bossTexture;
         Sprite bossSprite;
-        if (!bossTexture.loadFromFile("Data/boss/octopus.png"))
+        if (!bossTexture.loadFromFile("Data/octopus/Octopus.png"))
         {
             cout << "octopus.png missing!\n";
         }
@@ -4356,7 +4356,11 @@ float Xoffset = (64 * scale - PlayerWidth) / 2.0f;
     }
     
     // Cleanup minion arrays
-    if (minionsX != NULL) { delete[] minionsX; minionsX = NULL; }
+    if (minionsX != NULL) 
+    { 
+       delete[] minionsX;
+        minionsX = NULL; 
+        }
     if (minionsY != NULL) { delete[] minionsY; minionsY = NULL; }
     if (minionSpeed != NULL) { delete[] minionSpeed; minionSpeed = NULL; }
     if (minionDirection != NULL) { delete[] minionDirection; minionDirection = NULL; }

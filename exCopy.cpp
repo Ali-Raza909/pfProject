@@ -1,7 +1,7 @@
-//2
-//added animtions for everything
-// butt saab
-// collision detection closes the window
+// 2
+// added animtions for everything
+//  butt saab
+//  collision detection closes the window
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -93,50 +93,61 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
 }
 
 // Function to update enemy animation
+// Smart Animation: Uses getSize() to center variable frames without setOrigin
+// RESTORED LOGIC: Uses getSize() just like your working commit
+// FIXED ANIMATION FUNCTION: Aligns feet to the collision floor (60px down)
 void updateEnemyAnimation(Sprite &sprite, float dt,
-                          Texture *walkTextures, Texture *suckTextures, // Two texture arrays. Passed by pointer value so by reference
+                          Texture *walkTextures, Texture *suckTextures, 
                           int &animFrame, int &animCounter, int animSpeed,
                           int direction, bool isCaught,
-                          int width, int height,
                           float x, float y, float scale)
 {
+    // 1. Update Animation Counters
     animCounter++;
     if (animCounter >= animSpeed)
     {
         animCounter = 0;
         animFrame++;
-        if (animFrame >= 4) // From 0-3 and reset when 4, not being displayed at 4 so no error.
-            animFrame = 0;
+        if (animFrame >= 4) animFrame = 0;
     }
 
-    // Suck animation here
-    if (isCaught)
+    // 2. Select Texture
+    Texture* currentTex;
+    if (isCaught) 
+        currentTex = &suckTextures[animFrame];
+    else 
+        currentTex = &walkTextures[animFrame];
+
+    sprite.setTexture(*currentTex, true);
+    
+    // 3. Get REAL size
+    int texW = currentTex->getSize().x;
+    int texH = currentTex->getSize().y;
+
+    // 4. Position & Scale
+    // CENTER X: ((HitboxWidth - VisualWidth) / 2) -> ((64 - texW*scale)/2)
+    // ALIGN Y (FEET): HitboxHeight - VisualHeight -> (60 - texH*scale)
+    
+    float logicalWidth = 64.0f; // Width of a standard block/hitbox
+    float logicalHeight = 60.0f; // Height of the collision box
+    
+    float offsetX = (logicalWidth - texW * scale) / 2.0f;
+    float offsetY = logicalHeight - (texH * scale); // <--- CRITICAL FIX
+
+    // Apply exact calculated position
+    sprite.setPosition(x + offsetX, y + offsetY);
+    sprite.setScale(scale, scale);
+
+    // 5. Flip Logic
+    if (direction == 1) // Moving Right
     {
-        sprite.setTexture(suckTextures[animFrame], true);
-
-        sprite.setPosition(x, y);
-        sprite.setScale(scale, scale);
-
-        if (direction == 1)
-            sprite.setTextureRect(IntRect(0, 0, width, height));
-        else
-            sprite.setTextureRect(IntRect(width, 0, -width, height));
+        sprite.setTextureRect(IntRect(texW, 0, -texW, texH));
     }
-    // Walk animtion here
-    else
+    else // Moving Left
     {
-        sprite.setTexture(walkTextures[animFrame], true);
-
-        sprite.setPosition(x, y);
-        sprite.setScale(scale, scale);
-
-        if (direction == 1) // Direction of walk
-            sprite.setTextureRect(IntRect(0, 0, width, height));
-        else
-            sprite.setTextureRect(IntRect(width, 0, -width, height));
+        sprite.setTextureRect(IntRect(0, 0, texW, texH));
     }
 }
-
 // player box overlaps enemy box then player will be killed
 bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH, bool &isDead)
 {
@@ -2090,21 +2101,21 @@ int main()
         float platformRightEdge[maxEnemyCount];
         bool enemyIsCaught[maxEnemyCount];
 
-// 1. Ghost Variables
-int EnemyHeight = 58; // WAS 60
-int EnemyWidth = 58;  // WAS 72
+        // 1. Ghost Variables
+        int EnemyHeight = 60;
+        int EnemyWidth = 72;
 
-// 2. Skeleton Variables
-int SkeletonHeight = 58; // WAS 92
-int SkeletonWidth = 58;  // WAS 72
+        // 2. Skeleton Variables
+        int SkeletonHeight = 92;
+        int SkeletonWidth = 72;
 
-// 3. Invisible Man Variables
-int InvisibleHeight = 58; // WAS 80
-int InvisibleWidth = 58;  // WAS 60
+        // 3. Invisible Man Variables
+        int InvisibleHeight = 80;
+        int InvisibleWidth = 60;
 
-// 4. Chelnov Variables
-int ChelnovHeight = 58; // WAS 90
-int ChelnovWidth = 58;  // WAS 60
+        // 4. Chelnov Variables
+        int ChelnovHeight = 90;
+        int ChelnovWidth = 60;
 
         Texture EnemyTexture;
         Sprite EnemySprite;
@@ -2134,7 +2145,6 @@ int ChelnovWidth = 58;  // WAS 60
         int skeletonAnimCounter[maxSkeletonCount];
         int skeletonAnimSpeed = 8;
 
-
         Texture SkeletonTexture;
         Sprite SkeletonSprite;
 
@@ -2162,7 +2172,6 @@ int ChelnovWidth = 58;  // WAS 60
         float invisibleVisibilityTimer[maxInvisibleCount];
         float invisibleTeleportTimer[maxInvisibleCount];
 
-
         Texture InvisibleTexture;
         Sprite InvisibleSprite;
 
@@ -2187,7 +2196,6 @@ int ChelnovWidth = 58;  // WAS 60
         float chelnovShootTimer[maxChelnovCount];
         bool chelnovIsShooting[maxChelnovCount];
         float chelnovShootPhaseTimer[maxChelnovCount];
-
 
         Texture ChelnovTexture;
         Sprite ChelnovSprite;
@@ -2835,7 +2843,7 @@ int ChelnovWidth = 58;  // WAS 60
 
         while (window.isOpen() && !restartGame) // game loop
         {
-        	//window.clear(Color::Black);
+            // window.clear(Color::Black);
             while (window.pollEvent(ev))
             {
                 if (ev.type == Event::Closed)
@@ -3103,12 +3111,12 @@ int ChelnovWidth = 58;  // WAS 60
                 {
                     if (potEnemyIsCaught[pe])
                     {
-                        capturedCount++;
+                        capturedCount++; // Visual fix for captured count
                         continue;
                     }
 
-                    // Get enemy dimensions based on type
-                    int enemyH = 60, enemyW = 72; // Default ghost
+                    // REVERTED DIMENSIONS
+                    int enemyH = 60, enemyW = 72; // Default (Ghost)
                     if (potEnemyType[pe] == 2)
                     {
                         enemyH = 92;
@@ -4047,23 +4055,23 @@ int ChelnovWidth = 58;  // WAS 60
                     // FIX 1: Reset the caught flag at start of frame so logic runs continuously
                     potEnemyIsCaught[pe] = false;
 
-                    // Get enemy dimensions based on type
-                    int enemyW = 72, enemyH = 60;
+                    // REVERTED DIMENSIONS
+                    int enemyW = 72, enemyH = 60; // Default (Ghost)
                     if (potEnemyType[pe] == 2)
                     {
                         enemyW = 72;
                         enemyH = 92;
-                    }
+                    } // Skeletonf
                     else if (potEnemyType[pe] == 3)
                     {
                         enemyW = 60;
                         enemyH = 80;
-                    }
+                    } // Invisible
                     else if (potEnemyType[pe] == 4)
                     {
                         enemyW = 60;
                         enemyH = 90;
-                    }
+                    } // Chelnov
 
                     // Check if enemy is in vacuum hitbox
                     if (potEnemiesX[pe] + enemyW > vacLeft && potEnemiesX[pe] < vacRight &&
@@ -4826,8 +4834,8 @@ int ChelnovWidth = 58;  // WAS 60
                             if (potEnemyIsCaught[pe])
                                 continue;
 
-                            // Get enemy dimensions based on type
-                            int enemyW = 72, enemyH = 60; // Default ghost
+                            // REVERTED DIMENSIONS
+                            int enemyW = 72, enemyH = 60; // Default (Ghost)
                             if (potEnemyType[pe] == 2)
                             {
                                 enemyW = 72;
@@ -5619,55 +5627,43 @@ int ChelnovWidth = 58;  // WAS 60
                 // DRAW POT ENEMIES (Animated)
                 for (int pe = 0; pe < potEnemyCount; pe++)
                 {
-                    // Note: We REMOVED the "continue if caught" line so we can see the suck animation!
-
                     Texture *currentWalk = ghostWalkTex;
                     Texture *currentSuck = ghostSuckTex;
-                    int eW = 72, eH = 60;
                     Sprite *s = &EnemySprite;
+                    
+                    // 1. Select Texture & Logical Hitbox Size
+                    int hitboxW = 72; 
+                    int hitboxH = 60; // Default Ghost Dimensions
 
-                    if (potEnemyType[pe] == 2)
-                    {
-                        currentWalk = skeletonWalkTex;
-                        currentSuck = skeletonSuckTex;
-                        eW = 72;
-                        eH = 92;
-                        s = &SkeletonSprite;
+                    if (potEnemyType[pe] == 2) { 
+                        currentWalk = skeletonWalkTex; currentSuck = skeletonSuckTex; 
+                        s = &SkeletonSprite; 
+                        hitboxW = 72; hitboxH = 92; 
                     }
-                    else if (potEnemyType[pe] == 3)
-                    {
-                        currentWalk = invisibleWalkTex;
-                        currentSuck = invisibleSuckTex;
-                        eW = 60;
-                        eH = 80;
-                        s = &InvisibleSprite;
+                    else if (potEnemyType[pe] == 3) { 
+                        currentWalk = invisibleWalkTex; currentSuck = invisibleSuckTex; 
+                        s = &InvisibleSprite; 
+                        hitboxW = 60; hitboxH = 80; 
                     }
-                    else if (potEnemyType[pe] == 4)
-                    {
-                        currentWalk = chelnovWalkTex;
-                        currentSuck = chelnovSuckTex;
-                        eW = 60;
-                        eH = 90;
-                        s = &ChelnovSprite;
+                    else if (potEnemyType[pe] == 4) { 
+                        currentWalk = chelnovWalkTex; currentSuck = chelnovSuckTex; 
+                        s = &ChelnovSprite; 
+                        hitboxW = 60; hitboxH = 90; 
                     }
 
-                    // Only draw if visible (Invisible Man logic)
+                    // 2. Draw if visible
                     if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                     {
-                        // Note: Pot enemies currently reuse the standard animation counters.
-                        // For a perfect implementation, you added 'potEnemyAnimFrame' to dynamic logic earlier.
-                        // If you didn't add those specific arrays to the dynamic resizing logic, use 0 for now.
-                        // Assuming you want basic functionality:
+                        // Use dummy vars since pot enemies don't track unique anim frames yet
                         int dummyFrame = 0;
-                        int dummyCounter = 0;
+                        int dummyCounter = 0; 
 
-                        updateEnemyAnimation(*s, dt, 
-                     currentWalk, currentSuck, 
-                     dummyFrame, dummyCounter, 8, 
-                     potEnemyDirection[pe],
-                     potEnemyIsCaught[pe],
-                     58, 58, 
+                        updateEnemyAnimation(*s, dt,
+                     currentWalk, currentSuck,
+                     dummyFrame, dummyCounter, 8,
+                     potEnemyDirection[pe], potEnemyIsCaught[pe],
                      potEnemiesX[pe], potEnemiesY[pe], 2.0f);
+                                             
                         window.draw(*s);
                     }
                 }
@@ -5823,11 +5819,10 @@ int ChelnovWidth = 58;  // WAS 60
             for (int i = 0; i < enemyCount; i++)
             {
                 updateEnemyAnimation(EnemySprite, dt,
-                                     ghostWalkTex, ghostSuckTex,
-                                     ghostAnimFrame[i], ghostAnimCounter[i], 8,
-                                     enemyDirection[i], enemyIsCaught[i],
-                                     58, 58,
-                                     enemiesX[i], enemiesY[i], 1.0f);
+                     ghostWalkTex, ghostSuckTex,
+                     ghostAnimFrame[i], ghostAnimCounter[i], 8,
+                     enemyDirection[i], enemyIsCaught[i],
+                     enemiesX[i], enemiesY[i], 2.0f);
 
                 window.draw(EnemySprite);
             }
@@ -5836,12 +5831,11 @@ int ChelnovWidth = 58;  // WAS 60
             // Draw skeletons (Animated)
             for (int i = 0; i < skeletonCount; i++)
             {
-                updateEnemyAnimation(SkeletonSprite, dt,
-                                     skeletonWalkTex, skeletonSuckTex,
-                                     skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
-                                     skeletonDirection[i], skeletonIsCaught[i],
-                                     58, 58,
-                                     skeletonsX[i], skeletonsY[i], 1.0f);
+                updateEnemyAnimation(SkeletonSprite, dt, 
+                     skeletonWalkTex, skeletonSuckTex,
+                     skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
+                     skeletonDirection[i], skeletonIsCaught[i],
+                     skeletonsX[i], skeletonsY[i], 2.0f);
 
                 window.draw(SkeletonSprite);
             }
@@ -5856,11 +5850,10 @@ int ChelnovWidth = 58;  // WAS 60
                     if (invisibleIsVisible[i])
                     {
                         updateEnemyAnimation(InvisibleSprite, dt,
-                                             invisibleWalkTex, invisibleSuckTex,
-                                             invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
-                                             invisibleDirection[i], invisibleIsCaught[i],
-                                             58, 58,
-                                             invisiblesX[i], invisiblesY[i], 2.0f);
+                     invisibleWalkTex, invisibleSuckTex,
+                     invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
+                     invisibleDirection[i], invisibleIsCaught[i],
+                     invisiblesX[i], invisiblesY[i], 2.0f);
 
                         window.draw(InvisibleSprite);
                     }
@@ -5869,12 +5862,11 @@ int ChelnovWidth = 58;  // WAS 60
                 // Chelnov
                 for (int i = 0; i < chelnovCount; i++)
                 {
-                    updateEnemyAnimation(ChelnovSprite, dt,
-                                         chelnovWalkTex, chelnovSuckTex,
-                                         chelnovAnimFrame[i], chelnovAnimCounter[i], 8,
-                                         chelnovDirection[i], chelnovIsCaught[i],
-                                         58, 58,
-                                         chelnovsX[i], chelnovsY[i], 2.0f);
+                    updateEnemyAnimation(InvisibleSprite, dt,
+                     invisibleWalkTex, invisibleSuckTex,
+                     invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
+                     invisibleDirection[i], invisibleIsCaught[i],
+                     invisiblesX[i], invisiblesY[i], 2.0f);
 
                     window.draw(ChelnovSprite);
                 }

@@ -96,11 +96,13 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
 // Smart Animation: Uses getSize() to center variable frames without setOrigin
 // RESTORED LOGIC: Uses getSize() just like your working commit
 // FIXED ANIMATION FUNCTION: Aligns feet to the collision floor (60px down)
+// FINAL FIX: Aligns visuals to the exact collision box provided
 void updateEnemyAnimation(Sprite &sprite, float dt,
                           Texture *walkTextures, Texture *suckTextures, 
                           int &animFrame, int &animCounter, int animSpeed,
                           int direction, bool isCaught,
-                          float x, float y, float scale)
+                          float x, float y, float scale,
+                          int logicalWidth, int logicalHeight) // NEW ARGS
 {
     // 1. Update Animation Counters
     animCounter++;
@@ -124,30 +126,25 @@ void updateEnemyAnimation(Sprite &sprite, float dt,
     int texW = currentTex->getSize().x;
     int texH = currentTex->getSize().y;
 
-    // 4. Position & Scale
-    // CENTER X: ((HitboxWidth - VisualWidth) / 2) -> ((64 - texW*scale)/2)
-    // ALIGN Y (FEET): HitboxHeight - VisualHeight -> (60 - texH*scale)
+    // 4. Position & Scale Logic
     
-    float logicalWidth = 64.0f; // Width of a standard block/hitbox
-    float logicalHeight = 60.0f; // Height of the collision box
-    
+    // CENTER X: Centers the sprite horizontally on the hitbox
     float offsetX = (logicalWidth - texW * scale) / 2.0f;
-    float offsetY = logicalHeight - (texH * scale); // <--- CRITICAL FIX
+    
+    // ALIGN Y: Anchors the sprite's feet to the bottom of the hitbox
+    float offsetY = logicalHeight - (texH * scale); 
 
-    // Apply exact calculated position
+    // Apply
     sprite.setPosition(x + offsetX, y + offsetY);
     sprite.setScale(scale, scale);
 
     // 5. Flip Logic
     if (direction == 1) // Moving Right
-    {
         sprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-    }
     else // Moving Left
-    {
         sprite.setTextureRect(IntRect(0, 0, texW, texH));
-    }
 }
+
 // player box overlaps enemy box then player will be killed
 bool collisionDetection(RenderWindow &window, float playerX, float playerY, float enemyX, float enemyY, float playerW, float playerH, float enemyW, float enemyH, bool &isDead)
 {
@@ -5632,40 +5629,26 @@ int main()
                     Sprite *s = &EnemySprite;
                     
                     // 1. Select Texture & Logical Hitbox Size
-                    int hitboxW = 72; 
-                    int hitboxH = 60; // Default Ghost Dimensions
+                    int hW = EnemyWidth; 
+int hH = EnemyHeight;
 
-                    if (potEnemyType[pe] == 2) { 
-                        currentWalk = skeletonWalkTex; currentSuck = skeletonSuckTex; 
-                        s = &SkeletonSprite; 
-                        hitboxW = 72; hitboxH = 92; 
-                    }
-                    else if (potEnemyType[pe] == 3) { 
-                        currentWalk = invisibleWalkTex; currentSuck = invisibleSuckTex; 
-                        s = &InvisibleSprite; 
-                        hitboxW = 60; hitboxH = 80; 
-                    }
-                    else if (potEnemyType[pe] == 4) { 
-                        currentWalk = chelnovWalkTex; currentSuck = chelnovSuckTex; 
-                        s = &ChelnovSprite; 
-                        hitboxW = 60; hitboxH = 90; 
-                    }
+if (potEnemyType[pe] == 2) { hW = SkeletonWidth; hH = SkeletonHeight; }
+else if (potEnemyType[pe] == 3) { hW = InvisibleWidth; hH = InvisibleHeight; }
+else if (potEnemyType[pe] == 4) { hW = ChelnovWidth; hH = ChelnovHeight; }
 
-                    // 2. Draw if visible
-                    if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
-                    {
-                        // Use dummy vars since pot enemies don't track unique anim frames yet
-                        int dummyFrame = 0;
-                        int dummyCounter = 0; 
+if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
+{
 
-                        updateEnemyAnimation(*s, dt,
-                     currentWalk, currentSuck,
-                     dummyFrame, dummyCounter, 8,
-                     potEnemyDirection[pe], potEnemyIsCaught[pe],
-                     potEnemiesX[pe], potEnemiesY[pe], 2.0f);
-                                             
-                        window.draw(*s);
-                    }
+	int dummyFrame = 0;
+                int dummyCounter = 0;
+    updateEnemyAnimation(*s, dt, currentWalk, currentSuck,
+            dummyFrame, dummyCounter, 8,
+            potEnemyDirection[pe], potEnemyIsCaught[pe],
+            potEnemiesX[pe], potEnemiesY[pe], 2.0f,
+            hW, hH); // <--- Pass selected dimensions
+            
+    window.draw(*s);
+}
                 }
 
                 // ============================================================================
@@ -5818,11 +5801,12 @@ int main()
             // Draw ghosts (Animated)
             for (int i = 0; i < enemyCount; i++)
             {
-                updateEnemyAnimation(EnemySprite, dt,
-                     ghostWalkTex, ghostSuckTex,
-                     ghostAnimFrame[i], ghostAnimCounter[i], 8,
-                     enemyDirection[i], enemyIsCaught[i],
-                     enemiesX[i], enemiesY[i], 2.0f);
+                updateEnemyAnimation(EnemySprite, dt, 
+        ghostWalkTex, ghostSuckTex,
+        ghostAnimFrame[i], ghostAnimCounter[i], 8,
+        enemyDirection[i], enemyIsCaught[i],
+        enemiesX[i], enemiesY[i], 2.0f,
+        EnemyWidth, EnemyHeight); // <--- Pass Ghost Dimensions
 
                 window.draw(EnemySprite);
             }
@@ -5832,10 +5816,11 @@ int main()
             for (int i = 0; i < skeletonCount; i++)
             {
                 updateEnemyAnimation(SkeletonSprite, dt, 
-                     skeletonWalkTex, skeletonSuckTex,
-                     skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
-                     skeletonDirection[i], skeletonIsCaught[i],
-                     skeletonsX[i], skeletonsY[i], 2.0f);
+        skeletonWalkTex, skeletonSuckTex,
+        skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
+        skeletonDirection[i], skeletonIsCaught[i],
+        skeletonsX[i], skeletonsY[i], 2.0f,
+        SkeletonWidth, SkeletonHeight); // <--- Pass Skeleton Dimensions (92px)
 
                 window.draw(SkeletonSprite);
             }
@@ -5849,11 +5834,12 @@ int main()
                 {
                     if (invisibleIsVisible[i])
                     {
-                        updateEnemyAnimation(InvisibleSprite, dt,
-                     invisibleWalkTex, invisibleSuckTex,
-                     invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
-                     invisibleDirection[i], invisibleIsCaught[i],
-                     invisiblesX[i], invisiblesY[i], 2.0f);
+                     	updateEnemyAnimation(InvisibleSprite, dt,
+        invisibleWalkTex, invisibleSuckTex,
+        invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
+        invisibleDirection[i], invisibleIsCaught[i],
+        invisiblesX[i], invisiblesY[i], 2.0f,
+        InvisibleWidth, InvisibleHeight);
 
                         window.draw(InvisibleSprite);
                     }
@@ -5862,11 +5848,12 @@ int main()
                 // Chelnov
                 for (int i = 0; i < chelnovCount; i++)
                 {
-                    updateEnemyAnimation(InvisibleSprite, dt,
-                     invisibleWalkTex, invisibleSuckTex,
-                     invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
-                     invisibleDirection[i], invisibleIsCaught[i],
-                     invisiblesX[i], invisiblesY[i], 2.0f);
+                    updateEnemyAnimation(ChelnovSprite, dt,
+        chelnovWalkTex, chelnovSuckTex,
+        chelnovAnimFrame[i], chelnovAnimCounter[i], 8,
+        chelnovDirection[i], chelnovIsCaught[i],
+        chelnovsX[i], chelnovsY[i], 2.0f,
+        ChelnovWidth, ChelnovHeight);
 
                     window.draw(ChelnovSprite);
                 }

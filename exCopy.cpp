@@ -1,3 +1,5 @@
+//2
+//added animtions for everything
 // butt saab
 // collision detection closes the window
 #include <iostream>
@@ -87,6 +89,51 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
             PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
         else
             PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
+    }
+}
+
+// Function to update enemy animation
+void updateEnemyAnimation(Sprite &sprite, float dt,
+                          Texture *walkTextures, Texture *suckTextures, // Two texture arrays. Passed by pointer value so by reference
+                          int &animFrame, int &animCounter, int animSpeed,
+                          int direction, bool isCaught,
+                          int width, int height,
+                          float x, float y, float scale)
+{
+    animCounter++;
+    if (animCounter >= animSpeed)
+    {
+        animCounter = 0;
+        animFrame++;
+        if (animFrame >= 4) // From 0-3 and reset when 4, not being displayed at 4 so no error.
+            animFrame = 0;
+    }
+
+    // Suck animation here
+    if (isCaught)
+    {
+        sprite.setTexture(suckTextures[animFrame], true);
+
+        sprite.setPosition(x, y);
+        sprite.setScale(scale, scale);
+
+        if (direction == 1)
+            sprite.setTextureRect(IntRect(0, 0, width, height));
+        else
+            sprite.setTextureRect(IntRect(width, 0, -width, height));
+    }
+    // Walk animtion here
+    else
+    {
+        sprite.setTexture(walkTextures[animFrame], true);
+
+        sprite.setPosition(x, y);
+        sprite.setScale(scale, scale);
+
+        if (direction == 1) // Direction of walk
+            sprite.setTextureRect(IntRect(0, 0, width, height));
+        else
+            sprite.setTextureRect(IntRect(width, 0, -width, height));
     }
 }
 
@@ -2043,8 +2090,21 @@ int main()
         float platformRightEdge[maxEnemyCount];
         bool enemyIsCaught[maxEnemyCount];
 
-        int EnemyHeight = 60;
-        int EnemyWidth = 72;
+// 1. Ghost Variables
+int EnemyHeight = 58; // WAS 60
+int EnemyWidth = 58;  // WAS 72
+
+// 2. Skeleton Variables
+int SkeletonHeight = 58; // WAS 92
+int SkeletonWidth = 58;  // WAS 72
+
+// 3. Invisible Man Variables
+int InvisibleHeight = 58; // WAS 80
+int InvisibleWidth = 58;  // WAS 60
+
+// 4. Chelnov Variables
+int ChelnovHeight = 58; // WAS 90
+int ChelnovWidth = 58;  // WAS 60
 
         Texture EnemyTexture;
         Sprite EnemySprite;
@@ -2074,8 +2134,6 @@ int main()
         int skeletonAnimCounter[maxSkeletonCount];
         int skeletonAnimSpeed = 8;
 
-        int SkeletonHeight = 92;
-        int SkeletonWidth = 72;
 
         Texture SkeletonTexture;
         Sprite SkeletonSprite;
@@ -2104,8 +2162,6 @@ int main()
         float invisibleVisibilityTimer[maxInvisibleCount];
         float invisibleTeleportTimer[maxInvisibleCount];
 
-        int InvisibleHeight = 80;
-        int InvisibleWidth = 60;
 
         Texture InvisibleTexture;
         Sprite InvisibleSprite;
@@ -2132,8 +2188,6 @@ int main()
         bool chelnovIsShooting[maxChelnovCount];
         float chelnovShootPhaseTimer[maxChelnovCount];
 
-        int ChelnovHeight = 90;
-        int ChelnovWidth = 60;
 
         Texture ChelnovTexture;
         Sprite ChelnovSprite;
@@ -2304,6 +2358,86 @@ int main()
             lvl[i] = new char[width];
             for (int j = 0; j < width; j++)
                 lvl[i][j] = ' ';
+        }
+
+        // --- 1. GHOST ANIMATION SETUP ---
+        Texture ghostWalkTex[4];
+        Texture ghostSuckTex[4]; // New Suck Array
+
+        // Load Walk (Assuming you have walk1-4, or reuse)
+        ghostWalkTex[0].loadFromFile("Data/ghostWalk/walk1.png");
+        ghostWalkTex[1].loadFromFile("Data/ghostWalk/walk2.png");
+        ghostWalkTex[2].loadFromFile("Data/ghostWalk/walk3.png");
+        ghostWalkTex[3].loadFromFile("Data/ghostWalk/walk4.png");
+
+        // Load Suck (You need these files, or reuse ghost.png for now)
+        ghostSuckTex[0].loadFromFile("Data/ghostSuck/suck1.png");
+        ghostSuckTex[1].loadFromFile("Data/ghostSuck/suck2.png");
+        ghostSuckTex[2].loadFromFile("Data/ghostSuck/suck3.png");
+        ghostSuckTex[3].loadFromFile("Data/ghostSuck/suck4.png");
+
+        int ghostAnimFrame[maxEnemyCount];
+        int ghostAnimCounter[maxEnemyCount];
+        for (int i = 0; i < maxEnemyCount; i++)
+        {
+            ghostAnimFrame[i] = 0;
+            ghostAnimCounter[i] = 0;
+        }
+
+        // --- 2. SKELETON ANIMATION SETUP ---
+        // You already have skeletonWalkTex[4], just add Suck
+        Texture skeletonSuckTex[4];
+        skeletonSuckTex[0].loadFromFile("Data/skeletonSuck/suck1.png");
+        skeletonSuckTex[1].loadFromFile("Data/skeletonSuck/suck2.png");
+        skeletonSuckTex[2].loadFromFile("Data/skeletonSuck/suck3.png");
+        skeletonSuckTex[3].loadFromFile("Data/skeletonSuck/suck4.png");
+
+        // --- 3. INVISIBLE MAN SETUP ---
+        Texture invisibleWalkTex[4]; // Increased to 4
+        Texture invisibleSuckTex[4];
+
+        // Load Walk
+        invisibleWalkTex[0].loadFromFile("Data/invisibleMan/walk1.png");
+        invisibleWalkTex[1].loadFromFile("Data/invisibleMan/walk2.png"); // Reuse/Load more
+        invisibleWalkTex[2].loadFromFile("Data/invisibleMan/walk1.png");
+        invisibleWalkTex[3].loadFromFile("Data/invisibleMan/walk2.png");
+
+        // Load Suck
+        invisibleSuckTex[0].loadFromFile("Data/invisibleMan/suck1.png");
+        invisibleSuckTex[1].loadFromFile("Data/invisibleMan/suck2.png");
+        invisibleSuckTex[2].loadFromFile("Data/invisibleMan/suck3.png");
+        invisibleSuckTex[3].loadFromFile("Data/invisibleMan/suck4.png");
+
+        int invisibleAnimFrame[maxInvisibleCount];
+        int invisibleAnimCounter[maxInvisibleCount];
+        for (int i = 0; i < maxInvisibleCount; i++)
+        {
+            invisibleAnimFrame[i] = 0;
+            invisibleAnimCounter[i] = 0;
+        }
+
+        // --- 4. CHELNOV SETUP ---
+        Texture chelnovWalkTex[4]; // Increased to 4
+        Texture chelnovSuckTex[4];
+
+        // Load Walk
+        chelnovWalkTex[0].loadFromFile("Data/chelnov/walk1.png");
+        chelnovWalkTex[1].loadFromFile("Data/chelnov/walk2.png");
+        chelnovWalkTex[2].loadFromFile("Data/chelnov/walk1.png");
+        chelnovWalkTex[3].loadFromFile("Data/chelnov/walk2.png");
+
+        // Load Suck
+        chelnovSuckTex[0].loadFromFile("Data/chelnov/suck1.png");
+        chelnovSuckTex[1].loadFromFile("Data/chelnov/suck2.png");
+        chelnovSuckTex[2].loadFromFile("Data/chelnov/suck3.png");
+        chelnovSuckTex[3].loadFromFile("Data/chelnov/suck4.png");
+
+        int chelnovAnimFrame[maxChelnovCount];
+        int chelnovAnimCounter[maxChelnovCount];
+        for (int i = 0; i < maxChelnovCount; i++)
+        {
+            chelnovAnimFrame[i] = 0;
+            chelnovAnimCounter[i] = 0;
         }
 
         // ============================================================================
@@ -2701,6 +2835,7 @@ int main()
 
         while (window.isOpen() && !restartGame) // game loop
         {
+        	//window.clear(Color::Black);
             while (window.pollEvent(ev))
             {
                 if (ev.type == Event::Closed)
@@ -5481,67 +5616,59 @@ int main()
                 // ============================================================================
                 // DRAW POT ENEMIES (ghost, skeleton, invisible, chelnov spawned by pot)
                 // ============================================================================
+                // DRAW POT ENEMIES (Animated)
                 for (int pe = 0; pe < potEnemyCount; pe++)
                 {
-                    if (potEnemyIsCaught[pe])
-                        continue;
+                    // Note: We REMOVED the "continue if caught" line so we can see the suck animation!
 
-                    // Draw enemy based on type
-                    int texW, texH;
-                    switch (potEnemyType[pe])
+                    Texture *currentWalk = ghostWalkTex;
+                    Texture *currentSuck = ghostSuckTex;
+                    int eW = 72, eH = 60;
+                    Sprite *s = &EnemySprite;
+
+                    if (potEnemyType[pe] == 2)
                     {
-                    case 1: // Ghost
-                        EnemySprite.setTexture(EnemyTexture);
-                        EnemySprite.setPosition(potEnemiesX[pe], potEnemiesY[pe]);
-                        texW = EnemyTexture.getSize().x;
-                        texH = EnemyTexture.getSize().y;
-                        if (potEnemyDirection[pe] == 1)
-                            EnemySprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                        else
-                            EnemySprite.setTextureRect(IntRect(0, 0, texW, texH));
-                        window.draw(EnemySprite);
-                        break;
+                        currentWalk = skeletonWalkTex;
+                        currentSuck = skeletonSuckTex;
+                        eW = 72;
+                        eH = 92;
+                        s = &SkeletonSprite;
+                    }
+                    else if (potEnemyType[pe] == 3)
+                    {
+                        currentWalk = invisibleWalkTex;
+                        currentSuck = invisibleSuckTex;
+                        eW = 60;
+                        eH = 80;
+                        s = &InvisibleSprite;
+                    }
+                    else if (potEnemyType[pe] == 4)
+                    {
+                        currentWalk = chelnovWalkTex;
+                        currentSuck = chelnovSuckTex;
+                        eW = 60;
+                        eH = 90;
+                        s = &ChelnovSprite;
+                    }
 
-                    case 2: // Skeleton
-                        SkeletonSprite.setTexture(SkeletonTexture);
-                        SkeletonSprite.setPosition(potEnemiesX[pe], potEnemiesY[pe]);
-                        texW = SkeletonTexture.getSize().x;
-                        texH = SkeletonTexture.getSize().y;
-                        if (potEnemyDirection[pe] == 1)
-                            SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                        else
-                            SkeletonSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                        window.draw(SkeletonSprite);
-                        break;
+                    // Only draw if visible (Invisible Man logic)
+                    if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
+                    {
+                        // Note: Pot enemies currently reuse the standard animation counters.
+                        // For a perfect implementation, you added 'potEnemyAnimFrame' to dynamic logic earlier.
+                        // If you didn't add those specific arrays to the dynamic resizing logic, use 0 for now.
+                        // Assuming you want basic functionality:
+                        int dummyFrame = 0;
+                        int dummyCounter = 0;
 
-                    case 3: // Invisible Man - only draw when visible
-                        if (potEnemyIsVisible[pe])
-                        {
-                            InvisibleSprite.setTexture(InvisibleTexture);
-                            InvisibleSprite.setPosition(potEnemiesX[pe], potEnemiesY[pe]);
-                            texW = InvisibleTexture.getSize().x;
-                            texH = InvisibleTexture.getSize().y;
-                            if (potEnemyDirection[pe] == 1)
-                                InvisibleSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                            else
-                                InvisibleSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                            window.draw(InvisibleSprite);
-                        }
-                        break;
-                        ;
-                        break;
-
-                    case 4: // Chelnov
-                        ChelnovSprite.setTexture(ChelnovTexture);
-                        ChelnovSprite.setPosition(potEnemiesX[pe], potEnemiesY[pe]);
-                        texW = ChelnovTexture.getSize().x;
-                        texH = ChelnovTexture.getSize().y;
-                        if (potEnemyDirection[pe] == 1)
-                            ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                        else
-                            ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
-                        window.draw(ChelnovSprite);
-                        break;
+                        updateEnemyAnimation(*s, dt, 
+                     currentWalk, currentSuck, 
+                     dummyFrame, dummyCounter, 8, 
+                     potEnemyDirection[pe],
+                     potEnemyIsCaught[pe],
+                     58, 58, 
+                     potEnemiesX[pe], potEnemiesY[pe], 2.0f);
+                        window.draw(*s);
                     }
                 }
 
@@ -5692,63 +5819,63 @@ int main()
             window.draw(collBox);
 
             // Draw ghosts
+            // Draw ghosts (Animated)
             for (int i = 0; i < enemyCount; i++)
             {
-                EnemySprite.setPosition(enemiesX[i], enemiesY[i]);
+                updateEnemyAnimation(EnemySprite, dt,
+                                     ghostWalkTex, ghostSuckTex,
+                                     ghostAnimFrame[i], ghostAnimCounter[i], 8,
+                                     enemyDirection[i], enemyIsCaught[i],
+                                     58, 58,
+                                     enemiesX[i], enemiesY[i], 1.0f);
+
                 window.draw(EnemySprite);
             }
 
             // Draw skeletons
+            // Draw skeletons (Animated)
             for (int i = 0; i < skeletonCount; i++)
             {
-                skeletonAnimCounter[i]++;
-                if (skeletonAnimCounter[i] >= skeletonAnimSpeed)
-                {
-                    skeletonAnimCounter[i] = 0;
-                    skeletonAnimFrame[i]++;
-                    if (skeletonAnimFrame[i] >= 4)
-                        skeletonAnimFrame[i] = 0;
-                }
+                updateEnemyAnimation(SkeletonSprite, dt,
+                                     skeletonWalkTex, skeletonSuckTex,
+                                     skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
+                                     skeletonDirection[i], skeletonIsCaught[i],
+                                     58, 58,
+                                     skeletonsX[i], skeletonsY[i], 1.0f);
 
-                SkeletonSprite.setTexture(skeletonWalkTex[skeletonAnimFrame[i]], true);
-
-                int texW = skeletonWalkTex[skeletonAnimFrame[i]].getSize().x;
-                int texH = skeletonWalkTex[skeletonAnimFrame[i]].getSize().y;
-
-                if (skeletonDirection[i] == 1)
-                    SkeletonSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                else
-                    SkeletonSprite.setTextureRect(IntRect(0, 0, texW, texH));
-
-                float skeletonScale = 2.0f;
-                float XoffsetSkeleton = (64 * skeletonScale - SkeletonWidth) / 2.0f;
-                float YoffsetSkeleton = (64 * skeletonScale - SkeletonHeight);
-
-                SkeletonSprite.setPosition(skeletonsX[i] - XoffsetSkeleton, skeletonsY[i] - YoffsetSkeleton);
                 window.draw(SkeletonSprite);
             }
 
             // Draw Level 2 enemies
+            // Draw Level 2 enemies
             if (currentLevel == 2)
             {
+                // Invisible Man
                 for (int i = 0; i < invisibleCount; i++)
                 {
                     if (invisibleIsVisible[i])
                     {
-                        InvisibleSprite.setPosition(invisiblesX[i], invisiblesY[i]);
+                        updateEnemyAnimation(InvisibleSprite, dt,
+                                             invisibleWalkTex, invisibleSuckTex,
+                                             invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
+                                             invisibleDirection[i], invisibleIsCaught[i],
+                                             58, 58,
+                                             invisiblesX[i], invisiblesY[i], 2.0f);
+
                         window.draw(InvisibleSprite);
                     }
                 }
 
+                // Chelnov
                 for (int i = 0; i < chelnovCount; i++)
                 {
-                    ChelnovSprite.setPosition(chelnovsX[i], chelnovsY[i]);
-                    int texW = ChelnovTexture.getSize().x;
-                    int texH = ChelnovTexture.getSize().y;
-                    if (chelnovDirection[i] == 1)
-                        ChelnovSprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-                    else
-                        ChelnovSprite.setTextureRect(IntRect(0, 0, texW, texH));
+                    updateEnemyAnimation(ChelnovSprite, dt,
+                                         chelnovWalkTex, chelnovSuckTex,
+                                         chelnovAnimFrame[i], chelnovAnimCounter[i], 8,
+                                         chelnovDirection[i], chelnovIsCaught[i],
+                                         58, 58,
+                                         chelnovsX[i], chelnovsY[i], 2.0f);
+
                     window.draw(ChelnovSprite);
                 }
 
@@ -5829,7 +5956,8 @@ int main()
             }
 
             // UI
-            if (currentLevel == 3) capturedCount = dynamicCapturedCount;
+            if (currentLevel == 3)
+                capturedCount = dynamicCapturedCount;
             Text capturedDisplay("Captured: " + to_string(capturedCount) + "/" + to_string(MAX_CAPACITY), font, 30);
             capturedDisplay.setFillColor(Color::Green);
             capturedDisplay.setPosition(20, 45);

@@ -1364,7 +1364,7 @@ int main()
         int cloudWidth = 150;
         int cloudHeight = 50;
         float cloudMinY = 150.0f;     // Top bound for cloud movement
-        float cloudMaxY = 350.0f;     // Bottom bound for cloud movement
+        float cloudMaxY = 700.0f;     // Bottom bound for cloud movement
         float cloudSpeed = 40.0f;     // Cloud movement speed
         int cloudDirection = 1;       // 1 = moving down, -1 = moving up
         bool cloudIsPlatform = false; // Becomes true after pot is destroyed
@@ -1961,7 +1961,7 @@ int main()
         // Tentacle Texture
         Texture tentacleTexture;
         Sprite tentacleSprite;
-        if (!tentacleTexture.loadFromFile("Data/boss/tentacle.png"))
+        if (!tentacleTexture.loadFromFile("Data/octopus/Tentacles.png"))
         {
             cout << "tentacle.png missing!\n";
         }
@@ -1971,7 +1971,7 @@ int main()
         // Minion Texture
         Texture minionTexture;
         Sprite minionSprite;
-        if (!minionTexture.loadFromFile("Data/boss/minion.png"))
+        if (!minionTexture.loadFromFile("Data/octopus/min1.png"))
         {
             cout << "minion.png missing! Using ghost as fallback.\n";
             minionTexture.loadFromFile("Data/ghost.png");

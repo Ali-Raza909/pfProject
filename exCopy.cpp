@@ -438,7 +438,6 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,
         vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); 
         vacSprite.setScale(scaleX_Horz, scaleY_Horz); 
         
-        vacSprite.setPosition(pX + PlayerWidth, pCenterY - (beamThick * 2.0f) / 2.0f + (beamThick/2.0f)); 
         
         vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); // Visual alignment
 
@@ -744,19 +743,12 @@ void spawnPowerup(float *powerupsX, float *powerupsY, int *powerupType,
         attempts++;
     }
 
-    if (!foundValidSpot)
-    {
-        cout << "Could not find valid powerup spawn location\n";
-        return;
-    }
 
     powerupsX[powerupCount] = randomCol * cellSize;
     powerupsY[powerupCount] = randomRow * cellSize;
     powerupType[powerupCount] = type;
     powerupActive[powerupCount] = true;
     powerupAnimTimer[powerupCount] = 0.0f;
-
-    cout << "Spawned powerup type " << type << " at (" << randomCol << ", " << randomRow << ")\n";
 
     powerupCount++;
 }
@@ -840,6 +832,7 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
     for (int j = 0; j < platWidth; j++)
     {
         lvl[11][j] = '#';
+        
     }
 
     // left wall (column 0)
@@ -1026,10 +1019,6 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
             lvl[9][j] = '-';
 
   
-    cout << "=== Level 2 Design Generated ===" << endl;
-    cout << "Slant direction: " << (direction == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
-    cout << "Slant start: row " << randTopRow << ", col " << randTopCol << endl;
-    cout << "Slant length: " << slantLength << " tiles" << endl;
 }
 
 // function to spawn enemies in level two in 4 waves based on waveNumber
@@ -1810,7 +1799,7 @@ int main()
                         selectedStartLevel = 3;
                         currentLevel = 3;
                         levelSelected = true;
-                        cout << "Boss Level (Level 3) selected!" << endl;
+                        cout << "Level 3 selected!" << endl;
                     }
                     // arrow key navigation
                     else if (e.key.code == Keyboard::Up)
@@ -1848,7 +1837,7 @@ int main()
                             selectedStartLevel = 3;
                             currentLevel = 3;
                             levelSelected = true;
-                            cout << "Boss Level (Level 3) selected!" << endl;
+                            cout << "Level 3 selected!" << endl;
                         }
                     }
                     else if (e.key.code == Keyboard::Escape)
@@ -1919,8 +1908,7 @@ int main()
         
         if (!bgTex2.loadFromFile("Data/bg2.png"))
         {
-            cout << "ERROR: bg2.png failed to load! Using bg.png as fallback.\n";
-            bgTex2.loadFromFile("Data/bg.png"); 
+            cout << "ERROR: bg2.png failed to load.\n";
         }
 
         bgSprite2.setTexture(bgTex2);
@@ -1972,14 +1960,40 @@ int main()
         lvl2Music.setVolume(20);
         lvl2Music.setLoop(true);
 
-        
+		Music lvl3Music;
+		if (!lvl2Music.openFromFile("Data/mus3.ogg"))
+        {
+            lvl2Music.openFromFile("Data/mus.ogg");
+        }
+		
+		
+		SoundBuffer deathBuffer;
+		Sound deathSound;
+		SoundBuffer winBuffer;
+		Sound winSound;
+		SoundBuffer enemyKillBuffer;
+		Sound enemyKillSound;
+		SoundBuffer powerupBuffer;
+    	Sound powerupSound;
+		
+		deathBuffer.loadFromFile("death.ogg");
+		deathSound.setBuffer(deathBuffer);
+		
+		winBuffer.loadFromFile("win.ogg");
+		winSound.setBuffer(winBuffer); 
+
+    	enemyKillBuffer.loadFromFile("enemyKill.ogg");
+    	enemyKillSound.setBuffer(enemyKillBuffer);
+    	
+    	powerupBuffer.loadFromFile("powerup.ogg");
+    	powerupSound.setBuffer(powerupBuffer);
+
         
         Texture bgTex3;
         Sprite bgSprite3;
         if (!bgTex3.loadFromFile("Data/bg3.png"))
         {
-            cout << "bg3.png missing! Using bg.png as fallback.\n";
-            bgTex3.loadFromFile("Data/bg.png");
+            cout << "bg3.png missing.\n";
         }
         bgSprite3.setTexture(bgTex3);
         bgSprite3.setScale(
@@ -1991,18 +2005,12 @@ int main()
         Sprite blockSprite3;
         if (!blockTexture3.loadFromFile("Data/block3.PNG"))
         {
-            cout << "block3.png missing! Using block1.png as fallback.\n";
-            blockTexture3.loadFromFile("Data/block1.png");
+            cout << "block3.png missing.\n";
         }
         blockSprite3.setTexture(blockTexture3);
 
         
-        Music lvl3Music;
-        if (!lvl3Music.openFromFile("Data/mus3.ogg"))
-        {
-            cout << "mus3.ogg missing! Using mus.ogg as fallback.\n";
-            lvl3Music.openFromFile("Data/mus.ogg");
-        }
+
         lvl3Music.setVolume(25);
         lvl3Music.setLoop(true);
 
@@ -2020,7 +2028,7 @@ int main()
         Texture bossAngryTexture;
         if (!bossAngryTexture.loadFromFile("Data/boss/octopus_angry.png"))
         {
-            cout << "octopus_angry.png missing! Will use color tint.\n";
+            cout << "octopus_angry.png missing!.\n";
         }
 
         
@@ -2048,8 +2056,7 @@ int main()
         Sprite minionSprite;
         if (!minionTexture.loadFromFile("Data/octopus/min1.png"))
         {
-            cout << "minion.png missing! Using ghost as fallback.\n";
-            minionTexture.loadFromFile("Data/ghost.png");
+            cout << "minion.png missing!\n";
         }
         minionSprite.setTexture(minionTexture);
         minionSprite.setScale(1.5f, 1.5f);
@@ -2058,7 +2065,7 @@ int main()
         Texture minionRollTex[4];
         if (!minionRollTex[0].loadFromFile("Data/boss/minion_roll1.png"))
         {
-            cout << "minion_roll textures missing! Using ghost roll as fallback.\n";
+            cout << "minion_roll textures missing!. Use ghost for it's place\n";
             minionRollTex[0].loadFromFile("Data/ghostRoll/roll1.png");
             minionRollTex[1].loadFromFile("Data/ghostRoll/roll2.png");
             minionRollTex[2].loadFromFile("Data/ghostRoll/roll3.png");
@@ -2610,7 +2617,6 @@ int main()
                     }
                 }
             }
-            cout << "Level 1: Total ghosts: " << enemyCount << endl;
 
             // initialize skeletons from markers
             for (int r = 0; r < height; r++)
@@ -2636,7 +2642,7 @@ int main()
                     }
                 }
             }
-            cout << "Level 1: Total skeletons: " << skeletonCount << endl;
+            cout << "Level 1: Total skeletons: " << skeletonCount << "Total Ghosts: " << enemyCount;
 
             
             MAX_CAPACITY = 3;
@@ -2649,7 +2655,6 @@ int main()
             
             cout << "Initializing Level 2..." << endl;
 
-            
             generateLevel2Map(lvl, height, width, cell_size,
                               enemiesX, enemiesY, enemySpeed, enemyDirection,
                               platformLeftEdge, platformRightEdge, enemyCount,
@@ -2676,14 +2681,15 @@ int main()
                 waveSpawned[w] = false;
 
             
-            lvl2Music.play();
+lvlMusic.stop();
+lvl3Music.stop();
+lvl2Music.play();
 
-            cout << "Level 2 initialized with wave spawning system" << endl;
         }
         else if (currentLevel == 3)
         {
             
-            cout << "Initializing Boss Level (Level 3)..." << endl;
+            cout << "Initializing Level 3..." << endl;
 
             // allocating dynamic arrays for minions 
 
@@ -2805,12 +2811,9 @@ int main()
             lvl2Music.stop();
             lvl3Music.play();
 
-            cout << "Boss Level initialized with Pot/Cloud system!" << endl;
-            cout << "Pot Health: " << potHealth << "/" << potMaxHealth << endl;
-            cout << "Destroy the pot to make the Boss appear!" << endl;
+
             cout << "Level dimensions: " << level3Width << "x" << level3Height << " (cell size: " << level3CellSize << ")" << endl;
-            cout << "Floor row: " << floorRow << " (y = " << floorRow * level3CellSize << ")" << endl;
-            cout << "Player spawn: (" << player_x << ", " << player_y << ")" << endl;
+
         }
        
 
@@ -3131,10 +3134,10 @@ int main()
                         {
                             isDead = true;
                             playerLives--;
+                            deathSound.play();
                             levelNoDamage = false;
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
-                            cout << "Player hit by pot! Lives: " << playerLives << endl;
                         }
                     }
                 }
@@ -3151,7 +3154,7 @@ int main()
                         cloudIsPlatform = true; // cloud becomes a platform
                         bossX = screen_x / 2 - bossWidth / 2;
                         bossY = 50; // boss appears at top
-                        cout << "Boss (octopus) has appeared" << endl;
+                        cout << "Boss has appeared" << endl;
                     }
                 }
 
@@ -3447,10 +3450,10 @@ int main()
                         {
                             isDead = true;
                             playerLives--;
+                            deathSound.play();
                             levelNoDamage = false;
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
-                            cout << "Player hit by pot enemy! Lives: " << playerLives << endl;
                         }
                     }
                 }
@@ -3486,6 +3489,8 @@ int main()
                         {
                             isDead = true;
                             playerLives--;
+
+                            deathSound.play();
                             levelNoDamage = false;
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
@@ -3499,7 +3504,7 @@ int main()
                             potEnemyProjCount--;
                             pp--;
 
-                            cout << "Player hit by pot enemy projectile! Lives: " << playerLives << endl;
+
                         }
                     }
                 }
@@ -3537,7 +3542,6 @@ int main()
                             minionFollowingPlayer[m] = true;
                         }
 
-                        cout << "BOSS IS ANGRY! Minions will now follow the player!" << endl;
                     }
 
                     // spawn minions
@@ -3616,7 +3620,7 @@ int main()
                             minionFollowingPlayer[minionCount] = bossIsAngry;
 
                             minionCount++;
-                            cout << "Minion spawned (Dynamic)! Total: " << minionCount << endl;
+                            cout << "Minion spawned. Total: " << minionCount << endl;
                         }
                     }
 
@@ -3740,7 +3744,6 @@ int main()
                             tentacleTexIndex[tentacleCount] = texID; // Store ID
 
                             tentacleCount++;
-                            cout << "Tentacle spawned on side " << side << " (Tex " << texID << ")" << endl;
                         }
                     }
 
@@ -3847,10 +3850,10 @@ int main()
                             {
                                 isDead = true;
                                 playerLives--;
+                                deathSound.play();
                                 levelNoDamage = false;
                                 waitingToRespawn = true;
                                 deathDelayCounter = 0.0f;
-                                cout << "Player hit by minion! Lives: " << playerLives << endl;
                             }
                         }
                     }
@@ -3870,10 +3873,11 @@ int main()
                             {
                                 isDead = true;
                                 playerLives--;
+                                deathSound.play();
                                 levelNoDamage = false;
                                 waitingToRespawn = true;
                                 deathDelayCounter = 0.0f;
-                                cout << "Player hit by tentacle! Lives: " << playerLives << endl;
+
                             }
                         }
                     }
@@ -3888,6 +3892,7 @@ int main()
                         {
                             isDead = true;
                             playerLives--;
+                            deathSound.play();
                             levelNoDamage = false;
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
@@ -4426,7 +4431,6 @@ int main()
                             potEnemyCount--;
                             pe--; // adjust index since we removed an enemy
 
-                            cout << "Captured pot enemy! Total Dynamic: " << dynamicCapturedCount << endl;
                         }
                     }
                 }
@@ -4445,7 +4449,8 @@ int main()
                     (player_y + PlayerHeight > powerupsY[i]))
                 {
                     powerupActive[i] = false;
-
+					powerupSound.play(); 
+					
                     switch (powerupType[i])
                     {
                     case 1:
@@ -4545,6 +4550,7 @@ int main()
                         if (!waitingToRespawn)
                         {
                             playerLives--;
+                            deathSound.play();
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
                             levelNoDamage = false;
@@ -4635,6 +4641,7 @@ int main()
                         if (!waitingToRespawn)
                         {
                             playerLives--;
+                            deathSound.play();
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
                         }
@@ -4690,6 +4697,7 @@ int main()
                             if (!waitingToRespawn)
                             {
                                 playerLives--;
+                                deathSound.play();
                                 waitingToRespawn = true;
                                 deathDelayCounter = 0.0f;
                                 levelNoDamage = false;
@@ -4759,6 +4767,7 @@ int main()
                             if (!waitingToRespawn)
                             {
                                 playerLives--;
+                                deathSound.play();
                                 waitingToRespawn = true;
                                 deathDelayCounter = 0.0f;
                                 levelNoDamage = false;
@@ -4796,6 +4805,7 @@ int main()
                         if (!waitingToRespawn)
                         {
                             playerLives--;
+                            deathSound.play();
                             waitingToRespawn = true;
                             deathDelayCounter = 0.0f;
                             levelNoDamage = false;
@@ -4959,6 +4969,7 @@ int main()
                         (projectilesY[p] + ProjectileHeight > enemiesY[e]))
                     {
                         int defeatPoints = 50 * 2;
+                        enemyKillSound.play();
                         if (enemiesY[e] < 400)
                             playerScore += 150;
                         addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
@@ -4986,6 +4997,7 @@ int main()
                         (projectilesY[p] + ProjectileHeight > skeletonsY[s]))
                     {
                         int defeatPoints = 75 * 2;
+                        enemyKillSound.play();
                         if (!skeletonOnGround[s])
                             playerScore += 150;
                         addScore(playerScore, comboStreak, comboTimer, defeatPoints, true, multiKillCount, multiKillTimer, dt);
@@ -5068,7 +5080,6 @@ int main()
                            
                             potHealth--;
                             playerScore += 200;
-                            cout << "POT HIT! Health: " << potHealth << "/" << potMaxHealth << endl;
 
                             if (potHealth <= 0)
                             {
@@ -5076,7 +5087,6 @@ int main()
                                 potDestroyed = true;
                                 potDestroyTimer = 0.0f;
                                 playerScore += 1000;
-                                cout << "POT DESTROYED! Boss will appear soon..." << endl;
                             }
 
                             // remove the projectile
@@ -5154,7 +5164,6 @@ int main()
                                 potEnemyCount--;
                                 pe--;
 
-                                cout << "Pot enemy defeated! Remaining: " << potEnemyCount << endl;
                             }
                         }
                     }
@@ -5174,13 +5183,13 @@ int main()
                             // HIT THE BOSS!
                             bossHealth--;
                             playerScore += 500;
-                            cout << "BOSS HIT! Health: " << bossHealth << "/" << maxBossHealth << endl;
+                            cout << "boss hit! Health: " << bossHealth << "/" << maxBossHealth << endl;
 
                             if (bossHealth <= 0)
                             {
                                 bossDefeated = true;
                                 playerScore += 5000;
-                                cout << "BOSS DEFEATED!" << endl;
+                                cout << "Boss Defeated" << endl;
                             }
 
                             // remove the projectile
@@ -5280,7 +5289,6 @@ int main()
                                     minionFollowingPlayer[minionCount] = bossIsAngry;
 
                                     minionCount++;
-                                    cout << "Minion REBORN from tentacle hit! Total: " << minionCount << endl;
                                 }
 
                                 // remove the projectile
@@ -5374,19 +5382,14 @@ int main()
             if (debugCounter >= 60)
             {
                 debugCounter = 0;
-                cout << "Level " << currentLevel << " - Ghosts: " << enemyCount
-                     << " Skeletons: " << skeletonCount
-                     << " Invisible: " << invisibleCount
-                     << " Chelnov: " << chelnovCount
-                     << " Captured: " << capturedCount
-                     << " ChelProj: " << chelnovProjCount
-                     << " YourProj: " << projectileCount
-                     << " AllDefeated: " << allEnemiesDefeated << endl;
+                cout << "Level " << currentLevel << " - Ghosts: " << enemyCount << " Skeletons: " << skeletonCount << " Invisible: " << invisibleCount
+                     << " Chelnov: " << chelnovCount << " Captured: " << capturedCount << " ChelProj: " << chelnovProjCount << " YourProj: " << projectileCount << " AllDefeated: " << allEnemiesDefeated << endl;
             }
 
             if (allEnemiesDefeated && !showStageClear)
             {
                 showStageClear = true;
+                winSound.play();
 
                 if (currentLevel == 1)
                 {
@@ -5482,8 +5485,9 @@ int main()
                                 MAX_CAPACITY = 5;
 
                                 lvlMusic.stop();
-                                lvl2Music.play();
-
+								lvl3Music.stop();
+								lvl2Music.play(); 
+								
                                 player_x = 850.0f;
                                 player_y = 450.0f;
                                 velocityY = 0;
@@ -5580,8 +5584,6 @@ int main()
                                 cout << "Creating Level 3 map..." << endl;
                                 cout << "Dimensions: " << level3Width << "x" << level3Height << endl;
                                 cout << "Cell size: " << level3CellSize << endl;
-                                cout << "Floor row: " << floorRow << " (Y position: " << floorY << ")" << endl;
-                                cout << "Screen size: " << screen_x << "x" << screen_y << endl;
 
                                 // Create floor within bounds
                                 for (int j = 0; j < level3Width; j++)
@@ -5652,8 +5654,6 @@ int main()
                                 player_x = screen_x / 2 - PlayerWidth / 2;
                                 player_y = floorY - PlayerHeight - 5; // place player just above floor
 
-                                cout << "Level 3 map created successfully!" << endl;
-                                cout << "Player starting position: (" << player_x << ", " << player_y << ")" << endl;
 
                                 // initialize boss
                                 bossX = screen_x / 2 - bossWidth / 2;
@@ -5675,8 +5675,9 @@ int main()
 
                                 MAX_CAPACITY = 999;
 
-                                lvl2Music.stop();
-                                lvl3Music.play();
+                                lvlMusic.stop();
+lvl2Music.stop();
+lvl3Music.play();
 
                                 levelNoDamage = true;
                                 levelTimer = 0.0f;
@@ -5693,7 +5694,6 @@ int main()
                                 speed = originalSpeed * speedMultiplier;
                                 vacuumPower = originalVacuumPower;
 
-                                cout << "Transitioning to Boss Level!" << endl;
                             }
                             else if (currentLevel == 3)
                             {

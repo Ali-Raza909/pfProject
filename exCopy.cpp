@@ -1384,6 +1384,7 @@ int main()
         float *tentacleTimer = NULL;    // How long tentacle has been active
         float *tentacleDuration = NULL; // How long tentacle will stay
         bool *tentacleActive = NULL;
+        int *tentacleTexIndex = NULL; // Stores which sprite (0-11) this tentacle uses
         int tentacleCount = 0;
         float tentacleSpawnTimer = 0.0f;
         float tentacleSpawnInterval = 4.0f; // Check to spawn tentacle every 4 seconds
@@ -2028,13 +2029,24 @@ int main()
         }
 
         // Tentacle Texture
-        Texture tentacleTexture;
+        // --- UPDATED TENTACLE TEXTURES (12 VARIANTS - MANUAL LOAD) ---
+        Texture tentacleTexArray[12];
         Sprite tentacleSprite;
-        if (!tentacleTexture.loadFromFile("Data/octopus/Tentacles.png"))
-        {
-            cout << "tentacle.png missing!\n";
-        }
-        tentacleSprite.setTexture(tentacleTexture);
+
+        // Manually load each file 1 by 1
+        tentacleTexArray[0].loadFromFile("Data/octopus/tentacle1.png");
+        tentacleTexArray[1].loadFromFile("Data/octopus/tentacle2.png");
+        tentacleTexArray[2].loadFromFile("Data/octopus/tentacle3.png");
+        tentacleTexArray[3].loadFromFile("Data/octopus/tentacle4.png");
+        tentacleTexArray[4].loadFromFile("Data/octopus/tentacle5.png");
+        tentacleTexArray[5].loadFromFile("Data/octopus/tentacle6.png");
+        tentacleTexArray[6].loadFromFile("Data/octopus/tentacle7.png");
+        tentacleTexArray[7].loadFromFile("Data/octopus/tentacle8.png");
+        tentacleTexArray[8].loadFromFile("Data/octopus/tentacle9.png");
+        tentacleTexArray[9].loadFromFile("Data/octopus/tentacle10.png");
+        tentacleTexArray[10].loadFromFile("Data/octopus/tentacle11.png");
+        tentacleTexArray[11].loadFromFile("Data/octopus/tentacle12.png");
+
         tentacleSprite.setScale(2.0f, 2.0f);
 
         // Minion Texture
@@ -2237,10 +2249,14 @@ int main()
 
         // Load 4 frames (Make sure these files exist in Data/chelnov/)
         // If you don't have them yet, copy fireball.png 4 times and rename them.
-        if (!chelnovProjTex[0].loadFromFile("Data/chelnov/fireball1.png")) chelnovProjTex[0].loadFromFile("Data/ghost.png");
-        if (!chelnovProjTex[1].loadFromFile("Data/chelnov/fireball2.png")) chelnovProjTex[1] = chelnovProjTex[0];
-        if (!chelnovProjTex[2].loadFromFile("Data/chelnov/fireball3.png")) chelnovProjTex[2] = chelnovProjTex[0];
-        if (!chelnovProjTex[3].loadFromFile("Data/chelnov/fireball4.png")) chelnovProjTex[3] = chelnovProjTex[0];
+        if (!chelnovProjTex[0].loadFromFile("Data/chelnov/fireball1.png"))
+            chelnovProjTex[0].loadFromFile("Data/ghost.png");
+        if (!chelnovProjTex[1].loadFromFile("Data/chelnov/fireball2.png"))
+            chelnovProjTex[1] = chelnovProjTex[0];
+        if (!chelnovProjTex[2].loadFromFile("Data/chelnov/fireball3.png"))
+            chelnovProjTex[2] = chelnovProjTex[0];
+        if (!chelnovProjTex[3].loadFromFile("Data/chelnov/fireball4.png"))
+            chelnovProjTex[3] = chelnovProjTex[0];
 
         chelnovProjSprite.setScale(2.5f, 2.5f);
 
@@ -2351,7 +2367,7 @@ int main()
 
         int projectileAnimFrame[MAX_PROJECTILES];
         int projectileAnimCounter[MAX_PROJECTILES];
-        int projectileAnimSpeed = 5;
+        int projectileAnimSpeed = 10;
         float projectileLifespan[MAX_PROJECTILES];
         const float MAX_PROJECTILE_LIFE = 8.0f;
         Sprite projectileSprite;
@@ -2952,10 +2968,10 @@ int main()
                         int *newDir = new int[newCapacity];
                         float *newVelY = new float[newCapacity];
                         bool *newGround = new bool[newCapacity];
-                        float *newVelX = new float[newCapacity]; 
+                        float *newVelX = new float[newCapacity];
                         bool *newCaught = new bool[newCapacity];
                         int *newType = new int[newCapacity];
-                        
+
                         // Behavior arrays
                         float *newJumpTimer = new float[newCapacity];
                         bool *newShouldJump = new bool[newCapacity];
@@ -2984,43 +3000,72 @@ int main()
                             newType[i] = potEnemyType[i];
 
                             // Copy behaviors
-                            if (potEnemyJumpTimer != NULL) newJumpTimer[i] = potEnemyJumpTimer[i];
-                            if (potEnemyShouldJump != NULL) newShouldJump[i] = potEnemyShouldJump[i];
-                            if (potEnemyStableFrames != NULL) newStableFrames[i] = potEnemyStableFrames[i];
-                            if (potEnemyIsVisible != NULL) newIsVisible[i] = potEnemyIsVisible[i];
-                            if (potEnemyVisibilityTimer != NULL) newVisTimer[i] = potEnemyVisibilityTimer[i];
-                            if (potEnemyTeleportTimer != NULL) newTeleTimer[i] = potEnemyTeleportTimer[i];
-                            if (potEnemyShootTimer != NULL) newShootTimer[i] = potEnemyShootTimer[i];
-                            if (potEnemyIsShooting != NULL) newIsShooting[i] = potEnemyIsShooting[i];
+                            if (potEnemyJumpTimer != NULL)
+                                newJumpTimer[i] = potEnemyJumpTimer[i];
+                            if (potEnemyShouldJump != NULL)
+                                newShouldJump[i] = potEnemyShouldJump[i];
+                            if (potEnemyStableFrames != NULL)
+                                newStableFrames[i] = potEnemyStableFrames[i];
+                            if (potEnemyIsVisible != NULL)
+                                newIsVisible[i] = potEnemyIsVisible[i];
+                            if (potEnemyVisibilityTimer != NULL)
+                                newVisTimer[i] = potEnemyVisibilityTimer[i];
+                            if (potEnemyTeleportTimer != NULL)
+                                newTeleTimer[i] = potEnemyTeleportTimer[i];
+                            if (potEnemyShootTimer != NULL)
+                                newShootTimer[i] = potEnemyShootTimer[i];
+                            if (potEnemyIsShooting != NULL)
+                                newIsShooting[i] = potEnemyIsShooting[i];
 
                             // --- COPY ANIMATION DATA ---
-                            if (potEnemyAnimFrame != NULL) newAnimFrame[i] = potEnemyAnimFrame[i];
-                            if (potEnemyAnimCounter != NULL) newAnimCounter[i] = potEnemyAnimCounter[i];
+                            if (potEnemyAnimFrame != NULL)
+                                newAnimFrame[i] = potEnemyAnimFrame[i];
+                            if (potEnemyAnimCounter != NULL)
+                                newAnimCounter[i] = potEnemyAnimCounter[i];
                         }
 
                         // 4. Delete old arrays
-                        if (potEnemiesX != NULL) delete[] potEnemiesX;
-                        if (potEnemiesY != NULL) delete[] potEnemiesY;
-                        if (potEnemySpeed != NULL) delete[] potEnemySpeed;
-                        if (potEnemyDirection != NULL) delete[] potEnemyDirection;
-                        if (potEnemyVelocityY != NULL) delete[] potEnemyVelocityY;
-                        if (potEnemyOnGround != NULL) delete[] potEnemyOnGround;
-                        if (potEnemyVelocityX != NULL) delete[] potEnemyVelocityX;     
-                        if (potEnemyIsCaught != NULL) delete[] potEnemyIsCaught;
-                        if (potEnemyType != NULL) delete[] potEnemyType;
-                        
-                        if (potEnemyJumpTimer != NULL) delete[] potEnemyJumpTimer;
-                        if (potEnemyShouldJump != NULL) delete[] potEnemyShouldJump;
-                        if (potEnemyStableFrames != NULL) delete[] potEnemyStableFrames;
-                        if (potEnemyIsVisible != NULL) delete[] potEnemyIsVisible;
-                        if (potEnemyVisibilityTimer != NULL) delete[] potEnemyVisibilityTimer;
-                        if (potEnemyTeleportTimer != NULL) delete[] potEnemyTeleportTimer;
-                        if (potEnemyShootTimer != NULL) delete[] potEnemyShootTimer;
-                        if (potEnemyIsShooting != NULL) delete[] potEnemyIsShooting;
+                        if (potEnemiesX != NULL)
+                            delete[] potEnemiesX;
+                        if (potEnemiesY != NULL)
+                            delete[] potEnemiesY;
+                        if (potEnemySpeed != NULL)
+                            delete[] potEnemySpeed;
+                        if (potEnemyDirection != NULL)
+                            delete[] potEnemyDirection;
+                        if (potEnemyVelocityY != NULL)
+                            delete[] potEnemyVelocityY;
+                        if (potEnemyOnGround != NULL)
+                            delete[] potEnemyOnGround;
+                        if (potEnemyVelocityX != NULL)
+                            delete[] potEnemyVelocityX;
+                        if (potEnemyIsCaught != NULL)
+                            delete[] potEnemyIsCaught;
+                        if (potEnemyType != NULL)
+                            delete[] potEnemyType;
+
+                        if (potEnemyJumpTimer != NULL)
+                            delete[] potEnemyJumpTimer;
+                        if (potEnemyShouldJump != NULL)
+                            delete[] potEnemyShouldJump;
+                        if (potEnemyStableFrames != NULL)
+                            delete[] potEnemyStableFrames;
+                        if (potEnemyIsVisible != NULL)
+                            delete[] potEnemyIsVisible;
+                        if (potEnemyVisibilityTimer != NULL)
+                            delete[] potEnemyVisibilityTimer;
+                        if (potEnemyTeleportTimer != NULL)
+                            delete[] potEnemyTeleportTimer;
+                        if (potEnemyShootTimer != NULL)
+                            delete[] potEnemyShootTimer;
+                        if (potEnemyIsShooting != NULL)
+                            delete[] potEnemyIsShooting;
 
                         // --- DELETE ANIMATION ARRAYS ---
-                        if (potEnemyAnimFrame != NULL) delete[] potEnemyAnimFrame;
-                        if (potEnemyAnimCounter != NULL) delete[] potEnemyAnimCounter;
+                        if (potEnemyAnimFrame != NULL)
+                            delete[] potEnemyAnimFrame;
+                        if (potEnemyAnimCounter != NULL)
+                            delete[] potEnemyAnimCounter;
 
                         // 5. Assign new arrays
                         potEnemiesX = newX;
@@ -3032,7 +3077,7 @@ int main()
                         potEnemyVelocityX = newVelX;
                         potEnemyIsCaught = newCaught;
                         potEnemyType = newType;
-                        
+
                         potEnemyJumpTimer = newJumpTimer;
                         potEnemyShouldJump = newShouldJump;
                         potEnemyStableFrames = newStableFrames;
@@ -3063,28 +3108,28 @@ int main()
                             potEnemiesX[potEnemyCount] = potX - 50;
                             potEnemiesY[potEnemyCount] = potY + potHeight / 2;
                             potEnemyVelocityY[potEnemyCount] = -150.0f;
-                            potEnemyVelocityX[potEnemyCount] = -200.0f; 
+                            potEnemyVelocityX[potEnemyCount] = -200.0f;
                         }
                         else if (spawnDirection == 2) // RIGHT
                         {
                             potEnemiesX[potEnemyCount] = potX + potWidth + 50;
                             potEnemiesY[potEnemyCount] = potY + potHeight / 2;
                             potEnemyVelocityY[potEnemyCount] = -150.0f;
-                            potEnemyVelocityX[potEnemyCount] = 200.0f; 
+                            potEnemyVelocityX[potEnemyCount] = 200.0f;
                         }
                         else if (spawnDirection == 3) // UP-LEFT
                         {
                             potEnemiesX[potEnemyCount] = potX + potWidth / 4;
                             potEnemiesY[potEnemyCount] = potY;
                             potEnemyVelocityY[potEnemyCount] = -200.0f;
-                            potEnemyVelocityX[potEnemyCount] = -150.0f; 
+                            potEnemyVelocityX[potEnemyCount] = -150.0f;
                         }
                         else // UP-RIGHT
                         {
                             potEnemiesX[potEnemyCount] = potX + (potWidth * 3 / 4);
                             potEnemiesY[potEnemyCount] = potY;
                             potEnemyVelocityY[potEnemyCount] = -200.0f;
-                            potEnemyVelocityX[potEnemyCount] = 150.0f; 
+                            potEnemyVelocityX[potEnemyCount] = 150.0f;
                         }
 
                         potEnemySpeed[potEnemyCount] = 40.0f + (rand() % 30);
@@ -3366,7 +3411,7 @@ int main()
                     {
                         // FIX: Calculate distinct rows for Feet (Floor check) and Body (Wall check)
                         // 'currentRow' is the tile BENEATH the feet (The Floor)
-                        int feetRow = (int)(potEnemiesY[pe] + enemyH + 1) / level3CellSize; 
+                        int feetRow = (int)(potEnemiesY[pe] + enemyH + 1) / level3CellSize;
                         // 'bodyRow' is the tile containing the enemy center (The Wall)
                         int bodyRow = (int)(potEnemiesY[pe] + enemyH / 2) / level3CellSize;
 
@@ -3634,8 +3679,7 @@ int main()
                         // 60% chance to spawn a tentacle
                         if (rand() % 100 < 60 && tentacleCount < maxTentacles)
                         {
-                            // === PHASE 2 DYNAMIC RESIZING (Exact Fit) [cite: 23, 43] ===
-                            // 1. Allocate new arrays of size + 1
+                            // === 1. DYNAMIC RESIZING (Includes TexIndex) ===
                             int newSize = tentacleCount + 1;
                             float *newX = new float[newSize];
                             float *newY = new float[newSize];
@@ -3644,8 +3688,9 @@ int main()
                             float *newTimer = new float[newSize];
                             float *newDur = new float[newSize];
                             bool *newActive = new bool[newSize];
+                            int *newTexIndex = new int[newSize]; // New Array
 
-                            // 2. Copy existing data
+                            // Copy existing data
                             for (int i = 0; i < tentacleCount; i++)
                             {
                                 newX[i] = tentaclesX[i];
@@ -3655,9 +3700,11 @@ int main()
                                 newTimer[i] = tentacleTimer[i];
                                 newDur[i] = tentacleDuration[i];
                                 newActive[i] = tentacleActive[i];
+                                if (tentacleTexIndex != NULL)
+                                    newTexIndex[i] = tentacleTexIndex[i];
                             }
 
-                            // 3. Delete old arrays (Free memory)
+                            // Delete old arrays
                             if (tentaclesX != NULL)
                                 delete[] tentaclesX;
                             if (tentaclesY != NULL)
@@ -3672,8 +3719,10 @@ int main()
                                 delete[] tentacleDuration;
                             if (tentacleActive != NULL)
                                 delete[] tentacleActive;
+                            if (tentacleTexIndex != NULL)
+                                delete[] tentacleTexIndex;
 
-                            // 4. Point to new arrays
+                            // Assign new arrays
                             tentaclesX = newX;
                             tentaclesY = newY;
                             tentacleWidth = newW;
@@ -3681,18 +3730,68 @@ int main()
                             tentacleTimer = newTimer;
                             tentacleDuration = newDur;
                             tentacleActive = newActive;
+                            tentacleTexIndex = newTexIndex;
 
-                            // 5. Add new tentacle data at the end [cite: 42]
-                            tentaclesX[tentacleCount] = 100 + rand() % (screen_x - 200);
-                            tentaclesY[tentacleCount] = 200 + rand() % (screen_y - 400);
-                            tentacleWidth[tentacleCount] = 40 + rand() % 30;
-                            tentacleHeight[tentacleCount] = 100 + rand() % 80;
+                            // === 2. CALCULATE EDGE SPAWN & SELECT TEXTURE ===
+                            int side = rand() % 4; // 0=Top, 1=Bottom, 2=Left, 3=Right
+                            int fixedThickness = 180; 
+                            int fixedLength = 180;
+
+                            int tW, tH;
+                            int texID = 0;
+                            float spawnX, spawnY;
+
+                            if (side == 0) // TOP EDGE (Vertical)
+                            {
+                                tW = fixedThickness;
+                                tH = fixedLength;
+                                texID = 0 + (rand() % 3); 
+                                
+                                spawnX = bossX + (rand() % (bossWidth - tW));
+                                spawnY = bossY - tH + 20; 
+                            }
+                            else if (side == 1) // BOTTOM EDGE (Vertical)
+                            {
+                                tW = fixedThickness;
+                                tH = fixedLength;
+                                texID = 3 + (rand() % 3); 
+                                
+                                spawnX = bossX + (rand() % (bossWidth - tW));
+                                spawnY = bossY + bossHeight - 20; 
+                            }
+                            else if (side == 2) // LEFT EDGE (Horizontal)
+                            {
+                                // Swap dimensions for side tentacles
+                                tW = fixedLength;
+                                tH = fixedThickness;
+                                texID = 6 + (rand() % 3); 
+                                
+                                spawnX = bossX - tW + 20;
+                                spawnY = bossY + (rand() % (bossHeight - tH));
+                            }
+                            else // RIGHT EDGE (Horizontal)
+                            {
+                                // Swap dimensions for side tentacles
+                                tW = fixedLength;
+                                tH = fixedThickness;
+                                texID = 9 + (rand() % 3); 
+                                
+                                spawnX = bossX + bossWidth - 20;
+                                spawnY = bossY + (rand() % (bossHeight - tH));
+                            }
+
+                            // Assign values
+                            tentaclesX[tentacleCount] = spawnX;
+                            tentaclesY[tentacleCount] = spawnY;
+                            tentacleWidth[tentacleCount] = tW;
+                            tentacleHeight[tentacleCount] = tH;
                             tentacleTimer[tentacleCount] = 0.0f;
-                            tentacleDuration[tentacleCount] = 2.0f + (rand() % 40) / 10.0f; // 2-6 seconds
+                            tentacleDuration[tentacleCount] = 2.0f + (rand() % 40) / 10.0f;
                             tentacleActive[tentacleCount] = true;
+                            tentacleTexIndex[tentacleCount] = texID; // Store ID
 
                             tentacleCount++;
-                            cout << "Tentacle spawned (Dynamic)! Total: " << tentacleCount << endl;
+                            cout << "Tentacle spawned on side " << side << " (Tex " << texID << ")" << endl;
                         }
                     }
 
@@ -3716,6 +3815,9 @@ int main()
                                     tentacleTimer[j] = tentacleTimer[j + 1];
                                     tentacleDuration[j] = tentacleDuration[j + 1];
                                     tentacleActive[j] = tentacleActive[j + 1];
+
+                                    // --- ADD THIS LINE ---
+                                    tentacleTexIndex[j] = tentacleTexIndex[j + 1];
                                 }
                                 tentacleCount--;
                                 t--;
@@ -5862,7 +5964,7 @@ int main()
                     // --- FIX: ASSIGN TEXTURES BASED ON TYPE ---
                     if (potEnemyType[pe] == 2) // Skeleton
                     {
-                        currentWalk = skeletonWalkTex; 
+                        currentWalk = skeletonWalkTex;
                         currentSuck = skeletonSuckTex;
                         s = &SkeletonSprite;
                         hW = SkeletonWidth;
@@ -5889,7 +5991,7 @@ int main()
                     if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                     {
                         updateEnemyAnimation(*s, dt, currentWalk, currentSuck,
-                                             potEnemyAnimFrame[pe], potEnemyAnimCounter[pe], 8,
+                                             potEnemyAnimFrame[pe], potEnemyAnimCounter[pe], 15,
                                              potEnemyDirection[pe], potEnemyIsCaught[pe],
                                              potEnemiesX[pe], potEnemiesY[pe], 2.0f,
                                              hW, hH);
@@ -5905,14 +6007,15 @@ int main()
                 {
                     if (!potEnemyProjActive[pp])
                         continue;
-                    
+
                     // 1. Update Animation
                     potEnemyProjAnimCounter[pp]++;
-                    if (potEnemyProjAnimCounter[pp] >= 5) 
+                    if (potEnemyProjAnimCounter[pp] >= 10)
                     {
                         potEnemyProjAnimCounter[pp] = 0;
                         potEnemyProjAnimFrame[pp]++;
-                        if (potEnemyProjAnimFrame[pp] >= 4) potEnemyProjAnimFrame[pp] = 0;
+                        if (potEnemyProjAnimFrame[pp] >= 4)
+                            potEnemyProjAnimFrame[pp] = 0;
                     }
 
                     // 2. Set Texture (Reuse the same texture array)
@@ -5974,8 +6077,13 @@ int main()
                             continue;
 
                         // Scale tentacle sprite
-                        float tentScaleX = (float)tentacleWidth[t] / tentacleTexture.getSize().x;
-                        float tentScaleY = (float)tentacleHeight[t] / tentacleTexture.getSize().y;
+                        int texID = tentacleTexIndex[t];
+                        tentacleSprite.setTexture(tentacleTexArray[texID]);
+
+                        // 2. Scale based on THIS specific texture's size
+                        float tentScaleX = (float)tentacleWidth[t] / tentacleTexArray[texID].getSize().x;
+                        float tentScaleY = (float)tentacleHeight[t] / tentacleTexArray[texID].getSize().y;
+                        
                         tentacleSprite.setScale(tentScaleX, tentScaleY);
                         tentacleSprite.setPosition(tentaclesX[t], tentaclesY[t]);
                         window.draw(tentacleSprite);
@@ -6063,7 +6171,7 @@ int main()
             {
                 updateEnemyAnimation(EnemySprite, dt,
                                      ghostWalkTex, ghostSuckTex,
-                                     ghostAnimFrame[i], ghostAnimCounter[i], 8,
+                                     ghostAnimFrame[i], ghostAnimCounter[i], 15,
                                      enemyDirection[i], enemyIsCaught[i],
                                      enemiesX[i], enemiesY[i], 2.0f,
                                      EnemyWidth, EnemyHeight); // <--- Pass Ghost Dimensions
@@ -6077,7 +6185,7 @@ int main()
             {
                 updateEnemyAnimation(SkeletonSprite, dt,
                                      skeletonWalkTex, skeletonSuckTex,
-                                     skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
+                                     skeletonAnimFrame[i], skeletonAnimCounter[i], 15,
                                      skeletonDirection[i], skeletonIsCaught[i],
                                      skeletonsX[i], skeletonsY[i], 2.0f,
                                      SkeletonWidth, SkeletonHeight); // <--- Pass Skeleton Dimensions (92px)
@@ -6096,7 +6204,7 @@ int main()
                     {
                         updateEnemyAnimation(InvisibleSprite, dt,
                                              invisibleWalkTex, invisibleSuckTex,
-                                             invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
+                                             invisibleAnimFrame[i], invisibleAnimCounter[i], 15,
                                              invisibleDirection[i], invisibleIsCaught[i],
                                              invisiblesX[i], invisiblesY[i], 2.0f,
                                              InvisibleWidth, InvisibleHeight);
@@ -6110,7 +6218,7 @@ int main()
                 {
                     updateEnemyAnimation(ChelnovSprite, dt,
                                          chelnovWalkTex, chelnovSuckTex,
-                                         chelnovAnimFrame[i], chelnovAnimCounter[i], 8,
+                                         chelnovAnimFrame[i], chelnovAnimCounter[i], 15,
                                          chelnovDirection[i], chelnovIsCaught[i],
                                          chelnovsX[i], chelnovsY[i], 2.0f,
                                          ChelnovWidth, ChelnovHeight);
@@ -6124,16 +6232,17 @@ int main()
                     {
                         // 1. Update Animation
                         chelnovProjAnimCounter[i]++;
-                        if (chelnovProjAnimCounter[i] >= 5) // Speed 5
+                        if (chelnovProjAnimCounter[i] >= 10) // Speed is 10. Was 5 but very fast
                         {
                             chelnovProjAnimCounter[i] = 0;
                             chelnovProjAnimFrame[i]++;
-                            if (chelnovProjAnimFrame[i] >= 4) chelnovProjAnimFrame[i] = 0;
+                            if (chelnovProjAnimFrame[i] >= 4)
+                                chelnovProjAnimFrame[i] = 0;
                         }
 
                         // 2. Set Texture
                         chelnovProjSprite.setTexture(chelnovProjTex[chelnovProjAnimFrame[i]]);
-                        
+
                         // 3. Draw
                         chelnovProjSprite.setPosition(chelnovProjX[i], chelnovProjY[i]);
                         window.draw(chelnovProjSprite);
@@ -6380,6 +6489,12 @@ int main()
         {
             delete[] tentacleActive;
             tentacleActive = NULL;
+        }
+        
+        if (tentacleTexIndex != NULL)
+        {
+            delete[] tentacleTexIndex;
+            tentacleTexIndex = NULL;
         }
 
         // Cleanup pot enemy arrays (Phase 2 dynamic arrays)

@@ -1391,7 +1391,13 @@ int main()
         int level3Height = 21;   // 14 * 1.5 = 21
         int level3Width = 30;    // 20 * 1.5 = 30
         int level3CellSize = 42; // 64 / 1.5 ≈ 42 to fit same screen
+        
+        
+        // Calculate floor row to be visible on screen
+int floorRow = level3Height - 3;  // Adjusted to ensure visibility
+float floorY = floorRow * level3CellSize;
 
+        
         // Boss level map (separate from regular lvl)
         char **bossLvl = NULL;
 
@@ -1438,6 +1444,7 @@ int main()
         int *potEnemyDirection = NULL;
         float *potEnemyVelocityY = NULL;
         bool *potEnemyOnGround = NULL;
+        float *potEnemyVelocityX = NULL; // ADD THIS LINE
         bool *potEnemyIsCaught = NULL;
         int *potEnemyType = NULL; // 1=ghost, 2=skeleton, 3=invisible, 4=chelnov
         int potEnemyCount = 0;
@@ -1626,11 +1633,11 @@ int main()
         title.setFillColor(Color::Magenta);
         title.setPosition(400, 200);
 
-        Text subtitle("Press 1 for Yellow (Fast) ", font, 50);
+        Text subtitle("Press 1 for Yellow (Strong Vacuum) ", font, 50);
         subtitle.setFillColor(Color::Yellow);
         subtitle.setPosition(120, 400);
 
-        Text subtitle2(" Press 2 for Green (Strong Vacuum)", font, 50);
+        Text subtitle2(" Press 2 for Green (Fast)", font, 50);
         subtitle2.setFillColor(Color::Green);
         subtitle2.setPosition(100, 500);
 
@@ -1735,31 +1742,32 @@ int main()
         // ============================================================================
         // LEVEL SELECTION MENU
         // ============================================================================
-        Text levelSelectTitle("SELECT LEVEL", font, 90);
+        Text levelSelectTitle("SELECT LEVEL", font, 100);
         levelSelectTitle.setFillColor(Color::Cyan);
-        levelSelectTitle.setPosition(320, 120);
+        levelSelectTitle.setPosition(400, 200);
 
         Text level1Option("Press 1 - Level 1 (Classic)", font, 50);
         level1Option.setFillColor(Color::White);
-        level1Option.setPosition(280, 300);
+        level1Option.setPosition(100, 400);
 
         Text level2Option("Press 2 - Level 2 (Slopes & Waves)", font, 50);
         level2Option.setFillColor(Color::White);
-        level2Option.setPosition(200, 400);
+        level2Option.setPosition(100, 500);
 
         Text level3Option("Press 3 - Boss Level (Octopus)", font, 50);
         level3Option.setFillColor(Color(255, 100, 100)); // Reddish - Boss level
-        level3Option.setPosition(180, 500);
+        level3Option.setPosition(100, 600);
 
         Text backOption("Press ESC to go back", font, 40);
         backOption.setFillColor(Color::Red);
-        backOption.setPosition(380, 650);
+        backOption.setPosition(100, 700);
 
         // Selection indicator for arrow key navigation
         int menuSelectedLevel = 1;
         Text selectionIndicator(">", font, 50);
         selectionIndicator.setFillColor(Color::Yellow);
-
+        selectionIndicator.setPosition(110,400);
+        
         bool levelSelected = false;
 
         // Level selection happens here
@@ -1872,9 +1880,9 @@ int main()
             charInfo.setFillColor(Color::Green);
             charInfo.setPosition(20, 20);
             if (isYellowCharacter)
-                charInfo.setString("Character: Yellow (Fast)");
+                charInfo.setString("Character: Yellow (Strong Vacuum)");
             else
-                charInfo.setString("Character: Green (Strong Vacuum)");
+                charInfo.setString("Character: Green (Fast)");
             window.draw(charInfo);
 
             window.display();
@@ -2061,7 +2069,7 @@ int main()
             cout << "pot.png missing!\n";
         }
         potSprite.setTexture(potTexture);
-        potSprite.setScale(2.0f, 2.0f);
+        potSprite.setScale(1.7f, 1.7f);
 
         Texture cloudTexture;
         Sprite cloudSprite;
@@ -2070,7 +2078,7 @@ int main()
             cout << "cloud.png missing!\n";
         }
         cloudSprite.setTexture(cloudTexture);
-        cloudSprite.setScale(2.5f, 1.5f); // Stretch cloud horizontally
+        cloudSprite.setScale(2.5f, 2.3f); // Stretch cloud horizontally
 
         // ============================================================================
         // END OF BOSS LEVEL ASSETS
@@ -2720,6 +2728,7 @@ int main()
             potEnemyDirection = NULL;
             potEnemyVelocityY = NULL;
             potEnemyOnGround = NULL;
+            potEnemyVelocityX = NULL; // ADD THIS LINE
             potEnemyIsCaught = NULL;
             potEnemyType = NULL;
 
@@ -2739,59 +2748,45 @@ int main()
             // BOSS LEVEL MAP CREATION - FIXED LAYOUT
             // Floor properly positioned, side walls complete
             // ============================================================================
-            bossLvl = new char *[level3Height];
-            for (int i = 0; i < level3Height; i++)
-            {
-                bossLvl[i] = new char[level3Width];
-                for (int j = 0; j < level3Width; j++)
-                    bossLvl[i][j] = ' ';
-            }
+ 
+// Boss level map (separate from regular lvl)
+// Level 3 specific dimensions (1.5x scaling)
 
-            // Calculate proper floor row (should be visible on screen)
-            // screen_y = 950, level3CellSize = 42
-            // We want floor at y = 850, so row = 850/42 = 20
-            // But level3Height = 21, so floor at row 18 gives y = 18*42 = 756
-            int floorRow = level3Height - 2; // Row 19 (y = 19*42 = 798)
 
-            // Floor at bottom - FULL WIDTH
-            for (int j = 0; j < level3Width; j++)
-                bossLvl[floorRow][j] = '#';
+// Boss level map (separate from regular lvl)
+bossLvl = new char*[level3Height];
+for (int i = 0; i < level3Height; i++)
+{
+    bossLvl[i] = new char[level3Width];
+    for (int j = 0; j < level3Width; j++)
+        bossLvl[i][j] = ' ';
+}
 
-            // Side walls - FULL HEIGHT up to floor
-            for (int i = 0; i <= floorRow; i++)
-            {
-                bossLvl[i][0] = '#';
-                bossLvl[i][level3Width - 1] = '#';
-            }
+// Boss level layout
+for (int j = 0; j < level3Width; j++)
+    bossLvl[level3Height - 3][j] = '#';
 
-            // Platforms for player to jump on - adjusted positions
-            // Left platform (row 14, y ≈ 588)
-            for (int j = 2; j < 8; j++)
-                bossLvl[floorRow - 5][j] = '-';
+for (int i = 0; i < level3Height - 3; i++)
+{
+    bossLvl[i][0] = '#';
+    bossLvl[i][level3Width - 2] = '#';
+}
 
-            // Right platform (row 14, y ≈ 588)
-            for (int j = level3Width - 8; j < level3Width - 2; j++)
-                bossLvl[floorRow - 5][j] = '-';
+// Platforms
+for (int j = 2; j < 8; j++)
+    bossLvl[level3Height - 8][j] = '-';
+for (int j = level3Width - 8; j < level3Width - 2; j++)
+    bossLvl[level3Height - 8][j] = '-';
+for (int j = 12; j < 18; j++)
+    bossLvl[level3Height - 6][j] = '-';
+for (int j = 3; j < 9; j++)
+    bossLvl[level3Height - 12][j] = '-';
+for (int j = level3Width - 9; j < level3Width - 3; j++)
+    bossLvl[level3Height - 12][j] = '-';
+for (int j = 11; j < 19; j++)
+    bossLvl[level3Height - 15][j] = '-';
 
-            // Middle platform (row 16, y ≈ 672)
-            for (int j = 11; j < 19; j++)
-                bossLvl[floorRow - 3][j] = '-';
 
-            // Upper left platform (row 10, y ≈ 420)
-            for (int j = 3; j < 10; j++)
-                bossLvl[floorRow - 9][j] = '-';
-
-            // Upper right platform (row 10, y ≈ 420)
-            for (int j = level3Width - 10; j < level3Width - 3; j++)
-                bossLvl[floorRow - 9][j] = '-';
-
-            // Top middle platform (row 7, y ≈ 294)
-            for (int j = 10; j < 20; j++)
-                bossLvl[floorRow - 12][j] = '-';
-
-            // Player starting position - on the floor, properly calculated
-            player_x = screen_x / 2 - PlayerWidth / 2;
-            player_y = (floorRow * level3CellSize) - PlayerHeight - 5; // Just above floor
 
             // Initialize dynamic captured enemies array for Phase 2
             dynamicCapturedCount = 0;
@@ -2946,6 +2941,7 @@ int main()
                         int *newDir = new int[newCapacity];
                         float *newVelY = new float[newCapacity];
                         bool *newGround = new bool[newCapacity];
+                        float *newVelX = new float[newCapacity]; 
                         bool *newCaught = new bool[newCapacity];
                         int *newType = new int[newCapacity];
                         // New behavior arrays
@@ -2967,6 +2963,7 @@ int main()
                             newDir[i] = potEnemyDirection[i];
                             newVelY[i] = potEnemyVelocityY[i];
                             newGround[i] = potEnemyOnGround[i];
+                            newVelX[i] = potEnemyVelocityX[i];
                             newCaught[i] = potEnemyIsCaught[i];
                             newType[i] = potEnemyType[i];
                             // Copy behavior data
@@ -3001,6 +2998,8 @@ int main()
                             delete[] potEnemyVelocityY;
                         if (potEnemyOnGround != NULL)
                             delete[] potEnemyOnGround;
+                        if (potEnemyVelocityX != NULL)
+                            delete[] potEnemyVelocityX;     
                         if (potEnemyIsCaught != NULL)
                             delete[] potEnemyIsCaught;
                         if (potEnemyType != NULL)
@@ -3029,6 +3028,7 @@ int main()
                         potEnemyDirection = newDir;
                         potEnemyVelocityY = newVelY;
                         potEnemyOnGround = newGround;
+                        potEnemyVelocityX = newVelX;
                         potEnemyIsCaught = newCaught;
                         potEnemyType = newType;
                         potEnemyJumpTimer = newJumpTimer;
@@ -3042,13 +3042,51 @@ int main()
                         potEnemyCapacity = newCapacity;
 
                         // Add new enemy - random type (1=ghost, 2=skeleton, 3=invisible, 4=chelnov)
-                        int enemyTypeToSpawn = 1 + (rand() % 4);
+                       // Add new enemy - random type (1=ghost, 2=skeleton, 3=invisible, 4=chelnov)
+int enemyTypeToSpawn = 1 + (rand() % 4);
 
-                        potEnemiesX[potEnemyCount] = potX + potWidth / 2 - 30; // Spawn from pot center
-                        potEnemiesY[potEnemyCount] = potY + potHeight / 2;
-                        potEnemySpeed[potEnemyCount] = 40.0f + (rand() % 30);
-                        potEnemyDirection[potEnemyCount] = (rand() % 2 == 0) ? -1 : 1;
-                        potEnemyVelocityY[potEnemyCount] = 0;
+// Spawn in random direction (0=down, 1=left, 2=right, 3=up-left, 4=up-right)
+// Spawn in random direction with horizontal velocity
+int spawnDirection = rand() % 5;
+
+if (spawnDirection == 0) // DOWN
+{
+    potEnemiesX[potEnemyCount] = potX + potWidth / 2 - 30;
+    potEnemiesY[potEnemyCount] = potY + potHeight;
+    potEnemyVelocityY[potEnemyCount] = 100.0f;
+    potEnemyVelocityX[potEnemyCount] = 0.0f;
+}
+else if (spawnDirection == 1) // LEFT
+{
+    potEnemiesX[potEnemyCount] = potX - 50;
+    potEnemiesY[potEnemyCount] = potY + potHeight / 2;
+    potEnemyVelocityY[potEnemyCount] = -150.0f;
+    potEnemyVelocityX[potEnemyCount] = -200.0f; // Move left
+}
+else if (spawnDirection == 2) // RIGHT
+{
+    potEnemiesX[potEnemyCount] = potX + potWidth + 50;
+    potEnemiesY[potEnemyCount] = potY + potHeight / 2;
+    potEnemyVelocityY[potEnemyCount] = -150.0f;
+    potEnemyVelocityX[potEnemyCount] = 200.0f; // Move right
+}
+else if (spawnDirection == 3) // UP-LEFT
+{
+    potEnemiesX[potEnemyCount] = potX + potWidth / 4;
+    potEnemiesY[potEnemyCount] = potY;
+    potEnemyVelocityY[potEnemyCount] = -200.0f;
+    potEnemyVelocityX[potEnemyCount] = -150.0f; // Move left
+}
+else // UP-RIGHT
+{
+    potEnemiesX[potEnemyCount] = potX + (potWidth * 3 / 4);
+    potEnemiesY[potEnemyCount] = potY;
+    potEnemyVelocityY[potEnemyCount] = -200.0f;
+    potEnemyVelocityX[potEnemyCount] = 150.0f; // Move right
+}
+
+potEnemySpeed[potEnemyCount] = 40.0f + (rand() % 30);
+potEnemyDirection[potEnemyCount] = (spawnDirection == 1 || spawnDirection == 3) ? -1 : 1;
                         potEnemyOnGround[potEnemyCount] = false;
                         potEnemyIsCaught[potEnemyCount] = false;
                         potEnemyType[potEnemyCount] = enemyTypeToSpawn;
@@ -3220,7 +3258,21 @@ int main()
                     // ============================================================
                     // PHYSICS (gravity and floor collision)
                     // ============================================================
-
+                      
+                      
+                   // Apply horizontal velocity (initial launch momentum only)
+float absVelX = (potEnemyVelocityX[pe] < 0) ? -potEnemyVelocityX[pe] : potEnemyVelocityX[pe];
+if (absVelX > 1.0f) // Only if significant
+{
+    potEnemiesX[pe] += potEnemyVelocityX[pe] * dt;
+    // Friction - slow down horizontal movement over time
+    potEnemyVelocityX[pe] *= 0.95f;
+}
+else
+{
+    potEnemyVelocityX[pe] = 0; // Stop when too slow
+}
+                      
                     // Apply gravity
                     potEnemyVelocityY[pe] += gravity * dt;
                     if (potEnemyVelocityY[pe] > terminal_Velocity)
@@ -3229,50 +3281,141 @@ int main()
                     float newY = potEnemiesY[pe] + potEnemyVelocityY[pe] * dt;
 
                     // Floor collision
-                    if (newY + enemyH >= floorYForEnemies)
-                    {
-                        newY = floorYForEnemies - enemyH;
-                        potEnemyVelocityY[pe] = 0;
-                        potEnemyOnGround[pe] = true;
-                    }
-                    else
-                    {
-                        potEnemyOnGround[pe] = false;
-                    }
+                  // Platform collision detection for pot enemies
+bool potEnemyLanded = false;
 
-                    // Cloud platform collision (when cloud is a platform)
-                    if (cloudIsPlatform && !potEnemyOnGround[pe])
-                    {
-                        if (potEnemiesX[pe] + enemyW > cloudX && potEnemiesX[pe] < cloudX + cloudWidth)
-                        {
-                            if (newY + enemyH >= cloudY && potEnemiesY[pe] + enemyH <= cloudY + 10)
-                            {
-                                newY = cloudY - enemyH;
-                                potEnemyVelocityY[pe] = 0;
-                                potEnemyOnGround[pe] = true;
-                            }
-                        }
-                    }
+// Check floor collision first
+if (newY + enemyH >= floorYForEnemies)
+{
+    newY = floorYForEnemies - enemyH;
+    potEnemyVelocityY[pe] = 0;
+    potEnemyOnGround[pe] = true;
+    potEnemyLanded = true;
+}
 
-                    potEnemiesY[pe] = newY;
+// Check all platforms in boss level if not on floor
+if (!potEnemyLanded && potEnemyVelocityY[pe] >= 0)
+{
+    int feetRow = (int)(newY + enemyH) / level3CellSize;
+    int leftCol = (int)(potEnemiesX[pe]) / level3CellSize;
+    int rightCol = (int)(potEnemiesX[pe] + enemyW) / level3CellSize;
+
+    // Check tiles under the enemy
+    for (int col = leftCol; col <= rightCol && col < level3Width; col++)
+    {
+        if (feetRow >= 0 && feetRow < level3Height)
+        {
+            char tileBelow = bossLvl[feetRow][col];
+            
+            // Check for platform '-' or solid block '#'
+            if (tileBelow == '-' || tileBelow == '#')
+            {
+                float platformTop = feetRow * level3CellSize;
+                
+                // Only land if crossing the platform from above
+                if (potEnemiesY[pe] + enemyH <= platformTop + 5 && newY + enemyH >= platformTop)
+                {
+                    newY = platformTop - enemyH;
+                    potEnemyVelocityY[pe] = 0;
+                    potEnemyOnGround[pe] = true;
+                    potEnemyLanded = true;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// Cloud platform collision (when cloud is a platform)
+if (cloudIsPlatform && !potEnemyLanded && potEnemyVelocityY[pe] >= 0)
+{
+    if (potEnemiesX[pe] + enemyW > cloudX && potEnemiesX[pe] < cloudX + cloudWidth)
+    {
+        if (potEnemiesY[pe] + enemyH <= cloudY + 10 && newY + enemyH >= cloudY)
+        {
+            newY = cloudY - enemyH;
+            potEnemyVelocityY[pe] = 0;
+            potEnemyOnGround[pe] = true;
+            potEnemyLanded = true;
+        }
+    }
+}
+
+// If no platform found, enemy is in air
+if (!potEnemyLanded)
+{
+    potEnemyOnGround[pe] = false;
+}
+
+potEnemiesY[pe] = newY;
 
                     // Horizontal movement when on ground
-                    if (potEnemyOnGround[pe])
-                    {
-                        potEnemiesX[pe] += potEnemySpeed[pe] * potEnemyDirection[pe] * dt;
+      // Horizontal movement when on ground
+if (potEnemyOnGround[pe])
+{
+    int currentRow = (int)(potEnemiesY[pe] + enemyH) / level3CellSize;
 
-                        // Bounce off walls
-                        if (potEnemiesX[pe] <= level3CellSize)
-                        {
-                            potEnemiesX[pe] = level3CellSize;
-                            potEnemyDirection[pe] = 1;
-                        }
-                        else if (potEnemiesX[pe] + enemyW >= screen_x - level3CellSize)
-                        {
-                            potEnemiesX[pe] = screen_x - level3CellSize - enemyW;
-                            potEnemyDirection[pe] = -1;
-                        }
-                    }
+    // "Bottom floor" = last 3 rows of map
+    bool onBottomFloor = (currentRow >= level3Height - 3);
+
+    float newPotX = potEnemiesX[pe] + potEnemySpeed[pe] * potEnemyDirection[pe] * dt;
+    bool hitWall = false;
+
+    //
+    // 1. WALL CHECK
+    //
+    int checkCol = (potEnemyDirection[pe] == 1)
+        ? (int)(newPotX + enemyW) / level3CellSize
+        : (int)newPotX / level3CellSize;
+
+    if (currentRow >= 0 && currentRow < level3Height &&
+        checkCol >= 0 && checkCol < level3Width)
+    {
+        if (bossLvl[currentRow][checkCol] == '#')
+            hitWall = true;
+    }
+
+    //
+    // 2. LEDGE CHECK (only if not bottom floor and not ghost)
+    //
+    if (!onBottomFloor && potEnemyType[pe] != 1)
+    {
+        int belowRow = currentRow + 1;
+
+        int edgeCheckCol = (potEnemyDirection[pe] == 1)
+            ? (int)(newPotX + enemyW + 10) / level3CellSize
+            : (int)(newPotX - 10) / level3CellSize;
+
+        if (belowRow < level3Height &&
+            edgeCheckCol >= 0 && edgeCheckCol < level3Width)
+        {
+            char tileBelowNext = bossLvl[belowRow][edgeCheckCol];
+            char tileBelowCurr = bossLvl[belowRow]
+               [(int)(potEnemiesX[pe] + enemyW * 0.5f) / level3CellSize];
+
+            bool currentHasFloor = (tileBelowCurr == '-' || tileBelowCurr == '#');
+            bool nextHasNoFloor  = !(tileBelowNext == '-' || tileBelowNext == '#');
+
+            if (currentHasFloor && nextHasNoFloor)
+                hitWall = true;
+        }
+    }
+
+    //
+    // 3. SCREEN EDGE LIMITS
+    //
+    if (hitWall ||
+        newPotX <= level3CellSize ||
+        newPotX + enemyW >= screen_x - level3CellSize)
+    {
+        potEnemyDirection[pe] *= -1;
+    }
+    else
+    {
+        potEnemiesX[pe] = newPotX;
+    }
+}
+ 
 
                     // --- POT ENEMY COLLISION WITH PLAYER ---
                     // Invisible man only damages when visible
@@ -5293,37 +5436,98 @@ int main()
                                 }
 
                                 // Create boss level map
-                                bossLvl = new char *[level3Height];
-                                for (int i = 0; i < level3Height; i++)
-                                {
-                                    bossLvl[i] = new char[level3Width];
-                                    for (int j = 0; j < level3Width; j++)
-                                        bossLvl[i][j] = ' ';
-                                }
 
-                                // Boss level layout
-                                for (int j = 0; j < level3Width; j++)
-                                    bossLvl[level3Height - 3][j] = '#';
+// Create boss level map with proper dimensions
+bossLvl = new char*[level3Height];
+for (int i = 0; i < level3Height; i++)
+{
+    bossLvl[i] = new char[level3Width];
+    for (int j = 0; j < level3Width; j++)
+        bossLvl[i][j] = ' ';
+}
 
-                                for (int i = 0; i < level3Height - 3; i++)
-                                {
-                                    bossLvl[i][0] = '#';
-                                    bossLvl[i][level3Width - 1] = '#';
-                                }
+// Calculate floor row to ensure visibility
+int floorRow = level3Height - 3;  // Floor at third row from bottom
+float floorY = floorRow * level3CellSize;
 
-                                // Platforms
-                                for (int j = 2; j < 8; j++)
-                                    bossLvl[level3Height - 8][j] = '-';
-                                for (int j = level3Width - 8; j < level3Width - 2; j++)
-                                    bossLvl[level3Height - 8][j] = '-';
-                                for (int j = 12; j < 18; j++)
-                                    bossLvl[level3Height - 6][j] = '-';
-                                for (int j = 3; j < 9; j++)
-                                    bossLvl[level3Height - 12][j] = '-';
-                                for (int j = level3Width - 9; j < level3Width - 3; j++)
-                                    bossLvl[level3Height - 12][j] = '-';
-                                for (int j = 11; j < 19; j++)
-                                    bossLvl[level3Height - 15][j] = '-';
+// Debug information
+cout << "Creating Level 3 map..." << endl;
+cout << "Dimensions: " << level3Width << "x" << level3Height << endl;
+cout << "Cell size: " << level3CellSize << endl;
+cout << "Floor row: " << floorRow << " (Y position: " << floorY << ")" << endl;
+cout << "Screen size: " << screen_x << "x" << screen_y << endl;
+
+// Create floor (ensure it's within screen bounds)
+for (int j = 0; j < level3Width; j++)
+{
+    if (floorRow * level3CellSize < screen_y)  // Only create if visible
+        bossLvl[floorRow][j] = '#';
+}
+
+// Create side walls (ensure right wall is within screen bounds)
+for (int i = 0; i < level3Height; i++)
+{
+    // Left wall
+    bossLvl[i][0] = '#';
+
+    // Right wall (only create if visible)
+    if ((level3Width - 1) * level3CellSize < screen_x)
+        bossLvl[i][level3Width - 1] = '#';
+}
+
+// Create platforms with proper positioning
+// Bottom left platform (row 16)
+int platformRow1 = floorRow - 5;
+for (int j = 2; j < 8; j++)
+{
+    if (platformRow1 * level3CellSize < screen_y)
+        bossLvl[platformRow1][j] = '-';
+}
+
+// Bottom right platform (row 16)
+for (int j = level3Width - 8; j < level3Width - 2; j++)
+{
+    if (platformRow1 * level3CellSize < screen_y)
+        bossLvl[platformRow1][j] = '-';
+}
+
+// Middle platform (row 14)
+int platformRow2 = floorRow - 7;
+for (int j = 12; j < 18; j++)
+{
+    if (platformRow2 * level3CellSize < screen_y)
+        bossLvl[platformRow2][j] = '-';
+}
+
+// Upper left platform (row 10)
+int platformRow3 = floorRow - 11;
+for (int j = 3; j < 9; j++)
+{
+    if (platformRow3 * level3CellSize < screen_y)
+        bossLvl[platformRow3][j] = '-';
+}
+
+// Upper right platform (row 10)
+for (int j = level3Width - 9; j < level3Width - 3; j++)
+{
+    if (platformRow3 * level3CellSize < screen_y)
+        bossLvl[platformRow3][j] = '-';
+}
+
+// Top middle platform (row 7)
+int platformRow4 = floorRow - 14;
+for (int j = 11; j < 19; j++)
+{
+    if (platformRow4 * level3CellSize < screen_y)
+        bossLvl[platformRow4][j] = '-';
+}
+
+// Player starting position
+player_x = screen_x / 2 - PlayerWidth / 2;
+player_y = floorY - PlayerHeight - 5;  // Place player just above floor
+
+cout << "Level 3 map created successfully!" << endl;
+cout << "Player starting position: (" << player_x << ", " << player_y << ")" << endl;
 
                                 // Initialize boss
                                 bossX = screen_x / 2 - bossWidth / 2;
@@ -5336,8 +5540,10 @@ int main()
                                 tentacleSpawnTimer = 0.0f;
 
                                 // Player position
+                                // Player starting position for boss level
                                 player_x = screen_x / 2 - PlayerWidth / 2;
-                                player_y = (level3Height - 4) * level3CellSize;
+                                player_y = floorY - PlayerHeight - 5;  // Place player just above floor
+
                                 velocityY = 0;
                                 onGround = false;
 
@@ -5535,20 +5741,26 @@ int main()
 
                 // Draw boss level tiles
                 jumpStrength = -180.f;
-                for (int i = 0; i < level3Height; i++)
-                {
-                    for (int j = 0; j < level3Width; j++)
-                    {
-                        if (bossLvl[i][j] == '#' || bossLvl[i][j] == '-')
-                        {
-                            blockSprite3.setPosition(j * level3CellSize, i * level3CellSize);
-                            // Scale block to fit smaller cell size
-                            float blockScale = (float)level3CellSize / 64.0f;
-                            blockSprite3.setScale(blockScale, blockScale);
-                            window.draw(blockSprite3);
-                        }
-                    }
-                }
+                // Draw boss level tiles
+// Draw boss level tiles
+// Draw boss level tiles
+for (int i = 0; i < level3Height; i++)
+{
+    for (int j = 0; j < level3Width; j++)
+    {
+        if (bossLvl[i][j] == '#' || bossLvl[i][j] == '-')
+        {
+            blockSprite3.setPosition(j * level3CellSize, i * level3CellSize);
+            // Scale block to fit smaller cell size
+            float blockScale = (float)level3CellSize / 64.0f;
+            blockSprite3.setScale(blockScale, blockScale);
+            window.draw(blockSprite3);
+        }
+    }
+}
+
+
+
 
                 // ============================================================================
                 // DRAW CLOUD (always visible - becomes platform after pot destroyed)
@@ -6135,6 +6347,11 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
             delete[] potEnemyVelocityY;
             potEnemyVelocityY = NULL;
         }
+        if (potEnemyVelocityX != NULL)
+{
+    delete[] potEnemyVelocityX;
+    potEnemyVelocityX = NULL;
+}
         if (potEnemyOnGround != NULL)
         {
             delete[] potEnemyOnGround;

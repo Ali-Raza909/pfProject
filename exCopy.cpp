@@ -1,7 +1,9 @@
-// 2
-// added animtions for everything
-//  butt saab
-//  collision detection closes the window
+
+                                                   //Ali Raza (25i-0656) , Syed Fahad Nasir (25i-0984)
+                                                   //CS-G
+                                                   
+
+
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -26,16 +28,16 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
 
     if (!isDead)
     {
-        // Reset death animation if we somehow come back to life
+        // reset the death animation if we respawn
         deadAnimFrame = 0;
 
-        if (!onGround) // Priority 1: Jumping
+        if (!onGround) // for jumping
         {
             PlayerSprite.setTexture(jumpTex, true);
             texW = jumpTex.getSize().x;
             texH = jumpTex.getSize().y;
         }
-        else if (isMoving == 1) // Priority 2: Walking
+        else if (isMoving == 1) // for walking
         {
             animCounter++;
             if (animCounter >= animSpeed)
@@ -50,7 +52,7 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
             texW = walkTex[animFrame].getSize().x;
             texH = walkTex[animFrame].getSize().y;
         }
-        else // Priority 3: Idle
+        else // when doing nothing
         {
             animFrame = 0;
             PlayerSprite.setTexture(idleTex, true);
@@ -58,12 +60,12 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
             texH = idleTex.getSize().y;
         }
 
-        // --- FLIP LOGIC ---
-        if (facing == 1) // Facing LEFT (Flipped)
+        // for flpping 
+        if (facing == 1) // when face is towards left it will be noted as flipped
         {
-            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH)); //-ve width flips the sprite horizontally
+            PlayerSprite.setTextureRect(IntRect(texW, 0, -texW, texH)); //-ve width will flip the sprite horizontally
         }
-        else // Facing RIGHT (Normal)
+        else // when face is towards right then no flip , it will be normal
         {
             PlayerSprite.setTextureRect(IntRect(0, 0, texW, texH));
         }
@@ -92,19 +94,16 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
     }
 }
 
-// Function to update enemy animation
-// Smart Animation: Uses getSize() to center variable frames without setOrigin
-// RESTORED LOGIC: Uses getSize() just like your working commit
-// FIXED ANIMATION FUNCTION: Aligns feet to the collision floor (60px down)
-// FINAL FIX: Aligns visuals to the exact collision box provided
+// function to update animations of enemy
+
 void updateEnemyAnimation(Sprite &sprite, float dt,
                           Texture *walkTextures, Texture *suckTextures,
                           int &animFrame, int &animCounter, int animSpeed,
                           int direction, bool isCaught,
                           float x, float y, float scale,
-                          int logicalWidth, int logicalHeight) // NEW ARGS
+                          int logicalWidth, int logicalHeight) 
 {
-    // 1. Update Animation Counters
+    // updating animation counters
     animCounter++;
     if (animCounter >= animSpeed)
     {
@@ -114,7 +113,7 @@ void updateEnemyAnimation(Sprite &sprite, float dt,
             animFrame = 0;
     }
 
-    // 2. Select Texture
+    // selecting textures
     Texture *currentTex;
     if (isCaught)
         currentTex = &suckTextures[animFrame];
@@ -123,26 +122,26 @@ void updateEnemyAnimation(Sprite &sprite, float dt,
 
     sprite.setTexture(*currentTex, true);
 
-    // 3. Get REAL size
+    // to find the exact widht and height
     int texW = currentTex->getSize().x;
     int texH = currentTex->getSize().y;
 
-    // 4. Position & Scale Logic
+    
 
-    // CENTER X: Centers the sprite horizontally on the hitbox
+    // to leave equal space on both sides of sprite inside the hitbox
     float offsetX = (logicalWidth - texW * scale) / 2.0f;
 
-    // ALIGN Y: Anchors the sprite's feet to the bottom of the hitbox
+    // for height of sprite in hitbox
     float offsetY = logicalHeight - (texH * scale);
 
-    // Apply
+   
     sprite.setPosition(x + offsetX, y + offsetY);
     sprite.setScale(scale, scale);
 
-    // 5. Flip Logic
-    if (direction == 1) // Moving Right
+    // flip Logic
+    if (direction == 1) // for moving right
         sprite.setTextureRect(IntRect(texW, 0, -texW, texH));
-    else // Moving Left
+    else // for moving Left
         sprite.setTextureRect(IntRect(0, 0, texW, texH));
 }
 
@@ -151,24 +150,24 @@ bool collisionDetection(RenderWindow &window, float playerX, float playerY, floa
 {
     if ((playerX < enemyX + enemyW) && (playerX + playerW > enemyX) && (playerY < enemyY + enemyH) && (playerY + playerH > enemyY))
     {
-        // cout << "Collision Detected";
+        
         isDead = true;
         return true;
     }
     return false;
 }
 
-// Safety check to prevent crashing if player goes off screen
+// check to prevent error when player goes out of the screen
 char get_tile(char **lvl, int row, int col, int height, int width)
 {
     if (row < 0 || row >= height || col < 0 || col >= width)
     {
-        return ' '; // Outside the map is empty air
+        return ' '; // outside the map will be air
     }
     return lvl[row][col];
 }
 
-// This function draws levels. It does so based on '#' and '-' and 'e' and 's' and '/' and '\'
+// function to draw level
 void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgSprite,
                    Texture &blockTexture, Sprite &blockSprite,
                    Texture &slopeLeft, Sprite &slopeLeftSpr,
@@ -183,23 +182,20 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
     {
         for (int j = 0; j < width; j += 1)
         {
-            // Draw walls '#' AND platforms '-'
+            // drawing walls using # and platforms using -
             if (lvl[i][j] == '#' || lvl[i][j] == '-')
             {
                 blockSprite.setPosition(j * cell_size, i * cell_size);
                 window.draw(blockSprite);
             }
-            // Draw LEFT slope '/' or 'l' (left part of diagonal)
-            // 'l' = left/top part of diagonal tile
-            // '/' = alternative notation for down-left slope
+            // drawing left slope for lvl 2 using / or l
+            
             else if (lvl[i][j] == '/' || lvl[i][j] == 'l')
             {
                 slopeLeftSpr.setPosition(j * cell_size, i * cell_size);
                 window.draw(slopeLeftSpr);
             }
-            // Draw RIGHT slope '\' or 'r' (right part of diagonal)
-            // 'r' = right/bottom part of diagonal tile
-            // '\' = alternative notation for down-right slope
+           // drawing right slope for lvl 2 using \\ or r
             else if (lvl[i][j] == '\\' || lvl[i][j] == 'r')
             {
                 slopeRightSpr.setPosition(j * cell_size, i * cell_size);
@@ -219,18 +215,19 @@ void display_level(RenderWindow &window, char **lvl, Texture &bgTex, Sprite &bgS
     }
 }
 
+// function for gravity , when player jumps so it doen't remain in air
 void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGround, const float &gravity, float &terminal_Velocity, float &player_x, float &player_y, const int cell_size, int &Pheight, int &Pwidth, int height, int width, float dt)
 {
 
     float new_y = player_y + velocityY * dt;
 
-    // --- 1. Ceiling Collision (Moving Up) ---
+    // collision with ceiling , moving up
     if (velocityY < 0)
     {
         char top_left = get_tile(lvl, (int)new_y / cell_size, (int)player_x / cell_size, height, width);
         char top_right = get_tile(lvl, (int)new_y / cell_size, (int)(player_x + Pwidth) / cell_size, height, width);
 
-        // Only stop if hitting a SOLID WALL '#'
+        // only stop if hit a solid wall that is represented by #
         if (top_left == '#' || top_right == '#')
         {
             velocityY = 0;
@@ -238,7 +235,7 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
         }
     }
 
-    // --- 2. Floor Collision (Moving Down) ---
+    //  collision with floor , moving down
     int feet_row = (int)(new_y + Pheight) / cell_size;
     int feet_col_left = (int)(player_x) / cell_size;
     int feet_col_right = (int)(player_x + Pwidth) / cell_size;
@@ -250,24 +247,24 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
         char block_left = get_tile(lvl, feet_row, feet_col_left, height, width);
         char block_right = get_tile(lvl, feet_row, feet_col_right, height, width);
 
-        // TYPE A: Solid Wall '#' (Always land)
+        // if solid wall it will always land
         if (block_left == '#' || block_right == '#')
         {
             landed = true;
         }
-        // TYPE B: Platform '-' (Land only if crossing the top edge)
+        // if platfrom then only land if crossing the top edge
         else if (block_left == '-' || block_right == '-')
         {
             float block_top_pixel = feet_row * cell_size;
             const float tolerance = 4.0f;
 
-            // Check if we are crossing the line downwards or standing on it
+            // to check if we are crossing the line downward or standing on it
             if ((player_y + Pheight <= block_top_pixel + tolerance) && (new_y + Pheight >= block_top_pixel))
             {
                 landed = true;
             }
         }
-        // TYPE C: Slope tiles '/', '\', 'l', or 'r' - treat as platforms
+        // if they are tiles of slope like '/', '\', 'l', or 'r' then use them as platform
         else if (block_left == '/' || block_right == '/' || block_left == '\\' || block_right == '\\' ||
                  block_left == 'l' || block_right == 'l' || block_left == 'r' || block_right == 'r' ||
                  block_left == 'L' || block_right == 'L' || block_left == 'R' || block_right == 'R')
@@ -292,13 +289,13 @@ void player_gravity(char **lvl, float &offset_y, float &velocityY, bool &onGroun
         onGround = false;
         player_y = new_y;
 
-        velocityY += gravity * dt; // this is dt. To smoothen out things
+        velocityY += gravity * dt; // dt to smoothen out everything
         if (velocityY >= terminal_Velocity)
             velocityY = terminal_Velocity;
     }
 }
 
-// This functions controls player movement. It has constraints based on if there is a solid block after it
+// function to control player movement
 void playerMovement(char **lvl, float &player_x, float player_y,
                     const float &speed, const int cell_size, const int Pheight,
                     const int Pwidth, int height, int width, float dt, int &isMoving, int &facing)
@@ -306,7 +303,7 @@ void playerMovement(char **lvl, float &player_x, float player_y,
     float offsetX_right = player_x + speed * dt;
     float offsetX_left = player_x - speed * dt;
 
-    // --- Right Movement ---
+    // for right movement
     if (Keyboard::isKeyPressed(Keyboard::Right))
     {
         isMoving = 1;
@@ -316,7 +313,7 @@ void playerMovement(char **lvl, float &player_x, float player_y,
         char mid_right = get_tile(lvl, (int)(player_y + Pheight / 2) / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
         char bot_right = get_tile(lvl, (int)(player_y + Pheight - 5) / cell_size, (int)(offsetX_right + Pwidth) / cell_size, height, width);
 
-        // Only stop if solid wall '#'
+        // only stop if there is a solid wall 
         if (top_right == '#' || mid_right == '#' || bot_right == '#')
         {
             player_x = ((int)(offsetX_right + Pwidth) / cell_size) * cell_size - Pwidth - 1;
@@ -327,7 +324,7 @@ void playerMovement(char **lvl, float &player_x, float player_y,
         }
     }
 
-    // --- Left Movement ---
+    // for left movement
     if (Keyboard::isKeyPressed(Keyboard::Left))
     {
         isMoving = 1;
@@ -348,12 +345,13 @@ void playerMovement(char **lvl, float &player_x, float player_y,
     }
 }
 
+// function for counting score
 void addScore(int &playerScore, int &comboStreak, float &comboTimer, int points,
               bool isDefeat, int &multiKillCount, float &multiKillTimer, const float dt)
 {
     int finalPoints = points;
 
-    // Apply combo multiplier for defeats
+    // combo multiplier for deafeats
     if (isDefeat)
     {
         if (comboStreak >= 5)
@@ -364,7 +362,7 @@ void addScore(int &playerScore, int &comboStreak, float &comboTimer, int points,
 
     playerScore += finalPoints;
 
-    // Reset combo timer
+    // reset the timer of combo
     if (isDefeat)
     {
         comboStreak++;
@@ -375,20 +373,20 @@ void addScore(int &playerScore, int &comboStreak, float &comboTimer, int points,
 void checkMultiKill(int &multiKillCount, float &multiKillTimer, int &playerScore)
 {
     if (multiKillCount >= 3)
-        playerScore += 500; // Multi-Kill (3+ enemies)
+        playerScore += 500; // multikill 3+ enemies
     else if (multiKillCount == 2)
-        playerScore += 200; // Multi-Kill (2 enemies)
+        playerScore += 200; // multikill 2 enemies
 
     multiKillCount = 0;
     multiKillTimer = 0.0f;
 }
 
-// This function handles vacuum for phase 1
-void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      // vacuum sprite and window to draw in it
-                  Texture &texHorz, Texture &texVert,                           // textures of vacuum image
-                  float player_x, float player_y,                               // player position. We draw there
-                  int PlayerWidth, int PlayerHeight, int vacDir, bool isActive, // player width and height to calc it's center, vaccum direction based on keys
-                  float *enemiesX, float *enemiesY, int &enemyCount,            // enemies refers to ghost here
+// function for vacuum in phase 1
+void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
+                  Texture &texHorz, Texture &texVert,                           
+                  float player_x, float player_y,                               
+                  int PlayerWidth, int PlayerHeight, int vacDir, bool isActive, 
+                  float *enemiesX, float *enemiesY, int &enemyCount,            
                   int *inventory, int &capturedCount, int maxCap, int enemyType,
                   float &flickerTimer, bool &showSprite, float dt,
                   bool *enemyIsCaught,
@@ -402,7 +400,7 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
     if (capturedCount >= maxCap)
         return;
 
-    // --- 1. FLICKER ANIMATION ---
+    // flicker animation
     if (drawOnly)
     {
         flickerTimer += dt;
@@ -413,7 +411,7 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
         }
     }
 
-    // --- 2. CALCULATE CENTERS & DIMENSIONS ---
+    // calculating centers and dimensions
     int pX = (int)player_x;
     int pY = (int)player_y;
     int pCenterX = pX + PlayerWidth / 2;
@@ -423,41 +421,41 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
     int beamReach = 72 * vacuumPower * rangeMultiplier;
     int beamThick = 30 * vacuumPower * rangeMultiplier;
 
-    // Hitbox Variable
+    // hitbox
     IntRect vacHitbox;
 
-    // --- 3. DIRECTION LOGIC (UPDATED: SCALING FIX) ---
-    // Calculate scale factors based on texture size vs desired beam size
-    // We multiply by 2.0f because your global scale is 2.0f
+    // direction logic for vacuum , we calculate the scale factors that are based on texture size against the required beam size and multiply it by 2.0f because our global scale is 2.0f
+   
+   
     float scaleX_Horz = (float)beamReach / texHorz.getSize().x * 2.0f;
     float scaleY_Horz = (float)beamThick / texHorz.getSize().y * 2.0f;
-    float scaleX_Vert = (float)beamThick / texVert.getSize().x * 2.0f; // Width is thickness for vertical
-    float scaleY_Vert = (float)beamReach / texVert.getSize().y * 2.0f; // Height is reach for vertical
+    float scaleX_Vert = (float)beamThick / texVert.getSize().x * 2.0f; // width is thickness for vertical
+    float scaleY_Vert = (float)beamReach / texVert.getSize().y * 2.0f; // height is reach for vertical
 
-    if (vacDir == 0) // RIGHT
+    if (vacDir == 0) // right
     {
         vacSprite.setTexture(texHorz, true);
-        vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); // Full texture
-        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); 
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); 
         
         vacSprite.setPosition(pX + PlayerWidth, pCenterY - (beamThick * 2.0f) / 2.0f + (beamThick/2.0f)); 
-        // Simplified Pos:
+        
         vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); // Visual alignment
 
         vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
-    else if (vacDir == 1) // LEFT
+    else if (vacDir == 1) // left
     {
         vacSprite.setTexture(texHorz, true);
-        // Mirror texture without changing size
+        // mirror the texture without changing size
         vacSprite.setTextureRect(IntRect(texHorz.getSize().x, 0, -((int)texHorz.getSize().x), texHorz.getSize().y)); 
-        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); 
         
         vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick);
 
         vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
-    else if (vacDir == 2) // UP
+    else if (vacDir == 2) // up
     {
         vacSprite.setTexture(texVert, true);
         vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
@@ -467,7 +465,7 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
 
         vacHitbox = IntRect(pCenterX - beamThick, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
     }
-    else if (vacDir == 3) // DOWN
+    else if (vacDir == 3) // down
     {
         vacSprite.setTexture(texVert, true);
         vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
@@ -478,28 +476,28 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
         vacHitbox = IntRect(pCenterX - beamThick, pY + PlayerHeight, beamThick * 2, beamReach * 2);
     }
 
-    // --- 4. DRAWING PASS ---
+    // drawing pass
     if (drawOnly)
     {
         if (showSprite)
         {
             window.draw(vacSprite);
         }
-        return; // Exit after drawing
+        return; // exit after drawing
     }
 
-    // --- 5. LOGIC PASS (Only if drawOnly is FALSE) ---
+    // logic pass , this will only work when drawonly os false
     for (int i = 0; i < enemyCount; i++)
     {
         IntRect enemyRect((int)enemiesX[i], (int)enemiesY[i], 60, 60);
 
         if (vacHitbox.intersects(enemyRect))
         {
-            // Mark enemy as caught so collision detection doesn't kill player
+            // enemy will be  marked as caught so the collision doesn't kills the player
             enemyIsCaught[i] = true;
 
-            // PULL LOGIC (RESTORED TO ORIGINAL SPEED)
-            float pullSpeed = 250.0f * vacuumPower * dt; // Pull speed affected by power
+            // pulling
+            float pullSpeed = 250.0f * vacuumPower * dt; // pull speed affected by power
 
             if (enemiesX[i] < pCenterX)
                 enemiesX[i] += pullSpeed;
@@ -511,7 +509,7 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
             else
                 enemiesY[i] -= pullSpeed;
 
-            // CAPTURE CHECK (RESTORED TO ORIGINAL DISTANCE)
+            // capture check ,  and restored to orignal distance
             float dx = (float)(pCenterX - (enemiesX[i] + 30));
             float dy = (float)(pCenterY - (enemiesY[i] + 30));
             float dist = sqrt(dx * dx + dy * dy);
@@ -521,24 +519,24 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
                 inventory[capturedCount] = enemyType;
                 capturedCount++;
 
-                // Award capture points ONLY during logic pass
+                // give capture points only during logic pass
                 if (!drawOnly)
                 {
                     int capturePoints = 0;
                     if (enemyType == 1)
-                        capturePoints = 50; // Ghost
+                        capturePoints = 50; // ghost
                     else if (enemyType == 2)
-                        capturePoints = 75; // Skeleton
+                        capturePoints = 75; // skeleton
                     else if (enemyType == 3)
-                        capturePoints = 150; // Invisible Man
+                        capturePoints = 150; // invisible Man
                     else if (enemyType == 4)
-                        capturePoints = 200; // Chelnov
+                        capturePoints = 200; // chelnov
 
                     addScore(playerScore, comboStreak, comboTimer, capturePoints,
                              false, multiKillCount, multiKillTimer, dt);
                 }
 
-                // Remove enemy from array
+                // remove enemy from array
                 enemiesX[i] = enemiesX[enemyCount - 1];
                 enemiesY[i] = enemiesY[enemyCount - 1];
                 enemyCount--;
@@ -548,13 +546,13 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
     }
 }
 
-// This function handles vacuum for phase 2
+// function to handle vacuum logic for phase 2
 void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
                         Texture &texHorz, Texture &texVert,
                         float player_x, float player_y,
                         int PlayerWidth, int PlayerHeight, int vacDir, bool isActive,
                         float *enemiesX, float *enemiesY, int &enemyCount,
-                        int *&inventory, int &capturedCount, // Passed by reference for dynamic update
+                        int *&inventory, int &capturedCount, 
                         int enemyType,
                         float &flickerTimer, bool &showSprite, float dt,
                         bool *enemyIsCaught,
@@ -566,7 +564,7 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
     if (!isActive)
         return;
 
-    // 1. Visuals & Hitbox (Simplified for Phase 2 context)
+    // visuals and hitbox
     if (drawOnly)
     {
         flickerTimer += dt;
@@ -586,39 +584,36 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
     int beamThick = 30 * vacuumPower * rangeMultiplier;
 
     IntRect vacHitbox;
-    // Direction Logic
-    // --- 3. DIRECTION LOGIC (UPDATED: SCALING FIX) ---
-    // Calculate scale factors based on texture size vs desired beam size
-    // We multiply by 2.0f because your global scale is 2.0f
+   // direction logic for vacuum , we calculate the scale factors that are based on texture size against the required beam size and multiply it by 2.0f because our global scale is 2.0f
     float scaleX_Horz = (float)beamReach / texHorz.getSize().x * 2.0f;
     float scaleY_Horz = (float)beamThick / texHorz.getSize().y * 2.0f;
-    float scaleX_Vert = (float)beamThick / texVert.getSize().x * 2.0f; // Width is thickness for vertical
-    float scaleY_Vert = (float)beamReach / texVert.getSize().y * 2.0f; // Height is reach for vertical
+    float scaleX_Vert = (float)beamThick / texVert.getSize().x * 2.0f; // width is thickness for vertical
+    float scaleY_Vert = (float)beamReach / texVert.getSize().y * 2.0f; // height is reach for vertical
 
-    if (vacDir == 0) // RIGHT
+    if (vacDir == 0) // right
     {
         vacSprite.setTexture(texHorz, true);
-        vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); // Full texture
-        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); 
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); 
         
         vacSprite.setPosition(pX + PlayerWidth, pCenterY - (beamThick * 2.0f) / 2.0f + (beamThick/2.0f)); 
-        // Simplified Pos:
-        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); // Visual alignment
+        
+        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); 
 
         vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
-    else if (vacDir == 1) // LEFT
+    else if (vacDir == 1) // left
     {
         vacSprite.setTexture(texHorz, true);
-        // Mirror texture without changing size
+        // mirror texture without changing size
         vacSprite.setTextureRect(IntRect(texHorz.getSize().x, 0, -((int)texHorz.getSize().x), texHorz.getSize().y)); 
-        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); 
         
         vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick);
 
         vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
-    else if (vacDir == 2) // UP
+    else if (vacDir == 2) // up
     {
         vacSprite.setTexture(texVert, true);
         vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
@@ -628,7 +623,7 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
 
         vacHitbox = IntRect(pCenterX - beamThick, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
     }
-    else if (vacDir == 3) // DOWN
+    else if (vacDir == 3) //down
     {
         vacSprite.setTexture(texVert, true);
         vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
@@ -646,7 +641,7 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
         return;
     }
 
-    // 2. Logic Pass
+    // logic Pass
     for (int i = 0; i < enemyCount; i++)
     {
         IntRect enemyRect((int)enemiesX[i], (int)enemiesY[i], 60, 60);
@@ -655,7 +650,7 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
         {
             enemyIsCaught[i] = true;
 
-            // Pull Logic
+            // pull Logic
             float pullSpeed = 250.0f * vacuumPower * dt;
             if (enemiesX[i] < pCenterX)
                 enemiesX[i] += pullSpeed;
@@ -666,45 +661,44 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
             else
                 enemiesY[i] -= pullSpeed;
 
-            // Capture Check
+            // capture check
             float dx = (float)(pCenterX - (enemiesX[i] + 30));
             float dy = (float)(pCenterY - (enemiesY[i] + 30));
             float dist = sqrt(dx * dx + dy * dy);
 
             if (dist < 50.0f * vacuumPower)
             {
-                // === PHASE 2 DYNAMIC RESIZING (Exact Fit) [cite: 50] ===
-                // 1. Create new array size + 1
+                // doing dynamic resizing for phase 2
+                
                 int *newArr = new int[capturedCount + 1];
 
-                // 2. Copy old data
+                // copy old data
                 for (int k = 0; k < capturedCount; k++)
                 {
                     newArr[k] = inventory[k];
                 }
 
-                // 3. Add new item
+                // add new item
                 newArr[capturedCount] = enemyType;
 
-                // 4. Delete old array
+                // delete old array
                 if (inventory != nullptr)
                 {
                     delete[] inventory;
                 }
 
-                // 5. Point to new array
+                // now point to new array
                 inventory = newArr;
                 capturedCount++;
-                // ============================================
-
+                
                 if (!drawOnly)
                 {
-                    // Basic scoring logic (Phase 2 points can be added here)
+                    
                     addScore(playerScore, comboStreak, comboTimer, 100,
                              false, multiKillCount, multiKillTimer, dt);
                 }
 
-                // Remove enemy from world
+                // remove enemy from world
                 enemiesX[i] = enemiesX[enemyCount - 1];
                 enemiesY[i] = enemiesY[enemyCount - 1];
                 enemyCount--;
@@ -713,7 +707,7 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
         }
     }
 }
-
+// function to display powerups at random locations everytime game is run
 void spawnPowerup(float *powerupsX, float *powerupsY, int *powerupType,
                   bool *powerupActive, float *powerupAnimTimer,
                   int &powerupCount, int maxPowerups, char **lvl,
@@ -722,26 +716,26 @@ void spawnPowerup(float *powerupsX, float *powerupsY, int *powerupType,
     if (powerupCount >= maxPowerups)
         return;
 
-    // Random powerup type (1-4)
+    // random powerup type (1-4)
     int type = (rand() % 4) + 1;
 
-    // Try to find a valid platform position
+    // trying to find a valid platform position
     int attempts = 0;
     int randomCol, randomRow;
     bool foundValidSpot = false;
 
     while (attempts < 50 && !foundValidSpot)
     {
-        // Random position (avoid edges)
+        // for random positions , while avoiding edges
         randomCol = 2 + (rand() % (mapWidth - 4));
         randomRow = 2 + (rand() % (mapHeight - 3));
 
-        // Check if there's a platform or wall BELOW this position
+        // to check if there is a platform or wall below
         char tileBelow = lvl[randomRow + 1][randomCol];
-        // Check if current position is empty
+        // check if current position is empty
         char currentTile = lvl[randomRow][randomCol];
 
-        // Valid spot if: current position is empty AND there's a platform/wall below
+        // spot will be valid if current position is empty and there is a platform or wall below
         if (currentTile == ' ' && (tileBelow == '-' || tileBelow == '#'))
         {
             foundValidSpot = true;
@@ -767,8 +761,8 @@ void spawnPowerup(float *powerupsX, float *powerupsY, int *powerupType,
     powerupCount++;
 }
 
-// Function to apply sliding on slopes (Level 2 feature)
-// Function to apply diagonal sliding on slopes (Level 2 feature)
+
+// Function to apply diagonal sliding on slopes 
 void applySliding(char **lvl, float &player_x, float &player_y, int PlayerHeight, int PlayerWidth,
                   int cell_size, int height, int width, float dt, bool &onGround, float &velocityY)
 {
@@ -782,45 +776,45 @@ void applySliding(char **lvl, float &player_x, float &player_y, int PlayerHeight
     char tile_left = get_tile(lvl, feet_row, feet_col_left, height, width);
     char tile_right = get_tile(lvl, feet_row, feet_col_right, height, width);
 
-    float slideSpeedX = 80.0f; // Horizontal slide speed
-    float slideSpeedY = 80.0f; // Vertical slide speed (going down)
+    float slideSpeedX = 80.0f; // horizontal slide speed
+    float slideSpeedY = 80.0f; // vertical slide speed 
 
     bool onSlope = false;
     int slideDirectionX = 0; // -1 = left, 1 = right
 
-    // Down-right slope (\) using 'l' and 'r' - slide right and down
+    // down right slope (\) using 'l' and 'r' , slide right and down
     if (tile_left == 'l' || tile_right == 'l' || tile_left == 'r' || tile_right == 'r')
     {
         onSlope = true;
-        slideDirectionX = 1; // Slide right
+        slideDirectionX = 1; // slide right
     }
-    // Down-left slope (/) using 'L' and 'R' - slide left and down
+    // down left slope (/) using 'L' and 'R' , slide left and down
     else if (tile_left == 'L' || tile_right == 'L' || tile_left == 'R' || tile_right == 'R')
     {
         onSlope = true;
-        slideDirectionX = -1; // Slide left
+        slideDirectionX = -1; // slide left
     }
 
     if (onSlope)
     {
-        // Move horizontally
+        // move horizontally
         player_x += slideSpeedX * slideDirectionX * dt;
 
-        // Move down the slope (add to Y position)
+        // move down the slope 
         float newY = player_y + slideSpeedY * dt;
 
-        // Check if we can move down (not hitting floor)
+        // heck if we can move down means that we are not hitting the floor
         int new_feet_row = (int)(newY + PlayerHeight) / cell_size;
         char below_left = get_tile(lvl, new_feet_row, (int)player_x / cell_size, height, width);
         char below_right = get_tile(lvl, new_feet_row, (int)(player_x + PlayerWidth) / cell_size, height, width);
 
-        // Only slide down if not hitting solid floor
+        // only slide down if not hitting solid floor
         if (below_left != '#' && below_right != '#')
         {
             player_y = newY;
 
-            // Keep player "attached" to slope by giving small downward velocity
-            // This prevents floating
+            // keep player attached to slope by giving small downward velocity, this prevents floating
+            
             if (velocityY < slideSpeedY)
             {
                 velocityY = slideSpeedY * 0.5f;
@@ -829,21 +823,11 @@ void applySliding(char **lvl, float &player_x, float &player_y, int PlayerHeight
     }
 }
 
-// --- LEVEL 2 RANDOMIZED SLANT PLATFORM GENERATION ---
-// This function creates:
-// 1. A diagonal slant using 'l' (left half) and 'r' (right half) tiles
-// 2. Horizontal platforms that DON'T cut through the slant
-//
-// Tile types used:
-// 'l' = left part of diagonal (top-left corner filled)
-// 'r' = right part of diagonal (bottom-right corner filled)
-// '-' = horizontal platform
-// '#' = solid wall/floor
-// ' ' = empty space
+// function to make randomized slope for level 2 using l and r and it will also create horizontal platforms that will not cut the slope
 
 void generateLevel2Design(char **lvl, int platHeight, int platWidth)
 {
-    // --- 1. CLEAR THE LEVEL ---
+    // clear the level
     for (int i = 0; i < platHeight; i++)
     {
         for (int j = 0; j < platWidth; j++)
@@ -852,26 +836,25 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
         }
     }
 
-    // --- 2. CREATE SOLID BOUNDARIES ---
-    // Floor (row 11)
+    // creating solid boundaries 
     for (int j = 0; j < platWidth; j++)
     {
         lvl[11][j] = '#';
     }
 
-    // Left wall (column 0)
+    // left wall (column 0)
     for (int i = 0; i < platHeight; i++)
     {
         lvl[i][0] = '#';
     }
 
-    // Right wall (column 18 for width=20)
+    // right wall (column 18 for width=20)
     for (int i = 0; i < platHeight; i++)
     {
         lvl[i][platWidth - 2] = '#';
     }
 
-    // --- 3. GENERATE THE SLANTED PLATFORM ---
+    // generating slanted platforms
     int rowMinBound = 2, rowMaxBound = 4;
     int colMinBound = 3, colMaxBound = 6;
 
@@ -927,9 +910,9 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
         }
     }
 
-    // --- 4. GENERATE HORIZONTAL PLATFORMS ---
+    // for generating horizontal platfroms
     int minPlatformLength = 3;
-    int platformRows[] = {2, 4, 6, 8, 9}; // 10->9
+    int platformRows[] = {2, 4, 6, 8, 9}; 
     int numPlatformRows = 5;
 
     for (int p = 0; p < numPlatformRows; p++)
@@ -1006,7 +989,7 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
         }
     }
 
-    // --- 5. ENSURE GUARANTEED PLATFORMS (WITH GAPS) ---
+    // make sure platfroms are with gaps
     bool hasTopLeft = false;
     for (int j = 1; j <= 4; j++)
         if (lvl[2][j] == '-')
@@ -1014,7 +997,7 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
 
     if (!hasTopLeft)
     {
-        // Create platform with a gap (only columns 1-2, leave 3-4 empty)
+        // create platform with a gap (only columns 1-2, leaving 3-4 empty)
         for (int j = 1; j <= 2; j++)
             if (lvl[1][j] == ' ')
                 lvl[1][j] = '-';
@@ -1027,29 +1010,29 @@ void generateLevel2Design(char **lvl, int platHeight, int platWidth)
 
     if (!hasTopRight)
     {
-        // Create platform with a gap (only last 2 columns, leave others empty)
+        // create platform with a gap (only last 2 columns, leaving others empty)
         for (int j = platWidth - 4; j <= platWidth - 3; j++)
             if (lvl[1][j] == ' ')
                 lvl[1][j] = '-';
     }
 
-    // Bottom platforms with gaps
-    for (int j = 1; j <= 3; j++) // Reduced from 5 to 3
+    // bottom platforms with gaps
+    for (int j = 1; j <= 3; j++) 
         if (lvl[9][j] == ' ')
             lvl[9][j] = '-';
 
-    for (int j = platWidth - 5; j <= platWidth - 3; j++) // Reduced range
+    for (int j = platWidth - 5; j <= platWidth - 3; j++) 
         if (lvl[9][j] == ' ')
             lvl[9][j] = '-';
 
-    // --- 6. DEBUG OUTPUT ---
+  
     cout << "=== Level 2 Design Generated ===" << endl;
     cout << "Slant direction: " << (direction == 0 ? "Down-Right (\\)" : "Down-Left (/)") << endl;
     cout << "Slant start: row " << randTopRow << ", col " << randTopCol << endl;
     cout << "Slant length: " << slantLength << " tiles" << endl;
 }
 
-// This function spawns enemies in level two in 4 waves based on waveNumber
+// function to spawn enemies in level two in 4 waves based on waveNumber
 void spawnWave(int waveNumber, int cell_size,
                float *enemiesX, float *enemiesY, float *enemySpeed, int *enemyDirection,
                float *platformLeftEdge, float *platformRightEdge, int &enemyCount,
@@ -1069,9 +1052,9 @@ void spawnWave(int waveNumber, int cell_size,
 
     switch (waveNumber)
     {
-    case 0: // Wave 1 - 2 Ghosts + 3 Skeletons
+    case 0: // Wave 1 has 2 Ghosts + 3 Skeletons
     {
-        // Spawn 2 Ghosts
+       
         float ghostSpawnX[] = {(float)(4 * cell_size), (float)(14 * cell_size)};
         float ghostSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size)};
         for (int i = 0; i < 2 && enemyCount < maxEnemyCount; i++)
@@ -1085,7 +1068,7 @@ void spawnWave(int waveNumber, int cell_size,
             enemyCount++;
         }
 
-        // Spawn 3 Skeletons
+       
         float skelSpawnX[] = {(float)(5 * cell_size), (float)(13 * cell_size), (float)(9 * cell_size)};
         float skelSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size), (float)(2 * cell_size)};
         for (int i = 0; i < 3 && skeletonCount < maxSkeletonCount; i++)
@@ -1107,9 +1090,9 @@ void spawnWave(int waveNumber, int cell_size,
         break;
     }
 
-    case 1: // Wave 2 - 2 Ghosts + 3 Skeletons
+    case 1: // Wave 2 has 2 Ghosts + 3 Skeletons
     {
-        // Spawn 2 Ghosts
+        
         float ghostSpawnX[] = {(float)(3 * cell_size), (float)(15 * cell_size)};
         float ghostSpawnY[] = {(float)(2 * cell_size), (float)(2 * cell_size)};
         for (int i = 0; i < 2 && enemyCount < maxEnemyCount; i++)
@@ -1123,7 +1106,7 @@ void spawnWave(int waveNumber, int cell_size,
             enemyCount++;
         }
 
-        // Spawn 3 Skeletons
+        
         float skelSpawnX[] = {(float)(5 * cell_size), (float)(13 * cell_size), (float)(3 * cell_size)};
         float skelSpawnY[] = {(float)(2 * cell_size), (float)(2 * cell_size), (float)(4 * cell_size)};
         for (int i = 0; i < 3 && skeletonCount < maxSkeletonCount; i++)
@@ -1145,9 +1128,9 @@ void spawnWave(int waveNumber, int cell_size,
         break;
     }
 
-    case 2: // Wave 3 - 3 Skeletons + 2 Chelnovs + 2 Invisible Men
+    case 2: // Wave 3 has 3 Skeletons + 2 Chelnovs + 2 Invisible Men
     {
-        // Spawn 3 Skeletons
+        
         float skelSpawnX[] = {(float)(15 * cell_size), (float)(4 * cell_size), (float)(14 * cell_size)};
         float skelSpawnY[] = {(float)(4 * cell_size), (float)(6 * cell_size), (float)(6 * cell_size)};
         for (int i = 0; i < 3 && skeletonCount < maxSkeletonCount; i++)
@@ -1167,7 +1150,7 @@ void spawnWave(int waveNumber, int cell_size,
             skeletonCount++;
         }
 
-        // Spawn 2 Chelnovs
+        
         float chelSpawnX[] = {(float)(12 * cell_size), (float)(6 * cell_size)};
         float chelSpawnY[] = {(float)(0 * cell_size), (float)(2 * cell_size)};
         for (int i = 0; i < 2 && chelnovCount < maxChelnovCount; i++)
@@ -1184,7 +1167,7 @@ void spawnWave(int waveNumber, int cell_size,
             chelnovCount++;
         }
 
-        // Spawn 2 Invisible Men
+        
         float invisSpawnX[] = {(float)(6 * cell_size), (float)(13 * cell_size)};
         float invisSpawnY[] = {(float)(0 * cell_size), (float)(4 * cell_size)};
         for (int i = 0; i < 2 && invisibleCount < maxInvisibleCount; i++)
@@ -1203,9 +1186,9 @@ void spawnWave(int waveNumber, int cell_size,
         break;
     }
 
-    case 3: // Wave 4 - BOSS WAVE: 2 Chelnovs + 1 Invisible Man
+    case 3: // Wave 4  has 2 Chelnovs + 1 Invisible Man
     {
-        // Spawn 2 Chelnovs
+       
         float chelSpawnX[] = {(float)(14 * cell_size), (float)(3 * cell_size)};
         float chelSpawnY[] = {(float)(4 * cell_size), (float)(8 * cell_size)};
         for (int i = 0; i < 2 && chelnovCount < maxChelnovCount; i++)
@@ -1222,7 +1205,7 @@ void spawnWave(int waveNumber, int cell_size,
             chelnovCount++;
         }
 
-        // Spawn 1 Invisible Man
+        
         if (invisibleCount < maxInvisibleCount)
         {
             invisiblesX[invisibleCount] = (float)(5 * cell_size);
@@ -1241,7 +1224,7 @@ void spawnWave(int waveNumber, int cell_size,
     }
 }
 
-// MODIFIED FUNCTION: Generate Level 2 map with optional enemy spawning
+//  this function will generate Level 2 map with optional enemy spawning
 void generateLevel2Map(char **lvl, int height, int width, int cell_size,
                        float *enemiesX, float *enemiesY, float *enemySpeed, int *enemyDirection,
                        float *platformLeftEdge, float *platformRightEdge, int &enemyCount,
@@ -1257,20 +1240,20 @@ void generateLevel2Map(char **lvl, int height, int width, int cell_size,
                        bool *chelnovIsShooting, float *chelnovShootPhaseTimer, int &chelnovCount,
                        bool spawnAllEnemies = true) // NEW PARAMETER with default value
 {
-    // Reset enemy counts
+    // reset enemy counts
     enemyCount = 0;
     skeletonCount = 0;
     invisibleCount = 0;
     chelnovCount = 0;
 
-    // --- USE THE RANDOMIZED LEVEL DESIGN FUNCTION ---
-    // This generates walls, floor, slanted platform, and horizontal platforms
+    // using randomized platform generating function
+    
     generateLevel2Design(lvl, height, width);
 
-    // MODIFIED: Only spawn enemies if requested
+    //  only spawn enemies if requested
     if (spawnAllEnemies)
     {
-        // Spawn 4 ghosts - using explicit float casts
+        // spawn 4 ghosts , using explicit float casts
         float ghostSpawnX[] = {(float)(4 * cell_size), (float)(14 * cell_size), (float)(3 * cell_size), (float)(15 * cell_size)};
         float ghostSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size), (float)(2 * cell_size), (float)(2 * cell_size)};
         for (int i = 0; i < 4 && enemyCount < 10; i++)
@@ -1284,7 +1267,7 @@ void generateLevel2Map(char **lvl, int height, int width, int cell_size,
             enemyCount++;
         }
 
-        // Spawn 9 skeletons - using explicit float casts
+        // Spawn 9 skeletons 
         float skelSpawnX[] = {(float)(5 * cell_size), (float)(13 * cell_size), (float)(5 * cell_size), (float)(13 * cell_size), (float)(3 * cell_size),
                               (float)(15 * cell_size), (float)(4 * cell_size), (float)(14 * cell_size), (float)(9 * cell_size)};
         float skelSpawnY[] = {(float)(0 * cell_size), (float)(0 * cell_size), (float)(2 * cell_size), (float)(2 * cell_size), (float)(4 * cell_size),
@@ -1306,7 +1289,7 @@ void generateLevel2Map(char **lvl, int height, int width, int cell_size,
             skeletonCount++;
         }
 
-        // Spawn 3 invisible men - using explicit float casts
+        // Spawn 3 invisible men 
         float invisSpawnX[] = {(float)(6 * cell_size), (float)(5 * cell_size), (float)(13 * cell_size)};
         float invisSpawnY[] = {(float)(0 * cell_size), (float)(4 * cell_size), (float)(6 * cell_size)};
         for (int i = 0; i < 3 && invisibleCount < 5; i++)
@@ -1323,7 +1306,7 @@ void generateLevel2Map(char **lvl, int height, int width, int cell_size,
             invisibleCount++;
         }
 
-        // Spawn 4 chelnovs - using explicit float casts
+        // Spawn 4 chelnovs 
         float chelSpawnX[] = {(float)(12 * cell_size), (float)(6 * cell_size), (float)(14 * cell_size), (float)(3 * cell_size)};
         float chelSpawnY[] = {(float)(0 * cell_size), (float)(2 * cell_size), (float)(4 * cell_size), (float)(8 * cell_size)};
         for (int i = 0; i < 4 && chelnovCount < 5; i++)
@@ -1361,17 +1344,17 @@ int main()
         float levelTimer = 0.0f;
         int multiKillCount = 0;
         float multiKillTimer = 0.0f;
-        const float multiKillWindow = 1.0f; // 1 second window for multi-kills
+        const float multiKillWindow = 1.0f; // 1 second window for multikills
 
-        // Level tracking variables
+        // level tracking variables
         int currentLevel = 1;
-        int selectedStartLevel = 1; // NEW: Track which level player selected from menu
+        int selectedStartLevel = 1; // track which level player selected from menu
         bool showStageClear = false;
 
-        // NEW: Character type flag for Phase 2 (360 rotation for yellow)
+        //  character type flag for Phase 2 (360 rotation for yellow)
         bool isYellowCharacter = false;
 
-        // NEW: Wave spawning system variables
+        // wave spawning system variables
         bool useWaveSpawning = false;
         int currentWave = 0;
         int maxWaves = 4;
@@ -1379,21 +1362,19 @@ int main()
         float timeBetweenWaves = 5.0f; // 5 seconds between waves
         bool waveSpawned[4] = {false, false, false, false};
 
-        // ============================================================================
-        // BOSS LEVEL (LEVEL 3) VARIABLES
-        // ============================================================================
+       
 
         // Boss variables
-        int bossHealth = 6; // Boss starts with 6 health
+        int bossHealth = 6; // boss starts with 6 health
         int maxBossHealth = 6;
         float bossX = 0;
         float bossY = 0;
         int bossWidth = 200;
         int bossHeight = 180;
-        bool bossIsAngry = false; // Becomes true when health <= 2
+        bool bossIsAngry = false; // becomes true when health <= 2
         bool bossDefeated = false;
 
-        // Minion variables (dynamically spawned by boss)
+        // minion variables that are dynamically spawned by boss
         int maxMinions = 20;
         float *minionsX = NULL;
         float *minionsY = NULL;
@@ -1402,103 +1383,94 @@ int main()
         float *minionVelocityY = NULL;
         bool *minionOnGround = NULL;
         bool *minionIsCaught = NULL;
-        bool *minionFollowingPlayer = NULL; // For angry mode
+        bool *minionFollowingPlayer = NULL; // for angry mode
         int minionCount = 0;
         int minionWidth = 48;
         int minionHeight = 48;
         float minionSpawnTimer = 0.0f;
-        float minionSpawnInterval = 3.0f; // Spawn minions every 3 seconds
+        float minionSpawnInterval = 3.0f; // spawn minions every 3 seconds
 
-        // Tentacle variables (dynamic array that resizes)
+        // tentacle variables using dynamic array that resizes
         int maxTentacles = 10;
         float *tentaclesX = NULL;
         float *tentaclesY = NULL;
         int *tentacleWidth = NULL;
         int *tentacleHeight = NULL;
-        float *tentacleTimer = NULL;    // How long tentacle has been active
-        float *tentacleDuration = NULL; // How long tentacle will stay
+        float *tentacleTimer = NULL;    // how long tentacle has been active
+        float *tentacleDuration = NULL; // how long tentacle will stay
         bool *tentacleActive = NULL;
-        int *tentacleTexIndex = NULL; // Stores which sprite (0-11) this tentacle uses
+        int *tentacleTexIndex = NULL; // to store which sprite (0-11) this tentacle uses
         int tentacleCount = 0;
         float tentacleSpawnTimer = 0.0f;
-        float tentacleSpawnInterval = 4.0f; // Check to spawn tentacle every 4 seconds
+        float tentacleSpawnInterval = 4.0f; // check to spawn tentacle every 4 seconds
 
-        // Level 3 specific dimensions (1.5x scaling)
+        // level 3 specific dimensions (1.5x scaling)
         int level3Height = 21;   // 14 * 1.5 = 21
         int level3Width = 30;    // 20 * 1.5 = 30
-        int level3CellSize = 42; // 64 / 1.5 ≈ 42 to fit same screen
+        int level3CellSize = 42; // 64 / 1.5 = 42 to fit same screen
 
-        // Calculate floor row to be visible on screen
-        int floorRow = level3Height - 3; // Adjusted to ensure visibility
+        // calculating floor row to be visible on screen
+        int floorRow = level3Height - 3; 
         float floorY = floorRow * level3CellSize;
 
-        // Boss level map (separate from regular lvl)
+        // Boss level map
         char **bossLvl = NULL;
 
-        // ============================================================================
-        // POT AND CLOUD VARIABLES (Phase 2 - DynamEnemies system)
-        // The pot sits on a cloud and spawns enemies dynamically.
-        // Pot is destroyed after 4 projectile hits, then boss appears.
-        // Cloud becomes a platform after pot is destroyed.
-        // ============================================================================
-        bool potActive = true; // Pot is active until destroyed
-        int potHealth = 4;     // Pot takes 4 hits to destroy
+        
+        bool potActive = true; // pot is active until destroyed
+        int potHealth = 4;     // pot takes 4 hits to destroy
         int potMaxHealth = 4;
         float potX = 0;
         float potY = 0;
         int potWidth = 80;
         int potHeight = 80;
         float potEnemySpawnTimer = 0.0f;
-        float potEnemySpawnInterval = 8.0f; // Spawn enemy every 4 seconds
-        bool potDestroyed = false;          // Visual feedback when destroyed
-        float potDestroyTimer = 0.0f;       // Timer for destruction animation
+        float potEnemySpawnInterval = 8.0f; // spawn enemy every 4 seconds
+        bool potDestroyed = false;          // visual feedback when destroyed
+        float potDestroyTimer = 0.0f;       // timer for destruction animation
 
-        // Cloud variables (moves up and down, carries the pot)
+        // cloud variables 
         float cloudX = 0;
         float cloudY = 0;
         int cloudWidth = 150;
         int cloudHeight = 50;
-        float cloudMinY = 150.0f;     // Top bound for cloud movement
-        float cloudMaxY = 700.0f;     // Bottom bound for cloud movement
-        float cloudSpeed = 40.0f;     // Cloud movement speed
+        float cloudMinY = 150.0f;     // top bound for cloud movement
+        float cloudMaxY = 700.0f;     // bottom bound for cloud movement
+        float cloudSpeed = 40.0f;     // cloud movement speed
         int cloudDirection = 1;       // 1 = moving down, -1 = moving up
-        bool cloudIsPlatform = false; // Becomes true after pot is destroyed
+        bool cloudIsPlatform = false; // it will becomes true after pot is destroyed
 
-        // Boss appearance flag (boss only appears after pot is destroyed)
+        // flag for when boss will appear
         bool bossAppeared = false;
 
-        // ============================================================================
-        // DYNAMIC ENEMY ARRAYS FOR POT-SPAWNED ENEMIES (Phase 2)
-        // These are separate from minions - pot spawns ghost/skeleton/invisible/chelnov
-        // Uses dynamic memory allocation with manual resizing
-        // ============================================================================
+        // dynamic arrays for pot enemies
         float *potEnemiesX = NULL;
         float *potEnemiesY = NULL;
         float *potEnemySpeed = NULL;
         int *potEnemyDirection = NULL;
         float *potEnemyVelocityY = NULL;
         bool *potEnemyOnGround = NULL;
-        float *potEnemyVelocityX = NULL; // ADD THIS LINE
+        float *potEnemyVelocityX = NULL; 
         bool *potEnemyIsCaught = NULL;
         int *potEnemyType = NULL; // 1=ghost, 2=skeleton, 3=invisible, 4=chelnov
 
-        int *potEnemyAnimFrame = NULL;   // Tracks current frame (0-3)
-        int *potEnemyAnimCounter = NULL; // Tracks speed
+        int *potEnemyAnimFrame = NULL;   // to track the current frame (0-3)
+        int *potEnemyAnimCounter = NULL; // to track speed
 
         int potEnemyCount = 0;
-        int potEnemyCapacity = 0; // Current allocated capacity
+        int potEnemyCapacity = 0; // current allocated capacity
 
-        // Additional behavior arrays for pot enemies (skeleton jump, invisible visibility, chelnov shooting)
+        // additional behavior arrays for pot enemies such as skeleton jump, invisible visibility, chelnov shooting
         float *potEnemyJumpTimer = NULL;
         bool *potEnemyShouldJump = NULL;
         int *potEnemyStableFrames = NULL;
-        bool *potEnemyIsVisible = NULL;        // For invisible man
-        float *potEnemyVisibilityTimer = NULL; // For invisible man
-        float *potEnemyTeleportTimer = NULL;   // For invisible man
-        float *potEnemyShootTimer = NULL;      // For chelnov
-        bool *potEnemyIsShooting = NULL;       // For chelnov
+        bool *potEnemyIsVisible = NULL;        // for invisible man
+        float *potEnemyVisibilityTimer = NULL; // for invisible man
+        float *potEnemyTeleportTimer = NULL;   // for invisible man
+        float *potEnemyShootTimer = NULL;      // for chelnov
+        bool *potEnemyIsShooting = NULL;       // for chelnov
 
-        // Pot enemy projectiles (for chelnov)
+        // pot enemy projectile for chelnov
         const int maxPotEnemyProjectiles = 20;
         float potEnemyProjX[20];
         float potEnemyProjY[20];
@@ -1509,16 +1481,13 @@ int main()
         int potEnemyProjAnimFrame[20];
         int potEnemyProjAnimCounter[20];
 
-        // ============================================================================
-        // DYNAMIC CAPTURED ENEMIES ARRAY (Phase 2 requirement)
-        // Memory allocation resizes on every capture/release
-        // ============================================================================
+        // dynamic captured enemies array
         int *dynamicCapturedEnemies = NULL;
         int dynamicCapturedCount = 0;
         int dynamicCapturedCapacity = 0;
 
         const float dt = 0.018f; // dt to smooth everything 0.018
-        srand(time(0));          //  Initialize random seed for skeleton jump timing
+        srand(time(0));          //  initialize random seed for skeleton jump timing
         RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Close | Style::Resize);
 
         const int cell_size = 64;
@@ -1546,10 +1515,9 @@ int main()
             deadAnimCounter = 0, deadAnimFrame = 0, deadAnimSpeed = 60;
         bool isDead = false;
         bool restartGame = false;
-
-        // ------------------------------------
-        // INTRO SCREEN (BEFORE CHARACTER MENU)
-        // ------------------------------------
+         
+         
+         // intro screen
 
         if (firstrun) // so the intro screen runs only once
         {
@@ -1618,7 +1586,7 @@ int main()
         escText.setFillColor(Color::Magenta);
         escText.setPosition(430, 600);
 
-        // Stage Clear screen text
+        // stage Clear screen text
         Text stageClearText("STAGE CLEAR!", font, 100);
         stageClearText.setFillColor(Color::Green);
         stageClearText.setPosition(250, 200);
@@ -1635,7 +1603,7 @@ int main()
         nextLevelText.setFillColor(Color::Cyan);
         nextLevelText.setPosition(280, 550);
 
-        // Level indicator text
+        // level indicator text
         Text levelText("LEVEL 1", font, 40);
         levelText.setFillColor(Color::White);
         levelText.setPosition(screen_x / 2 - 80, 10);
@@ -1698,7 +1666,7 @@ int main()
                 {
                     if (e.key.code == Keyboard::Num1)
                     {
-                        // YELLOW CHARACTER - has 360 rotation in Phase 2
+                        
                         isYellowCharacter = true;
 
                         PlayerTexture.loadFromFile("Data/player.png");
@@ -1732,7 +1700,7 @@ int main()
                     }
                     if (e.key.code == Keyboard::Num2)
                     {
-                        // GREEN CHARACTER - keeps original 90 degree rotation
+                        
                         isYellowCharacter = false;
 
                         PlayerTexture.loadFromFile("Data/greenPlayer/idle1.png");
@@ -1780,9 +1748,7 @@ int main()
         if (!characterSelected)
             return 0;
 
-        // ============================================================================
-        // LEVEL SELECTION MENU
-        // ============================================================================
+       // level selection menu
         Text levelSelectTitle("SELECT LEVEL", font, 100);
         levelSelectTitle.setFillColor(Color::Cyan);
         levelSelectTitle.setPosition(400, 200);
@@ -1796,14 +1762,14 @@ int main()
         level2Option.setPosition(100, 500);
 
         Text level3Option("Press 3 - Boss Level (Octopus)", font, 50);
-        level3Option.setFillColor(Color(255, 100, 100)); // Reddish - Boss level
+        level3Option.setFillColor(Color(255, 100, 100)); // Reddish for boss
         level3Option.setPosition(100, 600);
 
         Text backOption("Press ESC to go back", font, 40);
         backOption.setFillColor(Color::Red);
         backOption.setPosition(100, 700);
 
-        // Selection indicator for arrow key navigation
+        // selection indicator for arrow key navigation
         int menuSelectedLevel = 1;
         Text selectionIndicator(">", font, 50);
         selectionIndicator.setFillColor(Color::Yellow);
@@ -1811,7 +1777,7 @@ int main()
 
         bool levelSelected = false;
 
-        // Level selection happens here
+       
         while (window.isOpen() && !levelSelected)
         {
             Event e;
@@ -1822,7 +1788,7 @@ int main()
 
                 if (e.type == Event::KeyPressed)
                 {
-                    // Direct number key selection
+                    // direct number key selection
                     if (e.key.code == Keyboard::Num1)
                     {
                         selectedStartLevel = 1;
@@ -1846,7 +1812,7 @@ int main()
                         levelSelected = true;
                         cout << "Boss Level (Level 3) selected!" << endl;
                     }
-                    // Arrow key navigation
+                    // arrow key navigation
                     else if (e.key.code == Keyboard::Up)
                     {
                         menuSelectedLevel--;
@@ -1859,7 +1825,7 @@ int main()
                         if (menuSelectedLevel > 3)
                             menuSelectedLevel = 1;
                     }
-                    // Enter to confirm arrow selection
+                    // pres enter to confirm arrow selection
                     else if (e.key.code == Keyboard::Enter)
                     {
                         if (menuSelectedLevel == 1)
@@ -1893,7 +1859,7 @@ int main()
                 }
             }
 
-            // Update selection indicator position
+            // update selection indicator position
             if (menuSelectedLevel == 1)
                 selectionIndicator.setPosition(240, 300);
             else if (menuSelectedLevel == 2)
@@ -1901,12 +1867,12 @@ int main()
             else if (menuSelectedLevel == 3)
                 selectionIndicator.setPosition(140, 500);
 
-            // Highlight selected option
+            // to highlight selected option
             level1Option.setFillColor(menuSelectedLevel == 1 ? Color::Yellow : Color::White);
             level2Option.setFillColor(menuSelectedLevel == 2 ? Color::Yellow : Color::White);
             level3Option.setFillColor(menuSelectedLevel == 3 ? Color::Yellow : Color(255, 100, 100));
 
-            // Draw the menu
+           //drwaing menu
             window.clear(Color::Black);
             window.draw(menuBGSprite);
             window.draw(levelSelectTitle);
@@ -1916,7 +1882,7 @@ int main()
             window.draw(level3Option);
             window.draw(backOption);
 
-            // Show which character was selected
+            // show which character was selected on level selection window
             Text charInfo("", font, 30);
             charInfo.setFillColor(Color::Green);
             charInfo.setPosition(20, 20);
@@ -1931,9 +1897,7 @@ int main()
 
         if (!levelSelected)
             return 0;
-        // ============================================================================
-        // END OF LEVEL SELECTION MENU
-        // ============================================================================
+        
 
         Texture bgTex;
         Sprite bgSprite;
@@ -1952,11 +1916,11 @@ int main()
         blockTexture.loadFromFile("Data/block1.png");
         blockSprite.setTexture(blockTexture);
 
-        // LEVEL 2 ASSETS
+        
         if (!bgTex2.loadFromFile("Data/bg2.png"))
         {
             cout << "ERROR: bg2.png failed to load! Using bg.png as fallback.\n";
-            bgTex2.loadFromFile("Data/bg.png"); // Fallback to level 1 background
+            bgTex2.loadFromFile("Data/bg.png"); 
         }
 
         bgSprite2.setTexture(bgTex2);
@@ -1964,11 +1928,11 @@ int main()
             float(screen_x) / bgTex2.getSize().x,
             float(screen_y) / bgTex2.getSize().y);
 
-        // BLOCKS FOR LEVEL 2
-        blockTexture2.loadFromFile("Data/block2.png"); // new block
+        
+        blockTexture2.loadFromFile("Data/block2.png"); 
         blockSprite2.setTexture(blockTexture2);
 
-        // Add after loading block textures (around line 920)
+        
         Texture slopeLeftTexture, slopeRightTexture;
         Sprite slopeLeftSprite, slopeRightSprite;
 
@@ -1980,7 +1944,7 @@ int main()
         slopeLeftSprite.setTexture(slopeLeftTexture);
         slopeRightSprite.setTexture(slopeRightTexture);
 
-        // for down left slope load new sprites
+        // for down left slope new sprites are used 
 
         Texture slopeLeftMirrorTexture, slopeRightMirrorTexture;
         Sprite slopeLeftMirrorSprite, slopeRightMirrorSprite;
@@ -1999,7 +1963,7 @@ int main()
         lvlMusic.setLoop(true);
         lvlMusic.play();
 
-        // Level 2 music
+        
         Music lvl2Music;
         if (!lvl2Music.openFromFile("Data/mus2.ogg"))
         {
@@ -2008,11 +1972,8 @@ int main()
         lvl2Music.setVolume(20);
         lvl2Music.setLoop(true);
 
-        // ============================================================================
-        // BOSS LEVEL (LEVEL 3) ASSETS
-        // ============================================================================
-
-        // Level 3 Background
+        
+        
         Texture bgTex3;
         Sprite bgSprite3;
         if (!bgTex3.loadFromFile("Data/bg3.png"))
@@ -2025,7 +1986,7 @@ int main()
             float(screen_x) / bgTex3.getSize().x,
             float(screen_y) / bgTex3.getSize().y);
 
-        // Level 3 Block
+        
         Texture blockTexture3;
         Sprite blockSprite3;
         if (!blockTexture3.loadFromFile("Data/block3.PNG"))
@@ -2035,7 +1996,7 @@ int main()
         }
         blockSprite3.setTexture(blockTexture3);
 
-        // Level 3 Music
+        
         Music lvl3Music;
         if (!lvl3Music.openFromFile("Data/mus3.ogg"))
         {
@@ -2045,7 +2006,7 @@ int main()
         lvl3Music.setVolume(25);
         lvl3Music.setLoop(true);
 
-        // Octopus Boss Textures
+        
         Texture bossTexture;
         Sprite bossSprite;
         if (!bossTexture.loadFromFile("Data/octopus/Octopus.png"))
@@ -2055,19 +2016,18 @@ int main()
         bossSprite.setTexture(bossTexture);
         bossSprite.setScale(3.0f, 3.0f);
 
-        // Octopus Boss Angry Texture
+        
         Texture bossAngryTexture;
         if (!bossAngryTexture.loadFromFile("Data/boss/octopus_angry.png"))
         {
             cout << "octopus_angry.png missing! Will use color tint.\n";
         }
 
-        // Tentacle Texture
-        // --- UPDATED TENTACLE TEXTURES (12 VARIANTS - MANUAL LOAD) ---
+        
         Texture tentacleTexArray[12];
         Sprite tentacleSprite;
 
-        // Manually load each file 1 by 1
+        
         tentacleTexArray[0].loadFromFile("Data/octopus/tentacle1.png");
         tentacleTexArray[1].loadFromFile("Data/octopus/tentacle2.png");
         tentacleTexArray[2].loadFromFile("Data/octopus/tentacle3.png");
@@ -2083,7 +2043,7 @@ int main()
 
         tentacleSprite.setScale(2.0f, 2.0f);
 
-        // Minion Texture
+        
         Texture minionTexture;
         Sprite minionSprite;
         if (!minionTexture.loadFromFile("Data/octopus/min1.png"))
@@ -2094,7 +2054,7 @@ int main()
         minionSprite.setTexture(minionTexture);
         minionSprite.setScale(1.5f, 1.5f);
 
-        // Minion Roll Textures (for projectile state)
+        
         Texture minionRollTex[4];
         if (!minionRollTex[0].loadFromFile("Data/boss/minion_roll1.png"))
         {
@@ -2111,9 +2071,7 @@ int main()
             minionRollTex[3].loadFromFile("Data/boss/minion_roll4.png");
         }
 
-        // ============================================================================
-        // POT AND CLOUD TEXTURES (Phase 2 - DynamEnemies system)
-        // ============================================================================
+        
         Texture potTexture;
         Sprite potSprite;
         if (!potTexture.loadFromFile("Data/pot.png"))
@@ -2130,12 +2088,9 @@ int main()
             cout << "cloud.png missing!\n";
         }
         cloudSprite.setTexture(cloudTexture);
-        cloudSprite.setScale(2.5f, 2.3f); // Stretch cloud horizontally
+        cloudSprite.setScale(2.5f, 2.3f); 
 
-        // ============================================================================
-        // END OF BOSS LEVEL ASSETS
-        // ============================================================================
-
+        
         float player_x = 850.0f;
         float player_y = 450.f;
 
@@ -2158,19 +2113,19 @@ int main()
         float platformRightEdge[maxEnemyCount];
         bool enemyIsCaught[maxEnemyCount];
 
-        // 1. Ghost Variables
+       
         int EnemyHeight = 60;
         int EnemyWidth = 72;
 
-        // 2. Skeleton Variables
+        
         int SkeletonHeight = 92;
         int SkeletonWidth = 72;
 
-        // 3. Invisible Man Variables
+        
         int InvisibleHeight = 80;
         int InvisibleWidth = 60;
 
-        // 4. Chelnov Variables
+        
         int ChelnovHeight = 90;
         int ChelnovWidth = 60;
 
@@ -2214,7 +2169,7 @@ int main()
         skeletonWalkTex[2].loadFromFile("Data/skeletonWalk/walk3.png");
         skeletonWalkTex[3].loadFromFile("Data/skeletonWalk/walk4.png");
 
-        // Invisible Man enemies (Level 2 only)
+        // Invisible Man  (Level 2 only)
         int invisibleCount = 0;
         const int maxInvisibleCount = 5;
 
@@ -2239,7 +2194,7 @@ int main()
         InvisibleSprite.setTexture(InvisibleTexture);
         InvisibleSprite.setScale(2, 2);
 
-        // Chelnov enemies (Level 2 only)
+        // Chelnov (Level 2 only)
         int chelnovCount = 0;
         const int maxChelnovCount = 5;
 
@@ -2264,7 +2219,7 @@ int main()
         ChelnovSprite.setTexture(ChelnovTexture);
         ChelnovSprite.setScale(2, 2);
 
-        // Chelnov projectiles
+        // chelnov projectiles
         const int maxChelnovProjectiles = 10;
         float chelnovProjX[maxChelnovProjectiles];
         float chelnovProjY[maxChelnovProjectiles];
@@ -2281,8 +2236,7 @@ int main()
         Texture chelnovProjTex[4];
         Sprite chelnovProjSprite;
 
-        // Load 4 frames (Make sure these files exist in Data/chelnov/)
-        // If you don't have them yet, copy fireball.png 4 times and rename them.
+        // fireball of chelnov
         if (!chelnovProjTex[0].loadFromFile("Data/chelnov/fireball1.png"))
             chelnovProjTex[0].loadFromFile("Data/ghost.png");
         if (!chelnovProjTex[1].loadFromFile("Data/chelnov/fireball2.png"))
@@ -2308,7 +2262,7 @@ int main()
         float velocityY = 0;
         float terminal_Velocity = 300.f;
 
-        // --- POWERUP SYSTEM ---
+        
         const int maxPowerups = 4;
         int powerupCount = 0;
 
@@ -2347,7 +2301,7 @@ int main()
 
         powerupSprite.setScale(2.0f, 2.0f);
 
-        // --- VACUUM SETUP ---
+        // for vacuum
         Texture vacTexHorz, vacTexVert;
         if (!vacTexHorz.loadFromFile("Data/horizontalVacuum.png"))
             cout << "Horizontal Vacuum texture missing\n";
@@ -2366,12 +2320,12 @@ int main()
         const int MAX_CAPTURED_ARRAY = 5;
         int capturedEnemies[MAX_CAPTURED_ARRAY];
 
-        // Phase 2 Dynamic Variables
+        // phase 2 Dynamic Variables
         dynamicCapturedEnemies = nullptr;
         dynamicCapturedCount = 0;
         int capturedCount = 0;
 
-        // --- PROJECTILE SYSTEM ---
+        // system for projectiles
         const int MAX_PROJECTILES = 10;
         float projectilesX[MAX_PROJECTILES];
         float projectilesY[MAX_PROJECTILES];
@@ -2414,7 +2368,7 @@ int main()
             projectileAnimCounter[i] = 0;
         }
 
-        // --- BURST MODE SYSTEM ---
+        // burst mode
         bool burstModeActive = false;
         int burstFrameCounter = 0;
         const int BURST_FRAME_DELAY = 10;
@@ -2425,7 +2379,7 @@ int main()
         float bottomFloorLeftEdge = 1 * cell_size;
         float bottomFloorRightEdge = 17 * cell_size + cell_size;
 
-        // --- LEVEL CREATION ---
+        // lvl creation
         lvl = new char *[height];
         for (int i = 0; i < height; i += 1)
         {
@@ -2434,17 +2388,17 @@ int main()
                 lvl[i][j] = ' ';
         }
 
-        // --- 1. GHOST ANIMATION SETUP ---
+        // ghost animation
         Texture ghostWalkTex[4];
-        Texture ghostSuckTex[4]; // New Suck Array
+        Texture ghostSuckTex[4]; 
 
-        // Load Walk (Assuming you have walk1-4, or reuse)
+       
         ghostWalkTex[0].loadFromFile("Data/ghostWalk/walk1.png");
         ghostWalkTex[1].loadFromFile("Data/ghostWalk/walk2.png");
         ghostWalkTex[2].loadFromFile("Data/ghostWalk/walk3.png");
         ghostWalkTex[3].loadFromFile("Data/ghostWalk/walk4.png");
 
-        // Load Suck (You need these files, or reuse ghost.png for now)
+       
         ghostSuckTex[0].loadFromFile("Data/ghostSuck/suck1.png");
         ghostSuckTex[1].loadFromFile("Data/ghostSuck/suck2.png");
         ghostSuckTex[2].loadFromFile("Data/ghostSuck/suck3.png");
@@ -2458,25 +2412,23 @@ int main()
             ghostAnimCounter[i] = 0;
         }
 
-        // --- 2. SKELETON ANIMATION SETUP ---
-        // You already have skeletonWalkTex[4], just add Suck
+        
         Texture skeletonSuckTex[4];
         skeletonSuckTex[0].loadFromFile("Data/skeletonSuck/suck1.png");
         skeletonSuckTex[1].loadFromFile("Data/skeletonSuck/suck2.png");
         skeletonSuckTex[2].loadFromFile("Data/skeletonSuck/suck3.png");
         skeletonSuckTex[3].loadFromFile("Data/skeletonSuck/suck4.png");
 
-        // --- 3. INVISIBLE MAN SETUP ---
-        Texture invisibleWalkTex[4]; // Increased to 4
+        Texture invisibleWalkTex[4]; 
         Texture invisibleSuckTex[4];
 
-        // Load Walk
+        
         invisibleWalkTex[0].loadFromFile("Data/invisibleMan/walk1.png");
-        invisibleWalkTex[1].loadFromFile("Data/invisibleMan/walk2.png"); // Reuse/Load more
+        invisibleWalkTex[1].loadFromFile("Data/invisibleMan/walk2.png"); 
         invisibleWalkTex[2].loadFromFile("Data/invisibleMan/walk1.png");
         invisibleWalkTex[3].loadFromFile("Data/invisibleMan/walk2.png");
 
-        // Load Suck
+       
         invisibleSuckTex[0].loadFromFile("Data/invisibleMan/suck1.png");
         invisibleSuckTex[1].loadFromFile("Data/invisibleMan/suck2.png");
         invisibleSuckTex[2].loadFromFile("Data/invisibleMan/suck3.png");
@@ -2490,17 +2442,17 @@ int main()
             invisibleAnimCounter[i] = 0;
         }
 
-        // --- 4. CHELNOV SETUP ---
-        Texture chelnovWalkTex[4]; // Increased to 4
+        
+        Texture chelnovWalkTex[4]; 
         Texture chelnovSuckTex[4];
 
-        // Load Walk
+        
         chelnovWalkTex[0].loadFromFile("Data/chelnov/walk1.png");
         chelnovWalkTex[1].loadFromFile("Data/chelnov/walk2.png");
         chelnovWalkTex[2].loadFromFile("Data/chelnov/walk1.png");
         chelnovWalkTex[3].loadFromFile("Data/chelnov/walk2.png");
 
-        // Load Suck
+        
         chelnovSuckTex[0].loadFromFile("Data/chelnov/suck1.png");
         chelnovSuckTex[1].loadFromFile("Data/chelnov/suck2.png");
         chelnovSuckTex[2].loadFromFile("Data/chelnov/suck3.png");
@@ -2514,15 +2466,13 @@ int main()
             chelnovAnimCounter[i] = 0;
         }
 
-        // ============================================================================
-        // INITIALIZE LEVEL BASED ON MENU SELECTION
-        // ============================================================================
+        // intialize level based on what was selected from the  menu
         if (currentLevel == 1)
         {
-            // --- LEVEL 1 INITIALIZATION ---
+            
             cout << "Initializing Level 1..." << endl;
 
-            // Level 1 layout (original)
+            
             lvl[1][3] = '-';
             lvl[1][4] = '-';
             lvl[1][5] = '-';
@@ -2588,7 +2538,7 @@ int main()
             lvl[2][8] = '-';
             lvl[2][9] = '-';
 
-            // Floor and Sides
+            // floor and slides
             for (int j = 0; j <= 18; j++)
                 lvl[11][j] = '#';
             for (int i = 0; i <= 10; i++)
@@ -2617,7 +2567,7 @@ int main()
             lvl[3][9] = '#';
             lvl[3][10] = '#';
 
-            // Enemy spawn markers
+            // enemy spawn positions
             lvl[0][5] = 'e';
             lvl[0][12] = 'e';
             lvl[2][2] = 'e';
@@ -2631,7 +2581,7 @@ int main()
             lvl[2][4] = 's';
             lvl[2][13] = 's';
 
-            // Initialize ghosts from markers
+            // initialize ghosts from markers
             for (int r = 0; r < height; r++)
             {
                 for (int c = 0; c < width; c++)
@@ -2662,7 +2612,7 @@ int main()
             }
             cout << "Level 1: Total ghosts: " << enemyCount << endl;
 
-            // Initialize skeletons from markers
+            // initialize skeletons from markers
             for (int r = 0; r < height; r++)
             {
                 for (int c = 0; c < width; c++)
@@ -2688,18 +2638,18 @@ int main()
             }
             cout << "Level 1: Total skeletons: " << skeletonCount << endl;
 
-            // Set Level 1 capacity
+            
             MAX_CAPACITY = 3;
 
-            // Start Level 1 music
+            
             lvlMusic.play();
         }
         else if (currentLevel == 2)
         {
-            // --- LEVEL 2 INITIALIZATION ---
+            
             cout << "Initializing Level 2..." << endl;
 
-            // Generate Level 2 map (don't spawn all enemies - waves will do it)
+            
             generateLevel2Map(lvl, height, width, cell_size,
                               enemiesX, enemiesY, enemySpeed, enemyDirection,
                               platformLeftEdge, platformRightEdge, enemyCount,
@@ -2713,32 +2663,29 @@ int main()
                               chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
                               chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
                               chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount,
-                              false); // false = don't spawn all enemies, use wave system
+                              false); // false tells to don't spawn all enemies rather use wave system
 
-            // Set Level 2 capacity
+            
             MAX_CAPACITY = 5;
 
-            // Reset wave system
+            
             useWaveSpawning = true;
             currentWave = 0;
             waveTimer = 0.0f;
             for (int w = 0; w < 4; w++)
                 waveSpawned[w] = false;
 
-            // Start Level 2 music
+            
             lvl2Music.play();
 
             cout << "Level 2 initialized with wave spawning system" << endl;
         }
         else if (currentLevel == 3)
         {
-            // ============================================================================
-            // BOSS LEVEL (LEVEL 3) INITIALIZATION
-            // Phase 2: Pot on Cloud spawns enemies first, then Boss appears. Boss is octopus
-            // ============================================================================
+            
             cout << "Initializing Boss Level (Level 3)..." << endl;
 
-            // Allocate dynamic arrays for minions (spawned by boss AFTER pot is destroyed)
+            // allocating dynamic arrays for minions 
 
             minionsX = NULL;
             minionsY = NULL;
@@ -2750,7 +2697,7 @@ int main()
             minionFollowingPlayer = NULL;
             minionCount = 0;
 
-            // Allocate dynamic arrays for tentacles
+            // allocating dynamic arrays for tentacles
             tentaclesX = NULL;
             tentaclesY = NULL;
             tentacleWidth = NULL;
@@ -2760,27 +2707,24 @@ int main()
             tentacleActive = NULL;
             tentacleCount = 0;
 
-            // ============================================================================
-            // POT AND CLOUD INITIALIZATION (Phase 2)
-            // Pot sits on cloud at top-center, spawns enemies until destroyed
-            // ============================================================================
+            
             potActive = true;
             potHealth = potMaxHealth;
             potDestroyed = false;
             potDestroyTimer = 0.0f;
             potEnemySpawnTimer = 0.0f;
 
-            // Position cloud at top-center of screen
+            // cloud will be at top center
             cloudX = screen_x / 2 - cloudWidth / 2;
             cloudY = cloudMinY;
-            cloudDirection = 1; // Start moving down
+            cloudDirection = 1; // start moving down
             cloudIsPlatform = false;
 
-            // Position pot on top of cloud
+            // place pot on top of cloud
             potX = cloudX + cloudWidth / 2 - potWidth / 2;
             potY = cloudY - potHeight;
 
-            // Initialize pot enemy arrays (start with 0 capacity - will grow dynamically)
+            // initialize pot enemy arrays 
             potEnemyCount = 0;
             potEnemyCapacity = 0;
             potEnemiesX = NULL;
@@ -2789,29 +2733,23 @@ int main()
             potEnemyDirection = NULL;
             potEnemyVelocityY = NULL;
             potEnemyOnGround = NULL;
-            potEnemyVelocityX = NULL; // ADD THIS LINE
+            potEnemyVelocityX = NULL; 
             potEnemyIsCaught = NULL;
             potEnemyType = NULL;
 
-            // Boss does NOT appear until pot is destroyed
+            // boss will not appear until pot is destroyed
             bossAppeared = false;
             bossHealth = maxBossHealth;
             bossIsAngry = false;
             bossDefeated = false;
             bossX = screen_x / 2 - bossWidth / 2;
-            bossY = -bossHeight; // Start off-screen, will move down when appearing
+            bossY = -bossHeight; // start off-screen and it will move down when appearing
 
-            // Reset timers
+            // reset timers
             minionSpawnTimer = 0.0f;
             tentacleSpawnTimer = 0.0f;
 
-            // ============================================================================
-            // BOSS LEVEL MAP CREATION - FIXED LAYOUT
-            // Floor properly positioned, side walls complete
-            // ============================================================================
-
-            // Boss level map (separate from regular lvl)
-            // Level 3 specific dimensions (1.5x scaling)
+            
 
             // Boss level map (separate from regular lvl)
             bossLvl = new char *[level3Height];
@@ -2822,7 +2760,7 @@ int main()
                     bossLvl[i][j] = ' ';
             }
 
-            // Boss level layout
+           
             for (int j = 0; j < level3Width; j++)
                 bossLvl[level3Height - 3][j] = '#';
 
@@ -2832,7 +2770,7 @@ int main()
                 bossLvl[i][level3Width - 2] = '#';
             }
 
-            // Platforms
+            // platforms
             for (int j = 2; j < 8; j++)
                 bossLvl[level3Height - 8][j] = '-';
             for (int j = level3Width - 8; j < level3Width - 2; j++)
@@ -2846,23 +2784,23 @@ int main()
             for (int j = 11; j < 19; j++)
                 bossLvl[level3Height - 15][j] = '-';
 
-            // Initialize dynamic captured enemies array for Phase 2
+            // initializing dynamic captured enemies array for Phase 2
             dynamicCapturedCount = 0;
             dynamicCapturedCapacity = 0;
             dynamicCapturedEnemies = NULL;
 
-            // Initialize pot enemy projectile array
+            // initializing pot enemy projectile array
             potEnemyProjCount = 0;
             for (int i = 0; i < maxPotEnemyProjectiles; i++)
             {
                 potEnemyProjActive[i] = false;
             }
 
-            // No capacity limit in boss level (dynamic capture)
+            // no capacity limit in boss level (dynamic capture)
             MAX_CAPACITY = 999;
             MAX_CAPACITY = 999;
 
-            // Stop other music, start boss music
+            
             lvlMusic.stop();
             lvl2Music.stop();
             lvl3Music.play();
@@ -2874,11 +2812,9 @@ int main()
             cout << "Floor row: " << floorRow << " (y = " << floorRow * level3CellSize << ")" << endl;
             cout << "Player spawn: (" << player_x << ", " << player_y << ")" << endl;
         }
-        // ============================================================================
-        // END OF LEVEL INITIALIZATION
-        // ============================================================================
+       
 
-        // Spawn initial powerups (works for both levels)
+        // spawn initial powerups for both levels
         for (int i = 0; i < 3; i++)
         {
             spawnPowerup(powerupsX, powerupsY, powerupType, powerupActive,
@@ -2893,7 +2829,7 @@ int main()
 
         while (window.isOpen() && !restartGame) // game loop
         {
-            // window.clear(Color::Black);
+           
             while (window.pollEvent(ev))
             {
                 if (ev.type == Event::Closed)
@@ -2902,20 +2838,20 @@ int main()
             if (Keyboard::isKeyPressed(Keyboard::Escape))
                 window.close();
 
-            // Update timers
+            // update timers
             levelTimer += dt;
             comboTimer += dt;
             multiKillTimer += dt;
 
-            // NEW: Wave spawning system for Level 2
+            // wave spawing system for level 2
             if (currentLevel == 2 && useWaveSpawning)
             {
                 waveTimer += dt;
 
-                // Check if current wave should spawn
+                // to check if current wave should spawn
                 if (currentWave < maxWaves && !waveSpawned[currentWave])
                 {
-                    // Spawn first wave immediately, others after delay
+                    // spawn first wave immediately and the others after delay
                     if (currentWave == 0 || waveTimer >= timeBetweenWaves)
                     {
                         spawnWave(currentWave, cell_size,
@@ -2938,7 +2874,7 @@ int main()
                     }
                 }
 
-                // Check if current wave is cleared (all enemies defeated)
+                // check if current wave is cleared (all enemies defeated)
                 if (waveSpawned[currentWave] &&
                     enemyCount == 0 && skeletonCount == 0 &&
                     invisibleCount == 0 && chelnovCount == 0 &&
@@ -2955,47 +2891,42 @@ int main()
                 }
             }
 
-            // ============================================================================
-            // BOSS LEVEL (LEVEL 3) GAME LOGIC
-            // Phase 2: Pot spawns enemies first, then Boss appears after pot destroyed
-            // ============================================================================
+            
             if (currentLevel == 3)
             {
-                // ============================================================================
-                // PHASE 1: POT AND CLOUD LOGIC (before boss appears)
-                // ============================================================================
+                
                 if (potActive && !potDestroyed)
                 {
-                    // Update movement of cloud up and down. -1 = up and 1 = down
+                    // update movement of cloud up and down. -1 = up and 1 = down
                     cloudY += cloudSpeed * cloudDirection * dt;
 
-                    // Reverse direction at top and bottom
+                    // reverse direction at top and bottom
                     if (cloudY >= cloudMaxY)
                     {
                         cloudY = cloudMaxY;
-                        cloudDirection = -1; // Move up
+                        cloudDirection = -1; 
                     }
                     else if (cloudY <= cloudMinY)
                     {
                         cloudY = cloudMinY;
-                        cloudDirection = 1; // Move down
+                        cloudDirection = 1; 
                     }
 
-                    // Update pot position to stay on cloud. Pot on center of cloud
+                    // update pot position to stay on cloud. Pot on center of cloud
                     potX = cloudX + cloudWidth / 2 - potWidth / 2;
                     potY = cloudY - potHeight;
 
-                    // Spawn enemies on pot every 4 secs
+                    // spawn enemies on pot every 4 secs
                     potEnemySpawnTimer += dt;
                     if (potEnemySpawnTimer >= potEnemySpawnInterval)
                     {
                         potEnemySpawnTimer = 0.0f;
 
-                        // 1. Define new capacity and type FIRST
+                        // define new capacity and type first
                         int newCapacity = potEnemyCapacity + 1;
                         int enemyTypeToSpawn = 1 + (rand() % 4); // 1=ghost, 2=skeleton, 3=invisible, 4=chelnov
 
-                        // 2. Allocate ALL new arrays (Standard + Animation)
+                        // allocate all new arrays 
                         float *newX = new float[newCapacity];
                         float *newY = new float[newCapacity];
                         float *newSpeed = new float[newCapacity];
@@ -3006,7 +2937,7 @@ int main()
                         bool *newCaught = new bool[newCapacity];
                         int *newType = new int[newCapacity];
 
-                        // Behavior arrays
+                        // behavior arrays
                         float *newJumpTimer = new float[newCapacity];
                         bool *newShouldJump = new bool[newCapacity];
                         int *newStableFrames = new int[newCapacity];
@@ -3016,11 +2947,11 @@ int main()
                         float *newShootTimer = new float[newCapacity];
                         bool *newIsShooting = new bool[newCapacity];
 
-                        // --- NEW ANIMATION ARRAYS ---
+                        // new animation arrays
                         int *newAnimFrame = new int[newCapacity];
                         int *newAnimCounter = new int[newCapacity];
 
-                        // 3. Copy existing data
+                        // copy existing data
                         for (int i = 0; i < potEnemyCount; i++)
                         {
                             newX[i] = potEnemiesX[i];
@@ -3051,14 +2982,14 @@ int main()
                             if (potEnemyIsShooting != NULL)
                                 newIsShooting[i] = potEnemyIsShooting[i];
 
-                            // --- COPY ANIMATION DATA ---
+                            // copy animation data
                             if (potEnemyAnimFrame != NULL)
                                 newAnimFrame[i] = potEnemyAnimFrame[i];
                             if (potEnemyAnimCounter != NULL)
                                 newAnimCounter[i] = potEnemyAnimCounter[i];
                         }
 
-                        // 4. Delete old arrays
+                        // deleting old arrays
                         if (potEnemiesX != NULL)
                             delete[] potEnemiesX;
                         if (potEnemiesY != NULL)
@@ -3095,13 +3026,13 @@ int main()
                         if (potEnemyIsShooting != NULL)
                             delete[] potEnemyIsShooting;
 
-                        // --- DELETE ANIMATION ARRAYS ---
+                        
                         if (potEnemyAnimFrame != NULL)
                             delete[] potEnemyAnimFrame;
                         if (potEnemyAnimCounter != NULL)
                             delete[] potEnemyAnimCounter;
 
-                        // 5. Assign new arrays
+                        // assigning new arrays
                         potEnemiesX = newX;
                         potEnemiesY = newY;
                         potEnemySpeed = newSpeed;
@@ -3121,44 +3052,44 @@ int main()
                         potEnemyShootTimer = newShootTimer;
                         potEnemyIsShooting = newIsShooting;
 
-                        // --- ASSIGN ANIMATION ARRAYS ---
+                        // assign animation arrays
                         potEnemyAnimFrame = newAnimFrame;
                         potEnemyAnimCounter = newAnimCounter;
 
                         potEnemyCapacity = newCapacity;
 
-                        // 6. Initialize New Enemy Logic
+                        // new enemy logic
                         int spawnDirection = rand() % 5;
 
-                        if (spawnDirection == 0) // DOWN
+                        if (spawnDirection == 0) // down
                         {
                             potEnemiesX[potEnemyCount] = potX + potWidth / 2 - 30;
                             potEnemiesY[potEnemyCount] = potY + potHeight;
                             potEnemyVelocityY[potEnemyCount] = 100.0f;
                             potEnemyVelocityX[potEnemyCount] = 0.0f;
                         }
-                        else if (spawnDirection == 1) // LEFT
+                        else if (spawnDirection == 1) // left
                         {
                             potEnemiesX[potEnemyCount] = potX - 50;
                             potEnemiesY[potEnemyCount] = potY + potHeight / 2;
                             potEnemyVelocityY[potEnemyCount] = -150.0f;
                             potEnemyVelocityX[potEnemyCount] = -200.0f;
                         }
-                        else if (spawnDirection == 2) // RIGHT
+                        else if (spawnDirection == 2) // right
                         {
                             potEnemiesX[potEnemyCount] = potX + potWidth + 50;
                             potEnemiesY[potEnemyCount] = potY + potHeight / 2;
                             potEnemyVelocityY[potEnemyCount] = -150.0f;
                             potEnemyVelocityX[potEnemyCount] = 200.0f;
                         }
-                        else if (spawnDirection == 3) // UP-LEFT
+                        else if (spawnDirection == 3) // upleft
                         {
                             potEnemiesX[potEnemyCount] = potX + potWidth / 4;
                             potEnemiesY[potEnemyCount] = potY;
                             potEnemyVelocityY[potEnemyCount] = -200.0f;
                             potEnemyVelocityX[potEnemyCount] = -150.0f;
                         }
-                        else // UP-RIGHT
+                        else // upright
                         {
                             potEnemiesX[potEnemyCount] = potX + (potWidth * 3 / 4);
                             potEnemiesY[potEnemyCount] = potY;
@@ -3172,7 +3103,7 @@ int main()
                         potEnemyIsCaught[potEnemyCount] = false;
                         potEnemyType[potEnemyCount] = enemyTypeToSpawn;
 
-                        // Initialize behaviors
+                        // initialize behaviors
                         potEnemyJumpTimer[potEnemyCount] = 0.0f;
                         potEnemyShouldJump[potEnemyCount] = false;
                         potEnemyStableFrames[potEnemyCount] = 0;
@@ -3182,7 +3113,7 @@ int main()
                         potEnemyShootTimer[potEnemyCount] = 0.0f;
                         potEnemyIsShooting[potEnemyCount] = false;
 
-                        // --- INITIALIZE ANIMATION ---
+                        // initialize animations
                         potEnemyAnimFrame[potEnemyCount] = 0;
                         potEnemyAnimCounter[potEnemyCount] = 0;
 
@@ -3190,7 +3121,7 @@ int main()
                         cout << "Pot spawned enemy type " << enemyTypeToSpawn << "! Total: " << potEnemyCount << endl;
                     }
 
-                    // --- POT COLLISION WITH PLAYER ---
+                    // pot collision with players
                     if (!isDead && !waitingToRespawn)
                     {
                         if ((player_x < potX + potWidth) &&
@@ -3208,23 +3139,23 @@ int main()
                     }
                 }
 
-                // --- POT DESTRUCTION ANIMATION ---
-                if (potDestroyed && !bossAppeared) // after pot destroyed, spawn octopus
+                // pot destruction animation
+                if (potDestroyed && !bossAppeared) // after pot destroyed the octopus will be spawned 
                 {
                     potDestroyTimer += dt;
 
-                    // After 1.5 seconds, boss appears
+                    // after 1.5 seconds, boss will appear
                     if (potDestroyTimer >= 1.5f)
                     {
                         bossAppeared = true;
-                        cloudIsPlatform = true; // Cloud becomes a platform
+                        cloudIsPlatform = true; // cloud becomes a platform
                         bossX = screen_x / 2 - bossWidth / 2;
-                        bossY = 50; // Boss appears at top
+                        bossY = 50; // boss appears at top
                         cout << "Boss (octopus) has appeared" << endl;
                     }
                 }
 
-                // --- UPDATE POT ENEMIES (gravity, movement, and type-specific behaviors) ---
+                // update pot enemies
                 int floorRowForEnemies = level3Height - 2;
                 float floorYForEnemies = floorRowForEnemies * level3CellSize;
 
@@ -3232,12 +3163,12 @@ int main()
                 {
                     if (potEnemyIsCaught[pe])
                     {
-                        capturedCount++; // Visual fix for captured count
+                        capturedCount++; 
                         continue;
                     }
 
-                    // REVERTED DIMENSIONS
-                    int enemyH = 60, enemyW = 72; // Default (Ghost)
+                   
+                    int enemyH = 60, enemyW = 72; //ghost
                     if (potEnemyType[pe] == 2)
                     {
                         enemyH = 92;
@@ -3254,11 +3185,9 @@ int main()
                         enemyW = 60;
                     } // Chelnov
 
-                    // ============================================================
-                    // TYPE-SPECIFIC BEHAVIORS
-                    // ============================================================
+                    
 
-                    // --- SKELETON JUMPING BEHAVIOR (Type 2) ---
+                    // skeleton jumping
                     if (potEnemyType[pe] == 2)
                     {
                         if (potEnemyOnGround[pe])
@@ -3268,7 +3197,7 @@ int main()
 
                         potEnemyJumpTimer[pe] += dt;
 
-                        // Random chance to jump when stable on ground
+                        // random chance to jump when stable on ground
                         if (potEnemyOnGround[pe] && potEnemyStableFrames[pe] > 60 && !potEnemyShouldJump[pe])
                         {
                             if (rand() % 100 < 2) // 2% chance each frame
@@ -3278,7 +3207,7 @@ int main()
                             }
                         }
 
-                        // Execute jump
+                        // execute jump
                         if (potEnemyShouldJump[pe] && potEnemyOnGround[pe] && potEnemyStableFrames[pe] > 10)
                         {
                             potEnemyVelocityY[pe] = jumpStrength;
@@ -3288,10 +3217,10 @@ int main()
                         }
                     }
 
-                    // --- INVISIBLE MAN BEHAVIOR (Type 3) ---
+                    // invisible man behaviour
                     if (potEnemyType[pe] == 3)
                     {
-                        // Toggle visibility every 3 seconds
+                        // toggle visibility every 3 seconds
                         potEnemyVisibilityTimer[pe] += dt;
                         if (potEnemyVisibilityTimer[pe] >= 3.0f)
                         {
@@ -3299,30 +3228,30 @@ int main()
                             potEnemyIsVisible[pe] = !potEnemyIsVisible[pe];
                         }
 
-                        // Teleport every 5 seconds
+                        // teleport every 5 seconds
                         potEnemyTeleportTimer[pe] += dt;
                         if (potEnemyTeleportTimer[pe] >= 5.0f)
                         {
                             potEnemyTeleportTimer[pe] = 0.0f;
-                            // Teleport to random position on floor
+                            // teleport to random position on floor
                             potEnemiesX[pe] = level3CellSize + (rand() % (screen_x - 2 * level3CellSize - enemyW));
                             potEnemiesY[pe] = floorYForEnemies - enemyH - 50;
                             potEnemyVelocityY[pe] = 0;
                         }
                     }
 
-                    // --- CHELNOV SHOOTING BEHAVIOR (Type 4) ---
+                    // chelnov shooting
                     if (potEnemyType[pe] == 4)
                     {
                         potEnemyShootTimer[pe] += dt;
 
-                        // Shoot every 4 seconds
+                        // shoot every 4 seconds
                         if (potEnemyShootTimer[pe] >= 4.0f)
                         {
                             potEnemyShootTimer[pe] = 0.0f;
                             potEnemyIsShooting[pe] = true;
 
-                            // Spawn projectile
+                            // spawn projectile
                             if (potEnemyProjCount < maxPotEnemyProjectiles)
                             {
                                 potEnemyProjX[potEnemyProjCount] = potEnemiesX[pe];
@@ -3337,7 +3266,7 @@ int main()
                             }
                         }
 
-                        // Reset shooting state after 0.5 seconds
+                        // reset shooting state after 0.5 seconds
                         if (potEnemyIsShooting[pe])
                         {
                             if (potEnemyShootTimer[pe] >= 0.5f)
@@ -3345,35 +3274,33 @@ int main()
                         }
                     }
 
-                    // ============================================================
-                    // PHYSICS (gravity and floor collision)
-                    // ============================================================
+                   
 
-                    // Apply horizontal velocity (initial launch momentum only)
+                    // apply horizontal velocity (initial launch momentum only)
                     float absVelX = (potEnemyVelocityX[pe] < 0) ? -potEnemyVelocityX[pe] : potEnemyVelocityX[pe];
-                    if (absVelX > 1.0f) // Only if significant
+                    if (absVelX > 1.0f) // only if significant
                     {
                         potEnemiesX[pe] += potEnemyVelocityX[pe] * dt;
-                        // Friction - slow down horizontal movement over time
+                        // friction to slow down horizontal movement over time
                         potEnemyVelocityX[pe] *= 0.95f;
                     }
                     else
                     {
-                        potEnemyVelocityX[pe] = 0; // Stop when too slow
+                        potEnemyVelocityX[pe] = 0; // stop when too slow
                     }
 
-                    // Apply gravity
+                    // apply gravity
                     potEnemyVelocityY[pe] += gravity * dt;
                     if (potEnemyVelocityY[pe] > terminal_Velocity)
                         potEnemyVelocityY[pe] = terminal_Velocity;
 
                     float newY = potEnemiesY[pe] + potEnemyVelocityY[pe] * dt;
 
-                    // Floor collision
-                    // Platform collision detection for pot enemies
+                    
+                    // platform collision detection for pot enemies
                     bool potEnemyLanded = false;
 
-                    // Check floor collision first
+                    // check floor collision first
                     if (newY + enemyH >= floorYForEnemies)
                     {
                         newY = floorYForEnemies - enemyH;
@@ -3382,26 +3309,26 @@ int main()
                         potEnemyLanded = true;
                     }
 
-                    // Check all platforms in boss level if not on floor
+                    // check all platforms in boss level if not on floor
                     if (!potEnemyLanded && potEnemyVelocityY[pe] >= 0)
                     {
                         int feetRow = (int)(newY + enemyH) / level3CellSize;
                         int leftCol = (int)(potEnemiesX[pe]) / level3CellSize;
                         int rightCol = (int)(potEnemiesX[pe] + enemyW) / level3CellSize;
 
-                        // Check tiles under the enemy
+                        // check tiles under the enemy
                         for (int col = leftCol; col <= rightCol && col < level3Width; col++)
                         {
                             if (feetRow >= 0 && feetRow < level3Height)
                             {
                                 char tileBelow = bossLvl[feetRow][col];
 
-                                // Check for platform '-' or solid block '#'
+                                // check for platform '-' or solid block '#'
                                 if (tileBelow == '-' || tileBelow == '#')
                                 {
                                     float platformTop = feetRow * level3CellSize;
 
-                                    // Only land if crossing the platform from above
+                                    // only land if crossing the platform from above
                                     if (potEnemiesY[pe] + enemyH <= platformTop + 5 && newY + enemyH >= platformTop)
                                     {
                                         newY = platformTop - enemyH;
@@ -3415,7 +3342,7 @@ int main()
                         }
                     }
 
-                    // Cloud platform collision (when cloud is a platform)
+                    // cloud platform collision (when cloud is a platform)
                     if (cloudIsPlatform && !potEnemyLanded && potEnemyVelocityY[pe] >= 0)
                     {
                         if (potEnemiesX[pe] + enemyW > cloudX && potEnemiesX[pe] < cloudX + cloudWidth)
@@ -3430,7 +3357,7 @@ int main()
                         }
                     }
 
-                    // If no platform found, enemy is in air
+                    // if no platform found, enemy is in air
                     if (!potEnemyLanded)
                     {
                         potEnemyOnGround[pe] = false;
@@ -3438,12 +3365,11 @@ int main()
 
                     potEnemiesY[pe] = newY;
 
-                    // Horizontal movement when on ground
-                    // Horizontal movement when on ground
+                   
                     // Horizontal movement when on ground
                     if (potEnemyOnGround[pe])
                     {
-                        // FIX: Calculate distinct rows for Feet (Floor check) and Body (Wall check)
+                        
                         // 'currentRow' is the tile BENEATH the feet (The Floor)
                         int feetRow = (int)(potEnemiesY[pe] + enemyH + 1) / level3CellSize;
                         // 'bodyRow' is the tile containing the enemy center (The Wall)
@@ -3454,10 +3380,9 @@ int main()
 
                         float newPotX = potEnemiesX[pe] + potEnemySpeed[pe] * potEnemyDirection[pe] * dt;
                         bool hitWall = false;
-
-                        //
-                        // 1. WALL CHECK (Use bodyRow, NOT feetRow)
-                        //
+                       
+                        // wall check by using bodyRow
+                        
                         int checkCol = (potEnemyDirection[pe] == 1)
                                            ? (int)(newPotX + enemyW) / level3CellSize
                                            : (int)newPotX / level3CellSize;
@@ -3465,17 +3390,15 @@ int main()
                         if (bodyRow >= 0 && bodyRow < level3Height &&
                             checkCol >= 0 && checkCol < level3Width)
                         {
-                            // If the body hits a wall '#'
+                            // if the body hits a wall '#'
                             if (bossLvl[bodyRow][checkCol] == '#')
                                 hitWall = true;
                         }
 
-                        //
-                        // 2. LEDGE CHECK (Use feetRow)
-                        //
+                       // ledge check by using feetRow
                         if (!onBottomFloor && potEnemyType[pe] != 1)
                         {
-                            // Look ahead for the floor
+                            // look ahead for the floor
                             int edgeCheckCol = (potEnemyDirection[pe] == 1)
                                                    ? (int)(newPotX + enemyW + 10) / level3CellSize
                                                    : (int)(newPotX - 10) / level3CellSize;
@@ -3484,21 +3407,19 @@ int main()
                                 edgeCheckCol >= 0 && edgeCheckCol < level3Width)
                             {
                                 char tileBelowNext = bossLvl[feetRow][edgeCheckCol];
-                                // Current tile is center of enemy at feet level
+                                // current tile is center of enemy at feet level
                                 char tileBelowCurr = bossLvl[feetRow][(int)(potEnemiesX[pe] + enemyW * 0.5f) / level3CellSize];
 
                                 bool currentHasFloor = (tileBelowCurr == '-' || tileBelowCurr == '#');
                                 bool nextHasNoFloor = !(tileBelowNext == '-' || tileBelowNext == '#');
 
-                                // Only turn if we are currently safe but about to walk off
+                                // only turn if we are currently safe but about to walk off
                                 if (currentHasFloor && nextHasNoFloor)
                                     hitWall = true;
                             }
                         }
 
-                        //
-                        // 3. SCREEN EDGE LIMITS
-                        //
+                        // screen edge limits
                         if (hitWall ||
                             newPotX <= level3CellSize ||
                             newPotX + enemyW >= screen_x - level3CellSize)
@@ -3511,8 +3432,8 @@ int main()
                         }
                     }
 
-                    // --- POT ENEMY COLLISION WITH PLAYER ---
-                    // Invisible man only damages when visible
+                    // pot enemies collision with player
+                    // invisible man only damages when visible
                     bool canDamagePlayer = true;
                     if (potEnemyType[pe] == 3 && !potEnemyIsVisible[pe])
                         canDamagePlayer = false;
@@ -3534,18 +3455,16 @@ int main()
                     }
                 }
 
-                // ============================================================================
-                // UPDATE POT ENEMY PROJECTILES (Chelnov fireballs)
-                // ============================================================================
+                // update chelnov fireballs
                 for (int pp = 0; pp < potEnemyProjCount; pp++)
                 {
                     if (!potEnemyProjActive[pp])
                         continue;
 
-                    // Move projectile
+                    // move projectile
                     potEnemyProjX[pp] += 150.0f * potEnemyProjDirection[pp] * dt;
 
-                    // Remove if off screen
+                    // remove if off screen
                     if (potEnemyProjX[pp] < 0 || potEnemyProjX[pp] > screen_x)
                     {
                         potEnemyProjActive[pp] = potEnemyProjActive[potEnemyProjCount - 1];
@@ -3557,7 +3476,7 @@ int main()
                         continue;
                     }
 
-                    // Collision with player
+                    // collision with player
                     if (!isDead && !waitingToRespawn)
                     {
                         if ((player_x < potEnemyProjX[pp] + 30) &&
@@ -3572,7 +3491,7 @@ int main()
                             deathDelayCounter = 0.0f;
                             playerScore -= 50;
 
-                            // Remove projectile
+                            // remove projectile
                             potEnemyProjActive[pp] = potEnemyProjActive[potEnemyProjCount - 1];
                             potEnemyProjX[pp] = potEnemyProjX[potEnemyProjCount - 1];
                             potEnemyProjY[pp] = potEnemyProjY[potEnemyProjCount - 1];
@@ -3585,9 +3504,7 @@ int main()
                     }
                 }
 
-                // ============================================================================
-                // CLOUD PLATFORM COLLISION FOR PLAYER (after pot is destroyed)
-                // ============================================================================
+                // cloud platform collision with player after the pot is destroyed
                 if (cloudIsPlatform && velocityY >= 0)
                 {
                     if (player_x + PlayerWidth > cloudX && player_x < cloudX + cloudWidth)
@@ -3601,22 +3518,20 @@ int main()
                     }
                 }
 
-                // ============================================================================
-                // PHASE 2: BOSS LOGIC (after pot is destroyed and boss has appeared)
-                // ============================================================================
+                // boss logic
                 if (bossAppeared && !bossDefeated)
                 {
-                    // Update spawn timers
+                    // update spawn timers
                     minionSpawnTimer += dt;
                     tentacleSpawnTimer += dt;
 
-                    // Check if boss is angry (health <= 2)
+                    // check if boss is angry (health <= 2)
                     if (bossHealth <= 2 && !bossIsAngry)
                     {
                         bossIsAngry = true;
-                        minionSpawnInterval = 2.0f; // Spawn faster when angry
+                        minionSpawnInterval = 2.0f; // spawn faster when angry
 
-                        // Make all existing minions follow player
+                        // make all existing minions follow player
                         for (int m = 0; m < minionCount; m++)
                         {
                             minionFollowingPlayer[m] = true;
@@ -3625,9 +3540,9 @@ int main()
                         cout << "BOSS IS ANGRY! Minions will now follow the player!" << endl;
                     }
 
-                    // --- SPAWN MINIONS (from boss) ---
+                    // spawn minions
                     if (minionSpawnTimer >= minionSpawnInterval && minionCount < maxMinions)
-                    // Inside: if (minionSpawnTimer >= minionSpawnInterval && minionCount < maxMinions)
+                    
                     {
                         minionSpawnTimer = 0.0f;
 
@@ -3637,8 +3552,8 @@ int main()
 
                         for (int m = 0; m < minionsToSpawn && minionCount < maxMinions; m++)
                         {
-                            // === PHASE 2 DYNAMIC RESIZING (Exact Fit)  ===
-                            // 1. Allocate new arrays of size + 1
+                            
+                            // allocate new arrays of size + 1
                             int newSize = minionCount + 1;
                             float *newX = new float[newSize];
                             float *newY = new float[newSize];
@@ -3649,7 +3564,7 @@ int main()
                             bool *newCaught = new bool[newSize];
                             bool *newFollow = new bool[newSize];
 
-                            // 2. Copy existing data
+                            // copy existing data
                             for (int i = 0; i < minionCount; i++)
                             {
                                 newX[i] = minionsX[i];
@@ -3662,7 +3577,7 @@ int main()
                                 newFollow[i] = minionFollowingPlayer[i];
                             }
 
-                            // 3. Delete old arrays (Free memory)
+                            // delete old arrays to free memory
                             if (minionsX != NULL)
                                 delete[] minionsX;
                             if (minionsY != NULL)
@@ -3680,7 +3595,7 @@ int main()
                             if (minionFollowingPlayer != NULL)
                                 delete[] minionFollowingPlayer;
 
-                            // 4. Point to new arrays
+                            // point to new arrays
                             minionsX = newX;
                             minionsY = newY;
                             minionSpeed = newSpeed;
@@ -3690,7 +3605,7 @@ int main()
                             minionIsCaught = newCaught;
                             minionFollowingPlayer = newFollow;
 
-                            // 5. Add new minion at the end
+                            // add new minion at the end
                             minionsX[minionCount] = bossX + (rand() % bossWidth);
                             minionsY[minionCount] = bossY + bossHeight;
                             minionSpeed[minionCount] = 30.0f + (rand() % 20);
@@ -3705,7 +3620,7 @@ int main()
                         }
                     }
 
-                    // --- SPAWN TENTACLES ---
+                    // spawn tentacles
                     if (tentacleSpawnTimer >= tentacleSpawnInterval)
                     {
                         tentacleSpawnTimer = 0.0f;
@@ -3713,7 +3628,7 @@ int main()
                         // 60% chance to spawn a tentacle
                         if (rand() % 100 < 60 && tentacleCount < maxTentacles)
                         {
-                            // === 1. DYNAMIC RESIZING (Includes TexIndex) ===
+                            // dynamic resizing
                             int newSize = tentacleCount + 1;
                             float *newX = new float[newSize];
                             float *newY = new float[newSize];
@@ -3722,9 +3637,9 @@ int main()
                             float *newTimer = new float[newSize];
                             float *newDur = new float[newSize];
                             bool *newActive = new bool[newSize];
-                            int *newTexIndex = new int[newSize]; // New Array
+                            int *newTexIndex = new int[newSize]; 
 
-                            // Copy existing data
+                            // copy existing data
                             for (int i = 0; i < tentacleCount; i++)
                             {
                                 newX[i] = tentaclesX[i];
@@ -3738,7 +3653,7 @@ int main()
                                     newTexIndex[i] = tentacleTexIndex[i];
                             }
 
-                            // Delete old arrays
+                            // delete old arrays
                             if (tentaclesX != NULL)
                                 delete[] tentaclesX;
                             if (tentaclesY != NULL)
@@ -3756,7 +3671,7 @@ int main()
                             if (tentacleTexIndex != NULL)
                                 delete[] tentacleTexIndex;
 
-                            // Assign new arrays
+                            // sssign new arrays
                             tentaclesX = newX;
                             tentaclesY = newY;
                             tentacleWidth = newW;
@@ -3766,7 +3681,7 @@ int main()
                             tentacleActive = newActive;
                             tentacleTexIndex = newTexIndex;
 
-                            // === 2. CALCULATE EDGE SPAWN & SELECT TEXTURE ===
+                            // calculating edge spawn and loading textures
                             int side = rand() % 4; // 0=Top, 1=Bottom, 2=Left, 3=Right
                             int fixedThickness = 1; 
                             int fixedLength = 180;
@@ -3775,7 +3690,7 @@ int main()
                             int texID = 0;
                             float spawnX, spawnY;
 
-                            if (side == 0) // TOP EDGE (Vertical)
+                            if (side == 0) // top edge , vertical
                             {
                                 tW = fixedThickness;
                                 tH = fixedLength;
@@ -3784,7 +3699,7 @@ int main()
                                 spawnX = bossX + (rand() % (bossWidth - tW));
                                 spawnY = bossY - tH + 20; 
                             }
-                            else if (side == 1) // BOTTOM EDGE (Vertical)
+                            else if (side == 1) // bottom edge vertical
                             {
                                 tW = fixedThickness;
                                 tH = fixedLength;
@@ -3793,9 +3708,9 @@ int main()
                                 spawnX = bossX + (rand() % (bossWidth - tW));
                                 spawnY = bossY + bossHeight - 20; 
                             }
-                            else if (side == 2) // LEFT EDGE (Horizontal)
+                            else if (side == 2) // left edge horozontal
                             {
-                                // Swap dimensions for side tentacles
+                                // swap dimensions for side tentacles
                                 tW = fixedLength;
                                 tH = fixedThickness;
                                 texID = 6 + (rand() % 3); 
@@ -3803,9 +3718,9 @@ int main()
                                 spawnX = bossX - tW + 20;
                                 spawnY = bossY + (rand() % (bossHeight - tH));
                             }
-                            else // RIGHT EDGE (Horizontal)
+                            else // right edge horizontal
                             {
-                                // Swap dimensions for side tentacles
+                                // swap dimensions for side tentacles
                                 tW = fixedLength;
                                 tH = fixedThickness;
                                 texID = 9 + (rand() % 3); 
@@ -3814,7 +3729,7 @@ int main()
                                 spawnY = bossY + (rand() % (bossHeight - tH));
                             }
 
-                            // Assign values
+                            // assign values
                             tentaclesX[tentacleCount] = spawnX;
                             tentaclesY[tentacleCount] = spawnY;
                             tentacleWidth[tentacleCount] = tW;
@@ -3829,17 +3744,17 @@ int main()
                         }
                     }
 
-                    // --- UPDATE TENTACLES ---
+                    // update tentacles
                     for (int t = 0; t < tentacleCount; t++)
                     {
                         if (tentacleActive[t])
                         {
                             tentacleTimer[t] += dt;
 
-                            // Remove tentacle when duration expires
+                            // remove tentacle when duration expires
                             if (tentacleTimer[t] >= tentacleDuration[t])
                             {
-                                // Shift remaining tentacles
+                                // shift remaining tentacles
                                 for (int j = t; j < tentacleCount - 1; j++)
                                 {
                                     tentaclesX[j] = tentaclesX[j + 1];
@@ -3850,7 +3765,7 @@ int main()
                                     tentacleDuration[j] = tentacleDuration[j + 1];
                                     tentacleActive[j] = tentacleActive[j + 1];
 
-                                    // --- ADD THIS LINE ---
+                                    
                                     tentacleTexIndex[j] = tentacleTexIndex[j + 1];
                                 }
                                 tentacleCount--;
@@ -3859,7 +3774,7 @@ int main()
                         }
                     }
 
-                    // --- UPDATE MINIONS ---
+                    // update minions
                     int minionFloorRow = level3Height - 2;
                     float minionFloorY = minionFloorRow * level3CellSize;
 
@@ -3868,14 +3783,14 @@ int main()
                         if (minionIsCaught[m])
                             continue;
 
-                        // Apply gravity
+                        // apply gravity
                         minionVelocityY[m] += gravity * dt;
                         if (minionVelocityY[m] > terminal_Velocity)
                             minionVelocityY[m] = terminal_Velocity;
 
                         float newMinionY = minionsY[m] + minionVelocityY[m] * dt;
 
-                        // Floor collision
+                        // floor collision
                         if (newMinionY + minionHeight >= minionFloorY)
                         {
                             newMinionY = minionFloorY - minionHeight;
@@ -3889,10 +3804,10 @@ int main()
 
                         minionsY[m] = newMinionY;
 
-                        // Horizontal movement
+                        // horizontal movement
                         if (minionFollowingPlayer[m] && minionOnGround[m])
                         {
-                            // Follow player when angry
+                            // follow player when angry
                             if (player_x > minionsX[m] + minionWidth / 2)
                             {
                                 minionsX[m] += minionSpeed[m] * dt;
@@ -3906,10 +3821,10 @@ int main()
                         }
                         else if (minionOnGround[m])
                         {
-                            // Normal patrol movement
+                            // normal patrol movement
                             minionsX[m] += minionSpeed[m] * minionDirection[m] * dt;
 
-                            // Bounce off walls
+                            // bounce off walls
                             if (minionsX[m] <= level3CellSize)
                             {
                                 minionsX[m] = level3CellSize;
@@ -3922,7 +3837,7 @@ int main()
                             }
                         }
 
-                        // --- MINION COLLISION WITH PLAYER ---
+                        // minnion collision with player
                         if (!isDead && !waitingToRespawn)
                         {
                             if ((player_x < minionsX[m] + minionWidth) &&
@@ -3940,7 +3855,7 @@ int main()
                         }
                     }
 
-                    // --- TENTACLE COLLISION WITH PLAYER ---
+                    // tentacle collison with player
                     if (!isDead && !waitingToRespawn)
                     {
                         for (int t = 0; t < tentacleCount; t++)
@@ -3963,7 +3878,7 @@ int main()
                         }
                     }
 
-                    // --- BOSS COLLISION WITH PLAYER ---
+                    // boss collision with player
                     if (!isDead && !waitingToRespawn)
                     {
                         if ((player_x < bossX + bossWidth) &&
@@ -3981,9 +3896,7 @@ int main()
                     }
                 }
             }
-            // ============================================================================
-            // END OF BOSS LEVEL GAME LOGIC
-            // ============================================================================
+            
 
             if (comboTimer >= comboTimeout)
                 comboStreak = 0;
@@ -3991,7 +3904,7 @@ int main()
             if (multiKillTimer >= multiKillWindow && multiKillCount > 0)
                 checkMultiKill(multiKillCount, multiKillTimer, playerScore);
 
-            // Update powerup timers
+            // update powerup timers
             if (hasSpeedBoost)
             {
                 speedBoostTimer += dt;
@@ -4023,7 +3936,7 @@ int main()
                     powerupAnimTimer[i] += dt;
             }
 
-            // Reset safety flags
+            // reset safety flags
             for (int i = 0; i < maxEnemyCount; i++)
                 enemyIsCaught[i] = false;
             for (int i = 0; i < maxSkeletonCount; i++)
@@ -4033,7 +3946,7 @@ int main()
             for (int i = 0; i < maxChelnovCount; i++)
                 chelnovIsCaught[i] = false;
 
-            // Vacuum input
+            // vacuum input
             isVacuuming = false;
             if (Keyboard::isKeyPressed(Keyboard::Space))
             {
@@ -4058,7 +3971,7 @@ int main()
             else
                 showVacSprite = true;
 
-            // Release direction
+            // release direction
             if (Keyboard::isKeyPressed(Keyboard::D))
                 releaseDirection = 0;
             else if (Keyboard::isKeyPressed(Keyboard::A))
@@ -4072,21 +3985,21 @@ int main()
 
             // Single Shot - E key
             static bool eKeyPressed = false;
-            // --- REPLACE THE EXISTING 'E' KEY BLOCK WITH THIS ---
+           
 
             if (Keyboard::isKeyPressed(Keyboard::E) && !eKeyPressed)
             {
                 eKeyPressed = true;
 
-                // === PHASE 2 SHOOTING (Level 3+) ===
+                // phase 2 shooting
                 if (currentLevel >= 3)
                 {
                     if (dynamicCapturedCount > 0)
                     {
-                        // 1. Get the last enemy captured (LIFO)
+                        // get the last enemy captured (LIFO)
                         int enemyTypeToRelease = dynamicCapturedEnemies[dynamicCapturedCount - 1];
 
-                        // 2. Standard Projectile Spawn Logic
+                        // standard Projectile Spawn Logic
                         if (projectileCount < MAX_PROJECTILES)
                         {
                             projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
@@ -4121,13 +4034,13 @@ int main()
                             projectileCount++;
                         }
 
-                        // 3. DYNAMIC SHRINKING (Waste no memory)
+                        // dynamic shrinking 
                         dynamicCapturedCount--;
 
                         if (dynamicCapturedCount == 0)
                         {
                             delete[] dynamicCapturedEnemies;
-                            dynamicCapturedEnemies = nullptr; // Completely free memory
+                            dynamicCapturedEnemies = nullptr; // completely free memory
                         }
                         else
                         {
@@ -4141,14 +4054,14 @@ int main()
                         }
                     }
                 }
-                // === PHASE 1 SHOOTING (Levels 1 & 2) ===
+                // phase 1 shooting
                 else
                 {
                     if (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
                     {
                         capturedCount--;
                         int enemyTypeToRelease = capturedEnemies[capturedCount];
-                        // ... (Copy your existing Phase 1 projectile spawn logic here) ...
+                       
                         projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
                         projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
                         projectileType[projectileCount] = enemyTypeToRelease;
@@ -4184,13 +4097,13 @@ int main()
             if (!Keyboard::isKeyPressed(Keyboard::E))
                 eKeyPressed = false;
 
-            // Vacuum Burst - R key
+            // vacuum Burst - R key
             static bool rKeyPressed = false;
             if (Keyboard::isKeyPressed(Keyboard::R) && !rKeyPressed)
             {
                 rKeyPressed = true;
                 
-                // FIX: Check the correct counter based on the level
+                
                 int currentStored = (currentLevel == 3) ? dynamicCapturedCount : capturedCount;
 
                 if (currentStored > 0 && !burstModeActive)
@@ -4206,7 +4119,7 @@ int main()
             if (!Keyboard::isKeyPressed(Keyboard::R))
                 rKeyPressed = false;
 
-            // Burst mode release
+            // burst mode release
             if (burstModeActive)
             {
                 burstFrameCounter++;
@@ -4214,15 +4127,15 @@ int main()
                 {
                     burstFrameCounter = 0;
 
-                    // === LEVEL 3 BURST LOGIC (Dynamic Memory) ===
+                    // lvl 3 burst logic
                     if (currentLevel == 3)
                     {
                         if (dynamicCapturedCount > 0 && projectileCount < MAX_PROJECTILES)
                         {
-                            // 1. Get last captured enemy from DYNAMIC array
+                            // get last captured enemy from dynamic array
                             int enemyTypeToRelease = dynamicCapturedEnemies[dynamicCapturedCount - 1];
 
-                            // 2. Spawn Projectile
+                            // spawn Projectile
                             projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
                             projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
                             projectileType[projectileCount] = enemyTypeToRelease;
@@ -4233,7 +4146,7 @@ int main()
                             projectileOnGround[projectileCount] = false;
                             projectileLifespan[projectileCount] = 0.0f;
 
-                            // Burst direction logic
+                            // burst direction logic
                             if (burstReleaseDirection == 0)
                             {
                                 projectileDirection[projectileCount] = 1;
@@ -4257,7 +4170,7 @@ int main()
 
                             projectileCount++;
 
-                            // 3. Remove from dynamic array (Shrink Memory)
+                            // remove from dynamic array (Shrink Memory)
                             dynamicCapturedCount--;
 
                             if (dynamicCapturedCount == 0)
@@ -4277,11 +4190,11 @@ int main()
                             }
                         }
 
-                        // Stop burst if empty
+                        // stop burst if empty
                         if (dynamicCapturedCount <= 0)
                             burstModeActive = false;
                     }
-                    // === LEVEL 1 & 2 BURST LOGIC (Static Memory) ===
+                    // lvl 1 and 2 burtst logic
                     else
                     {
                         if (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
@@ -4328,7 +4241,7 @@ int main()
                 }
             }
 
-            // Vacuum logic
+            // vacuum logic
             handleVacuum(window, vacSprite, vacTexHorz, vacTexVert,
                          player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming,
                          enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1,
@@ -4341,7 +4254,7 @@ int main()
                          vacFlickerTimer, showVacSprite, dt, skeletonIsCaught, false, vacuumPower,
                          playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
 
-            // Level 2 vacuum handling
+            // level 2 vacuum handling
             if (currentLevel == 2)
             {
                 handleVacuum(window, vacSprite, vacTexHorz, vacTexVert,
@@ -4357,27 +4270,20 @@ int main()
                              playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
             }
 
-            // Boss Level (Level 3) vacuum handling for minions
+            // boss Level (Level 3) vacuum handling for minions
             if (currentLevel == 3 && minionCount > 0)
             {
-                // Use Phase 2 function (Dynamic Pointer)
+                // use Phase 2 function (Dynamic Pointer)
                 handleVacuumPhase2(window, vacSprite, vacTexHorz, vacTexVert,
                                    player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming,
                                    minionsX, minionsY, minionCount,
-                                   dynamicCapturedEnemies, dynamicCapturedCount, // <-- Dynamic vars
-                                   5,                                            // Minion Type
+                                   dynamicCapturedEnemies, dynamicCapturedCount, 
+                                   5,                                           
                                    vacFlickerTimer, showVacSprite, dt, minionIsCaught, false, vacuumPower,
                                    playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
             }
 
-            // ============================================================================
-            // BOSS LEVEL (LEVEL 3) VACUUM HANDLING FOR POT ENEMIES
-            // Custom inline vacuum check since pot enemies have different types
-            // ============================================================================
-            // ============================================================================
-            // BOSS LEVEL (LEVEL 3) VACUUM HANDLING FOR POT ENEMIES
-            // CORRECTED LOGIC
-            // ============================================================================
+           
             if (currentLevel == 3 && potEnemyCount > 0 && isVacuuming)
             {
 
@@ -4386,30 +4292,30 @@ int main()
                 float beamReach = hasRangeBoost ? 180.0f : 120.0f;
                 float beamThick = 60.0f;
 
-                // Calculate vacuum hitbox based on direction
+                // calculate vacuum hitbox based on direction
                 float vacLeft, vacTop, vacRight, vacBottom;
-                if (vacDirection == 0) // RIGHT
+                if (vacDirection == 0) // right
                 {
                     vacLeft = player_x + PlayerWidth;
                     vacTop = pCenterY - beamThick;
                     vacRight = vacLeft + beamReach * 2;
                     vacBottom = pCenterY + beamThick;
                 }
-                else if (vacDirection == 1) // LEFT
+                else if (vacDirection == 1) // left
                 {
                     vacRight = player_x;
                     vacTop = pCenterY - beamThick;
                     vacLeft = vacRight - beamReach * 2;
                     vacBottom = pCenterY + beamThick;
                 }
-                else if (vacDirection == 2) // UP
+                else if (vacDirection == 2) // up
                 {
                     vacLeft = pCenterX - beamThick;
                     vacBottom = player_y;
                     vacRight = pCenterX + beamThick;
                     vacTop = vacBottom - beamReach * 2;
                 }
-                else // DOWN
+                else // down
                 {
                     vacLeft = pCenterX - beamThick;
                     vacTop = player_y + PlayerHeight;
@@ -4419,16 +4325,16 @@ int main()
 
                 for (int pe = 0; pe < potEnemyCount; pe++)
                 {
-                    // FIX 1: Reset the caught flag at start of frame so logic runs continuously
+                    // to run logic continuously
                     potEnemyIsCaught[pe] = false;
 
-                    // REVERTED DIMENSIONS
-                    int enemyW = 72, enemyH = 60; // Default (Ghost)
+                  
+                    int enemyW = 72, enemyH = 60; // ghost
                     if (potEnemyType[pe] == 2)
                     {
                         enemyW = 72;
                         enemyH = 92;
-                    } // Skeletonf
+                    } // Skeleton
                     else if (potEnemyType[pe] == 3)
                     {
                         enemyW = 60;
@@ -4440,13 +4346,13 @@ int main()
                         enemyH = 90;
                     } // Chelnov
 
-                    // Check if enemy is in vacuum hitbox
+                    // check if enemy is in vacuum hitbox
                     if (potEnemiesX[pe] + enemyW > vacLeft && potEnemiesX[pe] < vacRight &&
                         potEnemiesY[pe] + enemyH > vacTop && potEnemiesY[pe] < vacBottom)
                     {
                         potEnemyIsCaught[pe] = true;
 
-                        // Pull towards player
+                        // pull towards player
                         float pullSpeed = 250.0f * vacuumPower * dt;
                         if (potEnemiesX[pe] < pCenterX)
                             potEnemiesX[pe] += pullSpeed;
@@ -4457,36 +4363,34 @@ int main()
                         else
                             potEnemiesY[pe] -= pullSpeed;
 
-                        // Check if close enough to capture
+                        // check if close enough to capture
                         float dx = pCenterX - (potEnemiesX[pe] + enemyW / 2);
                         float dy = pCenterY - (potEnemiesY[pe] + enemyH / 2);
                         float dist = sqrt(dx * dx + dy * dy);
 
-                        // FIX 2: Check MAX_CAPTURED_ARRAY (5) to prevent memory corruption!
-                        // REPLACE THE OLD "if (dist < ...)" BLOCK WITH THIS:
 
-                        if (dist < 50.0f * vacuumPower) // REMOVED THE LIMIT CAP
+                        if (dist < 50.0f * vacuumPower) 
                         {
-                            // === 1. PHASE 2 DYNAMIC CAPTURE ===
-                            // Resize the dynamic array to fit exactly one more enemy
+                            
+                            // resize the dynamic array to fit exactly one more enemy
                             int *newArr = new int[dynamicCapturedCount + 1];
 
-                            // Copy existing enemies
+                            // copy existing enemies
                             for (int k = 0; k < dynamicCapturedCount; k++)
                             {
                                 newArr[k] = dynamicCapturedEnemies[k];
                             }
 
-                            // Add the new enemy (Preserving its specific type!)
+                            // add the new enemy , preserving its specific type
                             newArr[dynamicCapturedCount] = potEnemyType[pe];
 
-                            // Delete old array and update pointer
+                            // delete old array and update pointer
                             if (dynamicCapturedEnemies != NULL)
                                 delete[] dynamicCapturedEnemies;
                             dynamicCapturedEnemies = newArr;
-                            dynamicCapturedCount++; // Update the Phase 2 counter
+                            dynamicCapturedCount++; // update the Phase 2 counter
 
-                            // === 2. SCORING ===
+                            // scores
                             int capturePoints = 50;
                             if (potEnemyType[pe] == 2)
                                 capturePoints = 75;
@@ -4497,8 +4401,7 @@ int main()
 
                             addScore(playerScore, comboStreak, comboTimer, capturePoints, false, multiKillCount, multiKillTimer, dt);
 
-                            // === 3. REMOVE ENEMY (CRITICAL: KEEP THIS SHIFTING LOGIC) ===
-                            // This part you already had is correct and necessary for Pot Enemies
+                            
                             for (int j = pe; j < potEnemyCount - 1; j++)
                             {
                                 potEnemiesX[j] = potEnemiesX[j + 1];
@@ -4510,7 +4413,7 @@ int main()
                                 potEnemyIsCaught[j] = potEnemyIsCaught[j + 1];
                                 potEnemyType[j] = potEnemyType[j + 1];
 
-                                // Behavior arrays (These would break if you used the generic function)
+                                // behavior arrays 
                                 potEnemyJumpTimer[j] = potEnemyJumpTimer[j + 1];
                                 potEnemyShouldJump[j] = potEnemyShouldJump[j + 1];
                                 potEnemyStableFrames[j] = potEnemyStableFrames[j + 1];
@@ -4521,18 +4424,16 @@ int main()
                                 potEnemyIsShooting[j] = potEnemyIsShooting[j + 1];
                             }
                             potEnemyCount--;
-                            pe--; // Adjust index since we removed an enemy
+                            pe--; // adjust index since we removed an enemy
 
                             cout << "Captured pot enemy! Total Dynamic: " << dynamicCapturedCount << endl;
                         }
                     }
                 }
             }
-            // ============================================================================
-            // END OF POT ENEMY VACUUM HANDLING
-            // ============================================================================
+            
 
-            // Powerup collection
+            // powerup collection
             for (int i = 0; i < powerupCount; i++)
             {
                 if (!powerupActive[i])
@@ -4580,10 +4481,10 @@ int main()
             }
             isMoving = 0;
 
-            // Player collision and physics - use appropriate level map
+            // player collision and physics ,using appropriate level map
             if (currentLevel == 3)
             {
-                // Boss Level uses bossLvl map with different dimensions
+                // boss Level uses bossLvl map with different dimensions
                 playerMovement(bossLvl, player_x, player_y, speed, level3CellSize, PlayerHeight,
                                PlayerWidth, level3Height, level3Width, dt, isMoving, facing);
             }
@@ -4603,7 +4504,7 @@ int main()
                 isJumping = true;
             }
 
-            // Player gravity - use appropriate level map
+            // player gravity , use appropriate level map
             if (currentLevel == 3)
             {
                 player_gravity(bossLvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, level3CellSize, PlayerHeight, PlayerWidth, level3Height, level3Width, dt);
@@ -4613,14 +4514,14 @@ int main()
                 player_gravity(lvl, offset_y, velocityY, onGround, gravity, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, height, width, dt);
             }
 
-            // Apply sliding on slopes (Level 2)
-            // Apply sliding on slopes (Level 2)
+            
+            // apply sliding on slopes (Level 2)
             if (currentLevel == 2)
             {
                 applySliding(lvl, player_x, player_y, PlayerHeight, PlayerWidth, cell_size, height, width, dt, onGround, velocityY);
             }
 
-            // Ghost enemy loop
+            // ghost enemy loop
             for (int i = 0; i < enemyCount; i++)
             {
                 enemiesX[i] += enemySpeed[i] * enemyDirection[i] * dt;
@@ -4653,7 +4554,7 @@ int main()
                 }
             }
 
-            // Skeleton enemy loop
+            // skeleton enemy loop
             for (int i = 0; i < skeletonCount; i++)
             {
                 float newX = skeletonsX[i] + skeletonSpeed[i] * skeletonDirection[i] * dt;
@@ -4741,10 +4642,10 @@ int main()
                 }
             }
 
-            // Level 2 enemy loops
+            // level 2 enemy loops
             if (currentLevel == 2)
             {
-                // Invisible Man loop
+                // invisible Man loop
                 for (int i = 0; i < invisibleCount; i++)
                 {
                     invisibleVisibilityTimer[i] += dt;
@@ -4798,7 +4699,7 @@ int main()
                     }
                 }
 
-                // Chelnov loop
+                // chelnov loop
                 for (int i = 0; i < chelnovCount; i++)
                 {
                     chelnovShootTimer[i] += dt;
@@ -4867,7 +4768,7 @@ int main()
                     }
                 }
 
-                // Chelnov projectile loop
+                // chelnov projectile loop
                 for (int i = 0; i < chelnovProjCount; i++)
                 {
                     if (!chelnovProjActive[i])
@@ -4912,7 +4813,7 @@ int main()
                 }
             }
 
-            // Projectile update loop
+            // projectile update loop
             for (int p = 0; p < projectileCount; p++)
             {
                 if (!projectileActive[p])
@@ -4921,7 +4822,7 @@ int main()
                 projectileLifespan[p] += dt;
                 if (projectileLifespan[p] >= MAX_PROJECTILE_LIFE)
                 {
-                    // Remove old projectile
+                    // remove old projectile
                     projectilesX[p] = projectilesX[projectileCount - 1];
                     projectilesY[p] = projectilesY[projectileCount - 1];
                     projectileType[p] = projectileType[projectileCount - 1];
@@ -4937,7 +4838,7 @@ int main()
                     continue;
                 }
 
-                // Update animation frame
+                // update animation frame
                 projectileAnimCounter[p]++;
                 if (projectileAnimCounter[p] >= projectileAnimSpeed)
                 {
@@ -4949,7 +4850,7 @@ int main()
 
                 float newProjX = projectilesX[p] + projectileSpeed * projectileDirection[p] * dt;
 
-                // Use appropriate level map and dimensions for projectile physics
+                // use appropriate level map and dimensions for projectile physics
                 int useCellSize = (currentLevel == 3) ? level3CellSize : cell_size;
                 int useHeight = (currentLevel == 3) ? level3Height : height;
                 int useWidth = (currentLevel == 3) ? level3Width : width;
@@ -5049,7 +4950,7 @@ int main()
                     continue;
                 }
 
-                // Collision with ghosts
+                // collision with ghosts
                 for (int e = 0; e < enemyCount; e++)
                 {
                     if ((projectilesX[p] < enemiesX[e] + EnemyWidth) &&
@@ -5076,7 +4977,7 @@ int main()
                     }
                 }
 
-                // Collision with skeletons
+                // collision with skeletons
                 for (int s = 0; s < skeletonCount; s++)
                 {
                     if ((projectilesX[p] < skeletonsX[s] + SkeletonWidth) &&
@@ -5109,7 +5010,7 @@ int main()
                     }
                 }
 
-                // Level 2: Collision with Invisible Man and Chelnov
+                // collision with Invisible Man and Chelnov
                 if (currentLevel == 2)
                 {
                     for (int inv = 0; inv < invisibleCount; inv++)
@@ -5151,15 +5052,12 @@ int main()
                     }
                 }
 
-                // ============================================================================
-                // BOSS LEVEL (LEVEL 3) PROJECTILE COLLISIONS
-                // Phase 2: First check pot collision, then boss collision (if pot destroyed)
-                // ============================================================================
+                
                 if (currentLevel == 3)
                 {
                     bool projectileRemoved = false;
 
-                    // --- PROJECTILE COLLISION WITH POT (Phase 1 - before boss appears) ---
+                    // projectile collision with pot
                     if (potActive && !potDestroyed && !projectileRemoved)
                     {
                         if ((projectilesX[p] < potX + potWidth) &&
@@ -5167,7 +5065,7 @@ int main()
                             (projectilesY[p] < potY + potHeight) &&
                             (projectilesY[p] + ProjectileHeight > potY))
                         {
-                            // HIT THE POT!
+                           
                             potHealth--;
                             playerScore += 200;
                             cout << "POT HIT! Health: " << potHealth << "/" << potMaxHealth << endl;
@@ -5181,7 +5079,7 @@ int main()
                                 cout << "POT DESTROYED! Boss will appear soon..." << endl;
                             }
 
-                            // Remove the projectile
+                            // remove the projectile
                             projectilesX[p] = projectilesX[projectileCount - 1];
                             projectilesY[p] = projectilesY[projectileCount - 1];
                             projectileType[p] = projectileType[projectileCount - 1];
@@ -5197,7 +5095,7 @@ int main()
                         }
                     }
 
-                    // --- PROJECTILE COLLISION WITH POT ENEMIES ---
+                    // projectile collision with pot enemies
                     if (!projectileRemoved)
                     {
                         for (int pe = 0; pe < potEnemyCount && !projectileRemoved; pe++)
@@ -5205,8 +5103,8 @@ int main()
                             if (potEnemyIsCaught[pe])
                                 continue;
 
-                            // REVERTED DIMENSIONS
-                            int enemyW = 72, enemyH = 60; // Default (Ghost)
+                            
+                            int enemyW = 72, enemyH = 60; // ghost
                             if (potEnemyType[pe] == 2)
                             {
                                 enemyW = 72;
@@ -5228,7 +5126,7 @@ int main()
                                 (projectilesY[p] < potEnemiesY[pe] + enemyH) &&
                                 (projectilesY[p] + ProjectileHeight > potEnemiesY[pe]))
                             {
-                                // Defeat pot enemy - points based on type
+                                // defeat pot enemy , points based on type
                                 int defeatPoints = 50; // Ghost
                                 if (potEnemyType[pe] == 2)
                                     defeatPoints = 75; // Skeleton
@@ -5241,7 +5139,7 @@ int main()
                                 multiKillCount++;
                                 multiKillTimer = 0.0f;
 
-                                // Remove pot enemy by shifting array (dynamic resize down)
+                                // remove pot enemy by shifting array (dynamic resize down)
                                 for (int j = pe; j < potEnemyCount - 1; j++)
                                 {
                                     potEnemiesX[j] = potEnemiesX[j + 1];
@@ -5261,12 +5159,12 @@ int main()
                         }
                     }
 
-                    // --- PROJECTILE COLLISION WITH BOSS HEAD (Phase 2 - after boss appears) ---
+                    // projectile collision with boss
                     if (bossAppeared && !bossDefeated && !projectileRemoved)
                     {
-                        // Only hits the upper portion of the boss (the head)
+                        // only hits the upper portion of the boss (the head)
                         float bossHeadY = bossY;
-                        float bossHeadHeight = bossHeight * 0.5f; // Head is top half
+                        float bossHeadHeight = bossHeight * 0.5f; // head is top half
 
                         if ((projectilesX[p] < bossX + bossWidth) &&
                             (projectilesX[p] + ProjectileWidth > bossX) &&
@@ -5285,7 +5183,7 @@ int main()
                                 cout << "BOSS DEFEATED!" << endl;
                             }
 
-                            // Remove the projectile
+                            // remove the projectile
                             projectilesX[p] = projectilesX[projectileCount - 1];
                             projectilesY[p] = projectilesY[projectileCount - 1];
                             projectileType[p] = projectileType[projectileCount - 1];
@@ -5301,8 +5199,8 @@ int main()
                         }
                     }
 
-                    // --- PROJECTILE COLLISION WITH TENTACLES ---
-                    // When projectile hits tentacle, minion is REBORN at that spot
+                    // projectile collision with tentacles
+                    
                     if (bossAppeared && !projectileRemoved)
                     {
                         for (int t = 0; t < tentacleCount && !projectileRemoved; t++)
@@ -5315,11 +5213,11 @@ int main()
                                 (projectilesY[p] < tentaclesY[t] + tentacleHeight[t]) &&
                                 (projectilesY[p] + ProjectileHeight > tentaclesY[t]))
                             {
-                                // MINION REBORN AT THIS SPOT!
+                                // minion reborns when projectile will hit the tentacle
                                 if (minionCount < maxMinions)
                                 {
-                                    // === DYNAMIC RESIZING FOR REBIRTH ===
-                                    // 1. Allocate new arrays of size + 1
+                                    // dynamic resizing for reborn
+                                    // allocate new arrays of size + 1
                                     int newSize = minionCount + 1;
                                     float *newX = new float[newSize];
                                     float *newY = new float[newSize];
@@ -5330,7 +5228,7 @@ int main()
                                     bool *newCaught = new bool[newSize];
                                     bool *newFollow = new bool[newSize];
 
-                                    // 2. Copy existing data
+                                    //copy existing data
                                     for (int i = 0; i < minionCount; i++)
                                     {
                                         newX[i] = minionsX[i];
@@ -5343,7 +5241,7 @@ int main()
                                         newFollow[i] = minionFollowingPlayer[i];
                                     }
 
-                                    // 3. Delete old arrays
+                                    // delete old arrays
                                     if (minionsX != NULL)
                                         delete[] minionsX;
                                     if (minionsY != NULL)
@@ -5361,7 +5259,7 @@ int main()
                                     if (minionFollowingPlayer != NULL)
                                         delete[] minionFollowingPlayer;
 
-                                    // 4. Point to new arrays
+                                    // point to new arrays
                                     minionsX = newX;
                                     minionsY = newY;
                                     minionSpeed = newSpeed;
@@ -5371,7 +5269,7 @@ int main()
                                     minionIsCaught = newCaught;
                                     minionFollowingPlayer = newFollow;
 
-                                    // 5. Add new minion at the projectile's location
+                                    // add new minion at the projectile's location
                                     minionsX[minionCount] = projectilesX[p];
                                     minionsY[minionCount] = projectilesY[p];
                                     minionSpeed[minionCount] = 30.0f + (rand() % 20);
@@ -5385,7 +5283,7 @@ int main()
                                     cout << "Minion REBORN from tentacle hit! Total: " << minionCount << endl;
                                 }
 
-                                // Remove the projectile
+                                // remove the projectile
                                 projectilesX[p] = projectilesX[projectileCount - 1];
                                 projectilesY[p] = projectilesY[projectileCount - 1];
                                 projectileType[p] = projectileType[projectileCount - 1];
@@ -5402,7 +5300,7 @@ int main()
                         }
                     }
 
-                    // --- PROJECTILE COLLISION WITH MINIONS (defeats them) ---
+                    // projectile collision with minions
                     if (bossAppeared && !projectileRemoved)
                     {
                         for (int m = 0; m < minionCount; m++)
@@ -5433,13 +5331,10 @@ int main()
                         }
                     }
                 }
-                // ============================================================================
-                // END OF BOSS LEVEL PROJECTILE COLLISIONS
-                // ============================================================================
+                
             }
 
-            // Check if level is complete
-            // Check if level is complete
+           
             // Check if level is complete
             bool allEnemiesDefeated = false;
             if (currentLevel == 1)
@@ -5448,10 +5343,10 @@ int main()
             }
             else if (currentLevel == 2)
             {
-                // For Level 2 with wave spawning, only complete when ALL waves are done
+                // for Level 2 with wave spawning, only complete when all the waves are done
                 if (useWaveSpawning)
                 {
-                    // Level complete only if: all waves spawned AND all enemies defeated
+                    // level complete only if,  all waves spawned and all enemies defeated
                     allEnemiesDefeated = (currentWave >= maxWaves &&
                                           enemyCount == 0 && skeletonCount == 0 &&
                                           invisibleCount == 0 && chelnovCount == 0 &&
@@ -5460,7 +5355,7 @@ int main()
                 }
                 else
                 {
-                    // Original behavior if wave spawning is disabled
+                    // original behavior if wave spawning is disabled
                     allEnemiesDefeated = (enemyCount == 0 && skeletonCount == 0 &&
                                           invisibleCount == 0 && chelnovCount == 0 &&
                                           capturedCount == 0 && chelnovProjCount == 0 &&
@@ -5469,11 +5364,11 @@ int main()
             }
             else if (currentLevel == 3)
             {
-                // Boss level complete when boss is defeated
+                // boss level complete when boss is defeated
                 allEnemiesDefeated = bossDefeated;
             }
 
-            // DEBUG - Print counts every 60 frames
+            
             static int debugCounter = 0;
             debugCounter++;
             if (debugCounter >= 60)
@@ -5561,14 +5456,14 @@ int main()
                             {
                                 currentLevel = 2;
 
-                                // MODIFIED: Enable wave spawning
+                                // enable wave spawning
                                 useWaveSpawning = true;
                                 currentWave = 0;
                                 waveTimer = 0.0f;
                                 for (int i = 0; i < 4; i++)
                                     waveSpawned[i] = false;
 
-                                // Generate level WITHOUT spawning all enemies
+                                // generate level without spawning all enemies
                                 generateLevel2Map(lvl, height, width, cell_size,
                                                   enemiesX, enemiesY, enemySpeed, enemyDirection,
                                                   platformLeftEdge, platformRightEdge, enemyCount,
@@ -5582,7 +5477,7 @@ int main()
                                                   chelnovsX, chelnovsY, chelnovSpeed, chelnovDirection,
                                                   chelnovVelocityY, chelnovOnGround, chelnovShootTimer,
                                                   chelnovIsShooting, chelnovShootPhaseTimer, chelnovCount,
-                                                  false); // DON'T spawn all enemies at once!
+                                                  false); 
 
                                 MAX_CAPACITY = 5;
 
@@ -5619,10 +5514,10 @@ int main()
                             }
                             else if (currentLevel == 2)
                             {
-                                // TRANSITION TO BOSS LEVEL (LEVEL 3)
+                                // transition to boss level
                                 currentLevel = 3;
 
-                                // Allocate dynamic arrays for minions
+                                // allocate dynamic arrays for minions
                                 minionsX = NULL;
                                 minionsY = NULL;
                                 minionSpeed = NULL;
@@ -5645,7 +5540,7 @@ int main()
                                     minionFollowingPlayer[i] = false;
                                 }
 
-                                // Allocate dynamic arrays for tentacles
+                                // allocate dynamic arrays for tentacles
                                 tentaclesX = NULL;
                                 tentaclesY = NULL;
                                 tentacleWidth = NULL;
@@ -5666,7 +5561,7 @@ int main()
                                     tentacleActive[i] = false;
                                 }
 
-                                // Create boss level map
+                               
 
                                 // Create boss level map with proper dimensions
                                 bossLvl = new char *[level3Height];
@@ -5677,8 +5572,8 @@ int main()
                                         bossLvl[i][j] = ' ';
                                 }
 
-                                // Calculate floor row to ensure visibility
-                                int floorRow = level3Height - 3; // Floor at third row from bottom
+                                // calculate floor row to ensure visibility
+                                int floorRow = level3Height - 3; // floor at third row from bottom
                                 float floorY = floorRow * level3CellSize;
 
                                 // Debug information
@@ -5688,26 +5583,26 @@ int main()
                                 cout << "Floor row: " << floorRow << " (Y position: " << floorY << ")" << endl;
                                 cout << "Screen size: " << screen_x << "x" << screen_y << endl;
 
-                                // Create floor (ensure it's within screen bounds)
+                                // Create floor within bounds
                                 for (int j = 0; j < level3Width; j++)
                                 {
-                                    if (floorRow * level3CellSize < screen_y) // Only create if visible
+                                    if (floorRow * level3CellSize < screen_y) // only create if visible
                                         bossLvl[floorRow][j] = '#';
                                 }
 
-                                // Create side walls (ensure right wall is within screen bounds)
+                                // create side walls 
                                 for (int i = 0; i < level3Height; i++)
                                 {
                                     // Left wall
                                     bossLvl[i][0] = '#';
 
-                                    // Right wall (only create if visible)
+                                    // right wall 
                                     if ((level3Width - 1) * level3CellSize < screen_x)
                                         bossLvl[i][level3Width - 1] = '#';
                                 }
 
-                                // Create platforms with proper positioning
-                                // Bottom left platform (row 16)
+                                // creating platforms 
+                               
                                 int platformRow1 = floorRow - 5;
                                 for (int j = 2; j < 8; j++)
                                 {
@@ -5715,14 +5610,14 @@ int main()
                                         bossLvl[platformRow1][j] = '-';
                                 }
 
-                                // Bottom right platform (row 16)
+                                // bottom right platform (row 16)
                                 for (int j = level3Width - 8; j < level3Width - 2; j++)
                                 {
                                     if (platformRow1 * level3CellSize < screen_y)
                                         bossLvl[platformRow1][j] = '-';
                                 }
 
-                                // Middle platform (row 14)
+                                // middle platform (row 14)
                                 int platformRow2 = floorRow - 7;
                                 for (int j = 12; j < 18; j++)
                                 {
@@ -5730,7 +5625,7 @@ int main()
                                         bossLvl[platformRow2][j] = '-';
                                 }
 
-                                // Upper left platform (row 10)
+                                // upper left platform (row 10)
                                 int platformRow3 = floorRow - 11;
                                 for (int j = 3; j < 9; j++)
                                 {
@@ -5738,14 +5633,14 @@ int main()
                                         bossLvl[platformRow3][j] = '-';
                                 }
 
-                                // Upper right platform (row 10)
+                                // upper right platform (row 10)
                                 for (int j = level3Width - 9; j < level3Width - 3; j++)
                                 {
                                     if (platformRow3 * level3CellSize < screen_y)
                                         bossLvl[platformRow3][j] = '-';
                                 }
 
-                                // Top middle platform (row 7)
+                                // top middle platform (row 7)
                                 int platformRow4 = floorRow - 14;
                                 for (int j = 11; j < 19; j++)
                                 {
@@ -5753,14 +5648,14 @@ int main()
                                         bossLvl[platformRow4][j] = '-';
                                 }
 
-                                // Player starting position
+                                // player starting position
                                 player_x = screen_x / 2 - PlayerWidth / 2;
-                                player_y = floorY - PlayerHeight - 5; // Place player just above floor
+                                player_y = floorY - PlayerHeight - 5; // place player just above floor
 
                                 cout << "Level 3 map created successfully!" << endl;
                                 cout << "Player starting position: (" << player_x << ", " << player_y << ")" << endl;
 
-                                // Initialize boss
+                                // initialize boss
                                 bossX = screen_x / 2 - bossWidth / 2;
                                 bossY = 50;
                                 bossHealth = maxBossHealth;
@@ -5770,10 +5665,10 @@ int main()
                                 minionSpawnTimer = 0.0f;
                                 tentacleSpawnTimer = 0.0f;
 
-                                // Player position
+                               
                                 // Player starting position for boss level
                                 player_x = screen_x / 2 - PlayerWidth / 2;
-                                player_y = floorY - PlayerHeight - 5; // Place player just above floor
+                                player_y = floorY - PlayerHeight - 5; // place player just above floor
 
                                 velocityY = 0;
                                 onGround = false;
@@ -5802,7 +5697,7 @@ int main()
                             }
                             else if (currentLevel == 3)
                             {
-                                // GAME COMPLETE - Boss defeated!
+                                // game complete when boss is defeated
                                 restartGame = true;
                                 playagain = true;
                             }
@@ -5845,7 +5740,7 @@ int main()
             if (restartGame)
                 break;
 
-            // Game over logic
+            // game over logic
             if (waitingToRespawn)
             {
                 deathDelayCounter += dt;
@@ -5947,7 +5842,7 @@ int main()
             if (restartGame)
                 break;
 
-            // Rendering
+            // rendering
             if (currentLevel == 1)
             {
                 display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite,
@@ -5962,18 +5857,12 @@ int main()
             }
             else if (currentLevel == 3)
             {
-                // ============================================================================
-                // BOSS LEVEL RENDERING
-                // Phase 2: Draw Pot/Cloud first, then Boss (only if pot destroyed)
-                // ============================================================================
-
-                // Draw background
+                
                 window.draw(bgSprite3);
 
-                // Draw boss level tiles
+               
                 jumpStrength = -180.f;
-                // Draw boss level tiles
-                // Draw boss level tiles
+               
                 // Draw boss level tiles
                 for (int i = 0; i < level3Height; i++)
                 {
@@ -5982,7 +5871,7 @@ int main()
                         if (bossLvl[i][j] == '#' || bossLvl[i][j] == '-')
                         {
                             blockSprite3.setPosition(j * level3CellSize, i * level3CellSize);
-                            // Scale block to fit smaller cell size
+                            
                             float blockScale = (float)level3CellSize / 64.0f;
                             blockSprite3.setScale(blockScale, blockScale);
                             window.draw(blockSprite3);
@@ -5990,9 +5879,7 @@ int main()
                     }
                 }
 
-                // ============================================================================
-                // DRAW CLOUD (always visible - becomes platform after pot destroyed)
-                // ============================================================================
+                
                 cloudSprite.setPosition(cloudX, cloudY);
                 window.draw(cloudSprite);
 
@@ -6008,15 +5895,13 @@ int main()
                     window.draw(cloudBox);
                 }
 
-                // ============================================================================
-                // DRAW POT (only if not destroyed)
-                // ============================================================================
+               
                 if (potActive && !potDestroyed)
                 {
                     potSprite.setPosition(potX, potY);
                     window.draw(potSprite);
 
-                    // Draw Pot Health Bar
+                    // drawing Pot Health Bar
                     RectangleShape potHealthBarBG;
                     potHealthBarBG.setSize(Vector2f(100, 15));
                     potHealthBarBG.setPosition(potX + potWidth / 2 - 50, potY - 25);
@@ -6027,10 +5912,10 @@ int main()
                     float potHealthPercent = (float)potHealth / potMaxHealth;
                     potHealthBar.setSize(Vector2f(100 * potHealthPercent, 15));
                     potHealthBar.setPosition(potX + potWidth / 2 - 50, potY - 25);
-                    potHealthBar.setFillColor(Color(255, 165, 0)); // Orange
+                    potHealthBar.setFillColor(Color(255, 165, 0)); // for orange
                     window.draw(potHealthBar);
 
-                    // Draw pot hitbox (debug)
+                    // draw pot hitbox 
                     RectangleShape potBox;
                     potBox.setSize(Vector2f(potWidth, potHeight));
                     potBox.setPosition(potX, potY);
@@ -6040,10 +5925,10 @@ int main()
                     window.draw(potBox);
                 }
 
-                // Draw pot destruction effect
+               
                 if (potDestroyed && !bossAppeared)
                 {
-                    // Flash effect during destruction
+                    
                     if ((int)(potDestroyTimer * 10) % 2 == 0)
                     {
                         Text destroyText("POT DESTROYED!", font, 50);
@@ -6058,20 +5943,17 @@ int main()
                     window.draw(bossComingText);
                 }
 
-                // ============================================================================
-                // DRAW POT ENEMIES (ghost, skeleton, invisible, chelnov spawned by pot)
-                // ============================================================================
-                // DRAW POT ENEMIES (Animated)
+                
                 for (int pe = 0; pe < potEnemyCount; pe++)
                 {
-                    // Default to Ghost
+                    //  Ghost
                     Texture *currentWalk = ghostWalkTex;
                     Texture *currentSuck = ghostSuckTex;
                     Sprite *s = &EnemySprite;
                     int hW = EnemyWidth;
                     int hH = EnemyHeight;
 
-                    // --- FIX: ASSIGN TEXTURES BASED ON TYPE ---
+                    
                     if (potEnemyType[pe] == 2) // Skeleton
                     {
                         currentWalk = skeletonWalkTex;
@@ -6096,7 +5978,7 @@ int main()
                         hW = ChelnovWidth;
                         hH = ChelnovHeight;
                     }
-                    // ------------------------------------------
+                    
 
                     if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                     {
@@ -6110,15 +5992,13 @@ int main()
                     }
                 }
 
-                // ============================================================================
-                // DRAW POT ENEMY PROJECTILES (Chelnov fireballs)
-                // ============================================================================
+                
                 for (int pp = 0; pp < potEnemyProjCount; pp++)
                 {
                     if (!potEnemyProjActive[pp])
                         continue;
 
-                    // 1. Update Animation
+                    // update Animation
                     potEnemyProjAnimCounter[pp]++;
                     if (potEnemyProjAnimCounter[pp] >= 10)
                     {
@@ -6128,22 +6008,20 @@ int main()
                             potEnemyProjAnimFrame[pp] = 0;
                     }
 
-                    // 2. Set Texture (Reuse the same texture array)
+                    // set Texture (Reuse the same texture array)
                     chelnovProjSprite.setTexture(chelnovProjTex[potEnemyProjAnimFrame[pp]]);
 
-                    // 3. Draw
+                    // draw
                     chelnovProjSprite.setPosition(potEnemyProjX[pp], potEnemyProjY[pp]);
                     window.draw(chelnovProjSprite);
                 }
 
-                // ============================================================================
-                // DRAW BOSS (Octopus) - only after pot is destroyed and boss has appeared
-                // ============================================================================
+                
                 if (bossAppeared && !bossDefeated)
                 {
                     if (bossIsAngry)
                     {
-                        // Try to use angry texture, or tint red if not available
+                        
                         if (bossAngryTexture.getSize().x > 0)
                             bossSprite.setTexture(bossAngryTexture);
                     }
@@ -6154,7 +6032,7 @@ int main()
                     bossSprite.setPosition(bossX, bossY);
                     window.draw(bossSprite);
 
-                    // Draw Boss Health Bar
+                    //  Boss Health Bar
                     RectangleShape healthBarBG;
                     healthBarBG.setSize(Vector2f(200, 20));
                     healthBarBG.setPosition(screen_x / 2 - 100, 20);
@@ -6171,14 +6049,14 @@ int main()
                         healthBar.setFillColor(Color::Green);
                     window.draw(healthBar);
 
-                    // Draw Boss Health Text
+                    //  Boss Health Text
                     Text bossHealthText("BOSS: " + to_string(bossHealth) + "/" + to_string(maxBossHealth), font, 20);
                     bossHealthText.setFillColor(Color::White);
                     bossHealthText.setPosition(screen_x / 2 - 50, 45);
                     window.draw(bossHealthText);
                 }
 
-                // Draw Tentacles (only when boss has appeared)
+                //  Tentacles (only when boss has appeared)
                 if (bossAppeared)
                 {
                     for (int t = 0; t < tentacleCount; t++)
@@ -6190,7 +6068,7 @@ int main()
                         int texID = tentacleTexIndex[t];
                         tentacleSprite.setTexture(tentacleTexArray[texID]);
 
-                        // 2. Scale based on THIS specific texture's size
+                        // scale based on this specific texture's size
                         float tentScaleX = (float)tentacleWidth[t] / tentacleTexArray[texID].getSize().x;
                         float tentScaleY = (float)tentacleHeight[t] / tentacleTexArray[texID].getSize().y;
                         
@@ -6198,7 +6076,7 @@ int main()
                         tentacleSprite.setPosition(tentaclesX[t], tentaclesY[t]);
                         window.draw(tentacleSprite);
 
-                        // Draw tentacle hitbox (debug)
+                        // tentacle hitbox
                         RectangleShape tentBox;
                         tentBox.setSize(Vector2f(tentacleWidth[t], tentacleHeight[t]));
                         tentBox.setPosition(tentaclesX[t], tentaclesY[t]);
@@ -6208,7 +6086,7 @@ int main()
                         window.draw(tentBox);
                     }
 
-                    // Draw Minions (spawned by boss)
+                    // Minions (spawned by boss)
                     for (int m = 0; m < minionCount; m++)
                     {
                         if (minionIsCaught[m])
@@ -6216,7 +6094,7 @@ int main()
 
                         minionSprite.setPosition(minionsX[m], minionsY[m]);
 
-                        // Flip sprite based on direction
+                        // flip sprite based on direction
                         int texW = minionTexture.getSize().x;
                         int texH = minionTexture.getSize().y;
                         if (minionDirection[m] == -1)
@@ -6228,7 +6106,7 @@ int main()
                     }
                 }
 
-                // Draw "ANGRY!" warning when boss is angry
+                // angry warning when boss is angry
                 if (bossAppeared && bossIsAngry && !bossDefeated)
                 {
                     Text angryText("!! BOSS ANGRY - MINIONS FOLLOWING !!", font, 30);
@@ -6237,7 +6115,7 @@ int main()
                     window.draw(angryText);
                 }
 
-                // Draw phase instruction text
+                // phase instruction text
                 if (!bossAppeared)
                 {
                     Text phaseText("Destroy the POT to summon the BOSS!", font, 35);
@@ -6253,7 +6131,7 @@ int main()
             PlayerSprite.setPosition(player_x - Xoffset, player_y - Yoffset);
             window.draw(PlayerSprite);
 
-            // Draw vacuum
+            //  vacuum
             handleVacuum(window, vacSprite, vacTexHorz, vacTexVert,
                          player_x, player_y, PlayerWidth, PlayerHeight, vacDirection, isVacuuming,
                          enemiesX, enemiesY, enemyCount, capturedEnemies, capturedCount, MAX_CAPACITY, 1,
@@ -6266,7 +6144,7 @@ int main()
                          vacFlickerTimer, showVacSprite, dt, skeletonIsCaught, true, vacuumPower,
                          playerScore, comboStreak, comboTimer, multiKillCount, multiKillTimer, hasRangeBoost);
 
-            // Collision box
+            //  box
             RectangleShape collBox;
             collBox.setSize(Vector2f(PlayerWidth, PlayerHeight));
             collBox.setPosition(player_x, player_y);
@@ -6275,7 +6153,7 @@ int main()
             collBox.setOutlineThickness(2);
             window.draw(collBox);
 
-            // Draw ghosts
+            
             // Draw ghosts (Animated)
             for (int i = 0; i < enemyCount; i++)
             {
@@ -6284,12 +6162,12 @@ int main()
                                      ghostAnimFrame[i], ghostAnimCounter[i], 15,
                                      enemyDirection[i], enemyIsCaught[i],
                                      enemiesX[i], enemiesY[i], 2.0f,
-                                     EnemyWidth, EnemyHeight); // <--- Pass Ghost Dimensions
+                                     EnemyWidth, EnemyHeight); 
 
                 window.draw(EnemySprite);
             }
 
-            // Draw skeletons
+            
             // Draw skeletons (Animated)
             for (int i = 0; i < skeletonCount; i++)
             {
@@ -6298,12 +6176,12 @@ int main()
                                      skeletonAnimFrame[i], skeletonAnimCounter[i], 15,
                                      skeletonDirection[i], skeletonIsCaught[i],
                                      skeletonsX[i], skeletonsY[i], 2.0f,
-                                     SkeletonWidth, SkeletonHeight); // <--- Pass Skeleton Dimensions (92px)
+                                     SkeletonWidth, SkeletonHeight); 
 
                 window.draw(SkeletonSprite);
             }
 
-            // Draw Level 2 enemies
+           
             // Draw Level 2 enemies
             if (currentLevel == 2)
             {
@@ -6340,9 +6218,9 @@ int main()
                 {
                     if (chelnovProjActive[i])
                     {
-                        // 1. Update Animation
+                        //update Animation
                         chelnovProjAnimCounter[i]++;
-                        if (chelnovProjAnimCounter[i] >= 10) // Speed is 10. Was 5 but very fast
+                        if (chelnovProjAnimCounter[i] >= 10) 
                         {
                             chelnovProjAnimCounter[i] = 0;
                             chelnovProjAnimFrame[i]++;
@@ -6350,17 +6228,17 @@ int main()
                                 chelnovProjAnimFrame[i] = 0;
                         }
 
-                        // 2. Set Texture
+                        // set Texture
                         chelnovProjSprite.setTexture(chelnovProjTex[chelnovProjAnimFrame[i]]);
 
-                        // 3. Draw
+                        // draw
                         chelnovProjSprite.setPosition(chelnovProjX[i], chelnovProjY[i]);
                         window.draw(chelnovProjSprite);
                     }
                 }
             }
 
-            // Draw projectiles
+            // draw projectiles
             for (int p = 0; p < projectileCount; p++)
             {
                 if (!projectileActive[p])
@@ -6451,7 +6329,7 @@ int main()
             levelText.setString("LEVEL " + to_string(currentLevel));
             window.draw(levelText);
 
-            // NEW: Wave display for Level 2
+            //  Wave display for Level 2
             if (currentLevel == 2 && useWaveSpawning)
             {
                 Text waveText("Wave: " + to_string(currentWave + 1) + "/" + to_string(maxWaves), font, 35);
@@ -6459,7 +6337,7 @@ int main()
                 waveText.setPosition(screen_x / 2 - 100, 60);
                 window.draw(waveText);
 
-                // Show countdown between waves
+                // show countdown between waves
                 if (currentWave < maxWaves && waveSpawned[currentWave] &&
                     enemyCount == 0 && skeletonCount == 0 && invisibleCount == 0 && chelnovCount == 0)
                 {
@@ -6499,7 +6377,7 @@ int main()
 
             window.display();
 
-        } // End of game loop
+        } // end of game loop
 
         lvlMusic.stop();
         lvl2Music.stop();
@@ -6511,7 +6389,7 @@ int main()
         }
         delete[] lvl;
 
-        // Cleanup Boss Level dynamic arrays
+        // cleanup Boss Level dynamic arrays
         if (bossLvl != NULL)
         {
             for (int i = 0; i < level3Height; i++)
@@ -6607,7 +6485,7 @@ int main()
             tentacleTexIndex = NULL;
         }
 
-        // Cleanup pot enemy arrays (Phase 2 dynamic arrays)
+        // cleanup pot enemy arrays (Phase 2 dynamic arrays)
         if (potEnemiesX != NULL)
         {
             delete[] potEnemiesX;
@@ -6653,7 +6531,7 @@ int main()
             delete[] potEnemyType;
             potEnemyType = NULL;
         }
-        // Cleanup pot enemy behavior arrays
+        // cleanup pot enemy behavior arrays
         if (potEnemyJumpTimer != NULL)
         {
             delete[] potEnemyJumpTimer;
@@ -6695,7 +6573,7 @@ int main()
             potEnemyIsShooting = NULL;
         }
 
-        // Cleanup dynamic captured enemies array (Phase 2)
+        // cleanup dynamic captured enemies array (Phase 2)
         if (dynamicCapturedEnemies != NULL)
         {
             delete[] dynamicCapturedEnemies;
@@ -6707,7 +6585,7 @@ int main()
             potEnemyType = NULL;
         }
 
-        // --- ADD CLEANUP ---
+       
         if (potEnemyAnimFrame != NULL)
         {
             delete[] potEnemyAnimFrame;
@@ -6719,7 +6597,7 @@ int main()
             potEnemyAnimCounter = NULL;
         }
 
-    } // End of playagain loop
+    } // end of playagain loop
 
     return 0;
 }

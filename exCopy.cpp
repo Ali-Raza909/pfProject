@@ -426,45 +426,56 @@ void handleVacuum(RenderWindow &window, Sprite &vacSprite,                      
     // Hitbox Variable
     IntRect vacHitbox;
 
-    // --- 3. DIRECTION LOGIC ---
+    // --- 3. DIRECTION LOGIC (UPDATED: SCALING FIX) ---
+    // Calculate scale factors based on texture size vs desired beam size
+    // We multiply by 2.0f because your global scale is 2.0f
+    float scaleX_Horz = (float)beamReach / texHorz.getSize().x * 2.0f;
+    float scaleY_Horz = (float)beamThick / texHorz.getSize().y * 2.0f;
+    float scaleX_Vert = (float)beamThick / texVert.getSize().x * 2.0f; // Width is thickness for vertical
+    float scaleY_Vert = (float)beamReach / texVert.getSize().y * 2.0f; // Height is reach for vertical
 
     if (vacDir == 0) // RIGHT
     {
         vacSprite.setTexture(texHorz, true);
-        // Position: Exact Right Edge (No overlap). Center Vertically.
-        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick / 2);
-        vacSprite.setTextureRect(IntRect(0, 0, beamReach, beamThick));
+        vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); // Full texture
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        
+        vacSprite.setPosition(pX + PlayerWidth, pCenterY - (beamThick * 2.0f) / 2.0f + (beamThick/2.0f)); 
+        // Simplified Pos:
+        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); // Visual alignment
 
-        vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick / 2, beamReach * 2, beamThick * 2);
+        vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
     else if (vacDir == 1) // LEFT
     {
         vacSprite.setTexture(texHorz, true);
-        // Position: Exact Left Edge minus beam length.
-        vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick / 2);
-        // Draw backwards (Visual only)
-        vacSprite.setTextureRect(IntRect(beamReach, 0, -beamReach, beamThick));
+        // Mirror texture without changing size
+        vacSprite.setTextureRect(IntRect(texHorz.getSize().x, 0, -((int)texHorz.getSize().x), texHorz.getSize().y)); 
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        
+        vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick);
 
-        // Hitbox starts to the left of the player
-        vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick / 2, beamReach * 2, beamThick * 2);
+        vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
     else if (vacDir == 2) // UP
     {
         vacSprite.setTexture(texVert, true);
-        // X: Center Horizontal. Y: Exact Top Edge minus beam length.
-        vacSprite.setPosition(pCenterX - beamThick / 2, pY - (beamReach * 2));
-        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
+        vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
+        vacSprite.setScale(scaleX_Vert, scaleY_Vert);
+        
+        vacSprite.setPosition(pCenterX - beamThick, pY - (beamReach * 2));
 
-        vacHitbox = IntRect(pCenterX - beamThick / 2, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
+        vacHitbox = IntRect(pCenterX - beamThick, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
     }
     else if (vacDir == 3) // DOWN
     {
         vacSprite.setTexture(texVert, true);
-        // X: Center Horizontal. Y: Exact Bottom Edge.
-        vacSprite.setPosition(pCenterX - beamThick / 2, pY + PlayerHeight);
-        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
+        vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
+        vacSprite.setScale(scaleX_Vert, scaleY_Vert);
+        
+        vacSprite.setPosition(pCenterX - beamThick, pY + PlayerHeight);
 
-        vacHitbox = IntRect(pCenterX - beamThick / 2, pY + PlayerHeight, beamThick * 2, beamReach * 2);
+        vacHitbox = IntRect(pCenterX - beamThick, pY + PlayerHeight, beamThick * 2, beamReach * 2);
     }
 
     // --- 4. DRAWING PASS ---
@@ -576,33 +587,56 @@ void handleVacuumPhase2(RenderWindow &window, Sprite &vacSprite,
 
     IntRect vacHitbox;
     // Direction Logic
-    if (vacDir == 0)
-    { // RIGHT
+    // --- 3. DIRECTION LOGIC (UPDATED: SCALING FIX) ---
+    // Calculate scale factors based on texture size vs desired beam size
+    // We multiply by 2.0f because your global scale is 2.0f
+    float scaleX_Horz = (float)beamReach / texHorz.getSize().x * 2.0f;
+    float scaleY_Horz = (float)beamThick / texHorz.getSize().y * 2.0f;
+    float scaleX_Vert = (float)beamThick / texVert.getSize().x * 2.0f; // Width is thickness for vertical
+    float scaleY_Vert = (float)beamReach / texVert.getSize().y * 2.0f; // Height is reach for vertical
+
+    if (vacDir == 0) // RIGHT
+    {
         vacSprite.setTexture(texHorz, true);
-        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick / 2);
-        vacSprite.setTextureRect(IntRect(0, 0, beamReach, beamThick));
-        vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick / 2, beamReach * 2, beamThick * 2);
+        vacSprite.setTextureRect(IntRect(0, 0, texHorz.getSize().x, texHorz.getSize().y)); // Full texture
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        
+        vacSprite.setPosition(pX + PlayerWidth, pCenterY - (beamThick * 2.0f) / 2.0f + (beamThick/2.0f)); 
+        // Simplified Pos:
+        vacSprite.setPosition(pX + PlayerWidth, pCenterY - beamThick); // Visual alignment
+
+        vacHitbox = IntRect(pX + PlayerWidth, pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
-    else if (vacDir == 1)
-    { // LEFT
+    else if (vacDir == 1) // LEFT
+    {
         vacSprite.setTexture(texHorz, true);
-        vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick / 2);
-        vacSprite.setTextureRect(IntRect(beamReach, 0, -beamReach, beamThick));
-        vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick / 2, beamReach * 2, beamThick * 2);
+        // Mirror texture without changing size
+        vacSprite.setTextureRect(IntRect(texHorz.getSize().x, 0, -((int)texHorz.getSize().x), texHorz.getSize().y)); 
+        vacSprite.setScale(scaleX_Horz, scaleY_Horz); // Stretch to fit
+        
+        vacSprite.setPosition(pX - (beamReach * 2), pCenterY - beamThick);
+
+        vacHitbox = IntRect(pX - (beamReach * 2), pCenterY - beamThick, beamReach * 2, beamThick * 2);
     }
-    else if (vacDir == 2)
-    { // UP
+    else if (vacDir == 2) // UP
+    {
         vacSprite.setTexture(texVert, true);
-        vacSprite.setPosition(pCenterX - beamThick / 2, pY - (beamReach * 2));
-        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
-        vacHitbox = IntRect(pCenterX - beamThick / 2, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
+        vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
+        vacSprite.setScale(scaleX_Vert, scaleY_Vert);
+        
+        vacSprite.setPosition(pCenterX - beamThick, pY - (beamReach * 2));
+
+        vacHitbox = IntRect(pCenterX - beamThick, pY - (beamReach * 2), beamThick * 2, beamReach * 2);
     }
-    else if (vacDir == 3)
-    { // DOWN
+    else if (vacDir == 3) // DOWN
+    {
         vacSprite.setTexture(texVert, true);
-        vacSprite.setPosition(pCenterX - beamThick / 2, pY + PlayerHeight);
-        vacSprite.setTextureRect(IntRect(0, 0, beamThick, beamReach));
-        vacHitbox = IntRect(pCenterX - beamThick / 2, pY + PlayerHeight, beamThick * 2, beamReach * 2);
+        vacSprite.setTextureRect(IntRect(0, 0, texVert.getSize().x, texVert.getSize().y));
+        vacSprite.setScale(scaleX_Vert, scaleY_Vert);
+        
+        vacSprite.setPosition(pCenterX - beamThick, pY + PlayerHeight);
+
+        vacHitbox = IntRect(pCenterX - beamThick, pY + PlayerHeight, beamThick * 2, beamReach * 2);
     }
 
     if (drawOnly)
@@ -3734,7 +3768,7 @@ int main()
 
                             // === 2. CALCULATE EDGE SPAWN & SELECT TEXTURE ===
                             int side = rand() % 4; // 0=Top, 1=Bottom, 2=Left, 3=Right
-                            int fixedThickness = 180; 
+                            int fixedThickness = 1; 
                             int fixedLength = 180;
 
                             int tW, tH;
@@ -4155,9 +4189,13 @@ int main()
             if (Keyboard::isKeyPressed(Keyboard::R) && !rKeyPressed)
             {
                 rKeyPressed = true;
-                if (capturedCount > 0 && !burstModeActive)
+                
+                // FIX: Check the correct counter based on the level
+                int currentStored = (currentLevel == 3) ? dynamicCapturedCount : capturedCount;
+
+                if (currentStored > 0 && !burstModeActive)
                 {
-                    if (capturedCount >= 3)
+                    if (currentStored >= 3)
                         playerScore += 300;
                     burstModeActive = true;
                     burstFrameCounter = 0;
@@ -4175,46 +4213,118 @@ int main()
                 if (burstFrameCounter >= BURST_FRAME_DELAY)
                 {
                     burstFrameCounter = 0;
-                    if (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
+
+                    // === LEVEL 3 BURST LOGIC (Dynamic Memory) ===
+                    if (currentLevel == 3)
                     {
-                        capturedCount--;
-                        int enemyTypeToRelease = capturedEnemies[capturedCount];
-
-                        projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
-                        projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
-                        projectileType[projectileCount] = enemyTypeToRelease;
-                        projectileActive[projectileCount] = true;
-                        projectileAnimFrame[projectileCount] = 0;
-                        projectileAnimCounter[projectileCount] = 0;
-                        projectileVelocityY[projectileCount] = 0;
-                        projectileOnGround[projectileCount] = false;
-                        projectileLifespan[projectileCount] = 0.0f;
-
-                        if (burstReleaseDirection == 0)
+                        if (dynamicCapturedCount > 0 && projectileCount < MAX_PROJECTILES)
                         {
-                            projectileDirection[projectileCount] = 1;
+                            // 1. Get last captured enemy from DYNAMIC array
+                            int enemyTypeToRelease = dynamicCapturedEnemies[dynamicCapturedCount - 1];
+
+                            // 2. Spawn Projectile
+                            projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
+                            projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
+                            projectileType[projectileCount] = enemyTypeToRelease;
+                            projectileActive[projectileCount] = true;
+                            projectileAnimFrame[projectileCount] = 0;
+                            projectileAnimCounter[projectileCount] = 0;
                             projectileVelocityY[projectileCount] = 0;
-                        }
-                        else if (burstReleaseDirection == 1)
-                        {
-                            projectileDirection[projectileCount] = -1;
-                            projectileVelocityY[projectileCount] = 0;
-                        }
-                        else if (burstReleaseDirection == 2)
-                        {
-                            projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
-                            projectileVelocityY[projectileCount] = -200.0f;
-                        }
-                        else if (burstReleaseDirection == 3)
-                        {
-                            projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
-                            projectileVelocityY[projectileCount] = 200.0f;
+                            projectileOnGround[projectileCount] = false;
+                            projectileLifespan[projectileCount] = 0.0f;
+
+                            // Burst direction logic
+                            if (burstReleaseDirection == 0)
+                            {
+                                projectileDirection[projectileCount] = 1;
+                                projectileVelocityY[projectileCount] = 0;
+                            }
+                            else if (burstReleaseDirection == 1)
+                            {
+                                projectileDirection[projectileCount] = -1;
+                                projectileVelocityY[projectileCount] = 0;
+                            }
+                            else if (burstReleaseDirection == 2)
+                            {
+                                projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
+                                projectileVelocityY[projectileCount] = -200.0f;
+                            }
+                            else if (burstReleaseDirection == 3)
+                            {
+                                projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
+                                projectileVelocityY[projectileCount] = 200.0f;
+                            }
+
+                            projectileCount++;
+
+                            // 3. Remove from dynamic array (Shrink Memory)
+                            dynamicCapturedCount--;
+
+                            if (dynamicCapturedCount == 0)
+                            {
+                                delete[] dynamicCapturedEnemies;
+                                dynamicCapturedEnemies = nullptr;
+                            }
+                            else
+                            {
+                                int *newArr = new int[dynamicCapturedCount];
+                                for (int k = 0; k < dynamicCapturedCount; k++)
+                                {
+                                    newArr[k] = dynamicCapturedEnemies[k];
+                                }
+                                delete[] dynamicCapturedEnemies;
+                                dynamicCapturedEnemies = newArr;
+                            }
                         }
 
-                        projectileCount++;
+                        // Stop burst if empty
+                        if (dynamicCapturedCount <= 0)
+                            burstModeActive = false;
                     }
-                    if (capturedCount <= 0)
-                        burstModeActive = false;
+                    // === LEVEL 1 & 2 BURST LOGIC (Static Memory) ===
+                    else
+                    {
+                        if (capturedCount > 0 && projectileCount < MAX_PROJECTILES)
+                        {
+                            capturedCount--;
+                            int enemyTypeToRelease = capturedEnemies[capturedCount];
+
+                            projectilesX[projectileCount] = player_x + PlayerWidth / 2 - ProjectileWidth / 2;
+                            projectilesY[projectileCount] = player_y + PlayerHeight / 2 - ProjectileHeight / 2;
+                            projectileType[projectileCount] = enemyTypeToRelease;
+                            projectileActive[projectileCount] = true;
+                            projectileAnimFrame[projectileCount] = 0;
+                            projectileAnimCounter[projectileCount] = 0;
+                            projectileVelocityY[projectileCount] = 0;
+                            projectileOnGround[projectileCount] = false;
+                            projectileLifespan[projectileCount] = 0.0f;
+
+                            if (burstReleaseDirection == 0)
+                            {
+                                projectileDirection[projectileCount] = 1;
+                                projectileVelocityY[projectileCount] = 0;
+                            }
+                            else if (burstReleaseDirection == 1)
+                            {
+                                projectileDirection[projectileCount] = -1;
+                                projectileVelocityY[projectileCount] = 0;
+                            }
+                            else if (burstReleaseDirection == 2)
+                            {
+                                projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
+                                projectileVelocityY[projectileCount] = -200.0f;
+                            }
+                            else if (burstReleaseDirection == 3)
+                            {
+                                projectileDirection[projectileCount] = (burstPlayerFacing == 1) ? 1 : -1;
+                                projectileVelocityY[projectileCount] = 200.0f;
+                            }
+
+                            projectileCount++;
+                        }
+                        if (capturedCount <= 0)
+                            burstModeActive = false;
+                    }
                 }
             }
 

@@ -98,7 +98,7 @@ void updatePlayerAnimation(Sprite &PlayerSprite, int facing, int isMoving, bool 
 // FIXED ANIMATION FUNCTION: Aligns feet to the collision floor (60px down)
 // FINAL FIX: Aligns visuals to the exact collision box provided
 void updateEnemyAnimation(Sprite &sprite, float dt,
-                          Texture *walkTextures, Texture *suckTextures, 
+                          Texture *walkTextures, Texture *suckTextures,
                           int &animFrame, int &animCounter, int animSpeed,
                           int direction, bool isCaught,
                           float x, float y, float scale,
@@ -110,29 +110,30 @@ void updateEnemyAnimation(Sprite &sprite, float dt,
     {
         animCounter = 0;
         animFrame++;
-        if (animFrame >= 4) animFrame = 0;
+        if (animFrame >= 4)
+            animFrame = 0;
     }
 
     // 2. Select Texture
-    Texture* currentTex;
-    if (isCaught) 
+    Texture *currentTex;
+    if (isCaught)
         currentTex = &suckTextures[animFrame];
-    else 
+    else
         currentTex = &walkTextures[animFrame];
 
     sprite.setTexture(*currentTex, true);
-    
+
     // 3. Get REAL size
     int texW = currentTex->getSize().x;
     int texH = currentTex->getSize().y;
 
     // 4. Position & Scale Logic
-    
+
     // CENTER X: Centers the sprite horizontally on the hitbox
     float offsetX = (logicalWidth - texW * scale) / 2.0f;
-    
+
     // ALIGN Y: Anchors the sprite's feet to the bottom of the hitbox
-    float offsetY = logicalHeight - (texH * scale); 
+    float offsetY = logicalHeight - (texH * scale);
 
     // Apply
     sprite.setPosition(x + offsetX, y + offsetY);
@@ -1391,13 +1392,11 @@ int main()
         int level3Height = 21;   // 14 * 1.5 = 21
         int level3Width = 30;    // 20 * 1.5 = 30
         int level3CellSize = 42; // 64 / 1.5 ≈ 42 to fit same screen
-        
-        
-        // Calculate floor row to be visible on screen
-int floorRow = level3Height - 3;  // Adjusted to ensure visibility
-float floorY = floorRow * level3CellSize;
 
-        
+        // Calculate floor row to be visible on screen
+        int floorRow = level3Height - 3; // Adjusted to ensure visibility
+        float floorY = floorRow * level3CellSize;
+
         // Boss level map (separate from regular lvl)
         char **bossLvl = NULL;
 
@@ -1415,7 +1414,7 @@ float floorY = floorRow * level3CellSize;
         int potWidth = 80;
         int potHeight = 80;
         float potEnemySpawnTimer = 0.0f;
-        float potEnemySpawnInterval = 4.0f; // Spawn enemy every 4 seconds
+        float potEnemySpawnInterval = 8.0f; // Spawn enemy every 4 seconds
         bool potDestroyed = false;          // Visual feedback when destroyed
         float potDestroyTimer = 0.0f;       // Timer for destruction animation
 
@@ -1447,6 +1446,10 @@ float floorY = floorRow * level3CellSize;
         float *potEnemyVelocityX = NULL; // ADD THIS LINE
         bool *potEnemyIsCaught = NULL;
         int *potEnemyType = NULL; // 1=ghost, 2=skeleton, 3=invisible, 4=chelnov
+
+        int *potEnemyAnimFrame = NULL;   // Tracks current frame (0-3)
+        int *potEnemyAnimCounter = NULL; // Tracks speed
+
         int potEnemyCount = 0;
         int potEnemyCapacity = 0; // Current allocated capacity
 
@@ -1467,6 +1470,9 @@ float floorY = floorRow * level3CellSize;
         int potEnemyProjDirection[20];
         bool potEnemyProjActive[20];
         int potEnemyProjCount = 0;
+
+        int potEnemyProjAnimFrame[20];
+        int potEnemyProjAnimCounter[20];
 
         // ============================================================================
         // DYNAMIC CAPTURED ENEMIES ARRAY (Phase 2 requirement)
@@ -1766,8 +1772,8 @@ float floorY = floorRow * level3CellSize;
         int menuSelectedLevel = 1;
         Text selectionIndicator(">", font, 50);
         selectionIndicator.setFillColor(Color::Yellow);
-        selectionIndicator.setPosition(110,400);
-        
+        selectionIndicator.setPosition(110, 400);
+
         bool levelSelected = false;
 
         // Level selection happens here
@@ -2220,18 +2226,23 @@ float floorY = floorRow * level3CellSize;
         bool chelnovProjActive[maxChelnovProjectiles];
         int chelnovProjCount = 0;
 
+        int chelnovProjAnimFrame[maxChelnovProjectiles];
+        int chelnovProjAnimCounter[maxChelnovProjectiles];
+
         for (int i = 0; i < maxChelnovProjectiles; i++)
             chelnovProjActive[i] = false;
 
-        Texture chelnovProjTexture;
+        Texture chelnovProjTex[4];
         Sprite chelnovProjSprite;
 
-        if (!chelnovProjTexture.loadFromFile("Data/fireball.png"))
-        {
-            chelnovProjTexture.loadFromFile("Data/ghost.png");
-        }
-        chelnovProjSprite.setTexture(chelnovProjTexture);
-        chelnovProjSprite.setScale(1.5f, 1.5f);
+        // Load 4 frames (Make sure these files exist in Data/chelnov/)
+        // If you don't have them yet, copy fireball.png 4 times and rename them.
+        if (!chelnovProjTex[0].loadFromFile("Data/chelnov/fireball1.png")) chelnovProjTex[0].loadFromFile("Data/ghost.png");
+        if (!chelnovProjTex[1].loadFromFile("Data/chelnov/fireball2.png")) chelnovProjTex[1] = chelnovProjTex[0];
+        if (!chelnovProjTex[2].loadFromFile("Data/chelnov/fireball3.png")) chelnovProjTex[2] = chelnovProjTex[0];
+        if (!chelnovProjTex[3].loadFromFile("Data/chelnov/fireball4.png")) chelnovProjTex[3] = chelnovProjTex[0];
+
+        chelnovProjSprite.setScale(2.5f, 2.5f);
 
         bool onGround = false;
 
@@ -2748,45 +2759,42 @@ float floorY = floorRow * level3CellSize;
             // BOSS LEVEL MAP CREATION - FIXED LAYOUT
             // Floor properly positioned, side walls complete
             // ============================================================================
- 
-// Boss level map (separate from regular lvl)
-// Level 3 specific dimensions (1.5x scaling)
 
+            // Boss level map (separate from regular lvl)
+            // Level 3 specific dimensions (1.5x scaling)
 
-// Boss level map (separate from regular lvl)
-bossLvl = new char*[level3Height];
-for (int i = 0; i < level3Height; i++)
-{
-    bossLvl[i] = new char[level3Width];
-    for (int j = 0; j < level3Width; j++)
-        bossLvl[i][j] = ' ';
-}
+            // Boss level map (separate from regular lvl)
+            bossLvl = new char *[level3Height];
+            for (int i = 0; i < level3Height; i++)
+            {
+                bossLvl[i] = new char[level3Width];
+                for (int j = 0; j < level3Width; j++)
+                    bossLvl[i][j] = ' ';
+            }
 
-// Boss level layout
-for (int j = 0; j < level3Width; j++)
-    bossLvl[level3Height - 3][j] = '#';
+            // Boss level layout
+            for (int j = 0; j < level3Width; j++)
+                bossLvl[level3Height - 3][j] = '#';
 
-for (int i = 0; i < level3Height - 3; i++)
-{
-    bossLvl[i][0] = '#';
-    bossLvl[i][level3Width - 2] = '#';
-}
+            for (int i = 0; i < level3Height - 3; i++)
+            {
+                bossLvl[i][0] = '#';
+                bossLvl[i][level3Width - 2] = '#';
+            }
 
-// Platforms
-for (int j = 2; j < 8; j++)
-    bossLvl[level3Height - 8][j] = '-';
-for (int j = level3Width - 8; j < level3Width - 2; j++)
-    bossLvl[level3Height - 8][j] = '-';
-for (int j = 12; j < 18; j++)
-    bossLvl[level3Height - 6][j] = '-';
-for (int j = 3; j < 9; j++)
-    bossLvl[level3Height - 12][j] = '-';
-for (int j = level3Width - 9; j < level3Width - 3; j++)
-    bossLvl[level3Height - 12][j] = '-';
-for (int j = 11; j < 19; j++)
-    bossLvl[level3Height - 15][j] = '-';
-
-
+            // Platforms
+            for (int j = 2; j < 8; j++)
+                bossLvl[level3Height - 8][j] = '-';
+            for (int j = level3Width - 8; j < level3Width - 2; j++)
+                bossLvl[level3Height - 8][j] = '-';
+            for (int j = 12; j < 18; j++)
+                bossLvl[level3Height - 6][j] = '-';
+            for (int j = 3; j < 9; j++)
+                bossLvl[level3Height - 12][j] = '-';
+            for (int j = level3Width - 9; j < level3Width - 3; j++)
+                bossLvl[level3Height - 12][j] = '-';
+            for (int j = 11; j < 19; j++)
+                bossLvl[level3Height - 15][j] = '-';
 
             // Initialize dynamic captured enemies array for Phase 2
             dynamicCapturedCount = 0;
@@ -2933,8 +2941,11 @@ for (int j = 11; j < 19; j++)
                     {
                         potEnemySpawnTimer = 0.0f;
 
-                        // Dynamically resize pot enemy arrays (add 1 capacity)
+                        // 1. Define new capacity and type FIRST
                         int newCapacity = potEnemyCapacity + 1;
+                        int enemyTypeToSpawn = 1 + (rand() % 4); // 1=ghost, 2=skeleton, 3=invisible, 4=chelnov
+
+                        // 2. Allocate ALL new arrays (Standard + Animation)
                         float *newX = new float[newCapacity];
                         float *newY = new float[newCapacity];
                         float *newSpeed = new float[newCapacity];
@@ -2944,7 +2955,8 @@ for (int j = 11; j < 19; j++)
                         float *newVelX = new float[newCapacity]; 
                         bool *newCaught = new bool[newCapacity];
                         int *newType = new int[newCapacity];
-                        // New behavior arrays
+                        
+                        // Behavior arrays
                         float *newJumpTimer = new float[newCapacity];
                         bool *newShouldJump = new bool[newCapacity];
                         int *newStableFrames = new int[newCapacity];
@@ -2954,7 +2966,11 @@ for (int j = 11; j < 19; j++)
                         float *newShootTimer = new float[newCapacity];
                         bool *newIsShooting = new bool[newCapacity];
 
-                        // Copy existing data
+                        // --- NEW ANIMATION ARRAYS ---
+                        int *newAnimFrame = new int[newCapacity];
+                        int *newAnimCounter = new int[newCapacity];
+
+                        // 3. Copy existing data
                         for (int i = 0; i < potEnemyCount; i++)
                         {
                             newX[i] = potEnemiesX[i];
@@ -2966,62 +2982,47 @@ for (int j = 11; j < 19; j++)
                             newVelX[i] = potEnemyVelocityX[i];
                             newCaught[i] = potEnemyIsCaught[i];
                             newType[i] = potEnemyType[i];
-                            // Copy behavior data
-                            if (potEnemyJumpTimer != NULL)
-                                newJumpTimer[i] = potEnemyJumpTimer[i];
-                            if (potEnemyShouldJump != NULL)
-                                newShouldJump[i] = potEnemyShouldJump[i];
-                            if (potEnemyStableFrames != NULL)
-                                newStableFrames[i] = potEnemyStableFrames[i];
-                            if (potEnemyIsVisible != NULL)
-                                newIsVisible[i] = potEnemyIsVisible[i];
-                            if (potEnemyVisibilityTimer != NULL)
-                                newVisTimer[i] = potEnemyVisibilityTimer[i];
-                            if (potEnemyTeleportTimer != NULL)
-                                newTeleTimer[i] = potEnemyTeleportTimer[i];
-                            if (potEnemyShootTimer != NULL)
-                                newShootTimer[i] = potEnemyShootTimer[i];
-                            if (potEnemyIsShooting != NULL)
-                                newIsShooting[i] = potEnemyIsShooting[i];
+
+                            // Copy behaviors
+                            if (potEnemyJumpTimer != NULL) newJumpTimer[i] = potEnemyJumpTimer[i];
+                            if (potEnemyShouldJump != NULL) newShouldJump[i] = potEnemyShouldJump[i];
+                            if (potEnemyStableFrames != NULL) newStableFrames[i] = potEnemyStableFrames[i];
+                            if (potEnemyIsVisible != NULL) newIsVisible[i] = potEnemyIsVisible[i];
+                            if (potEnemyVisibilityTimer != NULL) newVisTimer[i] = potEnemyVisibilityTimer[i];
+                            if (potEnemyTeleportTimer != NULL) newTeleTimer[i] = potEnemyTeleportTimer[i];
+                            if (potEnemyShootTimer != NULL) newShootTimer[i] = potEnemyShootTimer[i];
+                            if (potEnemyIsShooting != NULL) newIsShooting[i] = potEnemyIsShooting[i];
+
+                            // --- COPY ANIMATION DATA ---
+                            if (potEnemyAnimFrame != NULL) newAnimFrame[i] = potEnemyAnimFrame[i];
+                            if (potEnemyAnimCounter != NULL) newAnimCounter[i] = potEnemyAnimCounter[i];
                         }
 
-                        // Delete old arrays
-                        if (potEnemiesX != NULL)
-                            delete[] potEnemiesX;
-                        if (potEnemiesY != NULL)
-                            delete[] potEnemiesY;
-                        if (potEnemySpeed != NULL)
-                            delete[] potEnemySpeed;
-                        if (potEnemyDirection != NULL)
-                            delete[] potEnemyDirection;
-                        if (potEnemyVelocityY != NULL)
-                            delete[] potEnemyVelocityY;
-                        if (potEnemyOnGround != NULL)
-                            delete[] potEnemyOnGround;
-                        if (potEnemyVelocityX != NULL)
-                            delete[] potEnemyVelocityX;     
-                        if (potEnemyIsCaught != NULL)
-                            delete[] potEnemyIsCaught;
-                        if (potEnemyType != NULL)
-                            delete[] potEnemyType;
-                        if (potEnemyJumpTimer != NULL)
-                            delete[] potEnemyJumpTimer;
-                        if (potEnemyShouldJump != NULL)
-                            delete[] potEnemyShouldJump;
-                        if (potEnemyStableFrames != NULL)
-                            delete[] potEnemyStableFrames;
-                        if (potEnemyIsVisible != NULL)
-                            delete[] potEnemyIsVisible;
-                        if (potEnemyVisibilityTimer != NULL)
-                            delete[] potEnemyVisibilityTimer;
-                        if (potEnemyTeleportTimer != NULL)
-                            delete[] potEnemyTeleportTimer;
-                        if (potEnemyShootTimer != NULL)
-                            delete[] potEnemyShootTimer;
-                        if (potEnemyIsShooting != NULL)
-                            delete[] potEnemyIsShooting;
+                        // 4. Delete old arrays
+                        if (potEnemiesX != NULL) delete[] potEnemiesX;
+                        if (potEnemiesY != NULL) delete[] potEnemiesY;
+                        if (potEnemySpeed != NULL) delete[] potEnemySpeed;
+                        if (potEnemyDirection != NULL) delete[] potEnemyDirection;
+                        if (potEnemyVelocityY != NULL) delete[] potEnemyVelocityY;
+                        if (potEnemyOnGround != NULL) delete[] potEnemyOnGround;
+                        if (potEnemyVelocityX != NULL) delete[] potEnemyVelocityX;     
+                        if (potEnemyIsCaught != NULL) delete[] potEnemyIsCaught;
+                        if (potEnemyType != NULL) delete[] potEnemyType;
+                        
+                        if (potEnemyJumpTimer != NULL) delete[] potEnemyJumpTimer;
+                        if (potEnemyShouldJump != NULL) delete[] potEnemyShouldJump;
+                        if (potEnemyStableFrames != NULL) delete[] potEnemyStableFrames;
+                        if (potEnemyIsVisible != NULL) delete[] potEnemyIsVisible;
+                        if (potEnemyVisibilityTimer != NULL) delete[] potEnemyVisibilityTimer;
+                        if (potEnemyTeleportTimer != NULL) delete[] potEnemyTeleportTimer;
+                        if (potEnemyShootTimer != NULL) delete[] potEnemyShootTimer;
+                        if (potEnemyIsShooting != NULL) delete[] potEnemyIsShooting;
 
-                        // Assign new arrays
+                        // --- DELETE ANIMATION ARRAYS ---
+                        if (potEnemyAnimFrame != NULL) delete[] potEnemyAnimFrame;
+                        if (potEnemyAnimCounter != NULL) delete[] potEnemyAnimCounter;
+
+                        // 5. Assign new arrays
                         potEnemiesX = newX;
                         potEnemiesY = newY;
                         potEnemySpeed = newSpeed;
@@ -3031,6 +3032,7 @@ for (int j = 11; j < 19; j++)
                         potEnemyVelocityX = newVelX;
                         potEnemyIsCaught = newCaught;
                         potEnemyType = newType;
+                        
                         potEnemyJumpTimer = newJumpTimer;
                         potEnemyShouldJump = newShouldJump;
                         potEnemyStableFrames = newStableFrames;
@@ -3039,69 +3041,74 @@ for (int j = 11; j < 19; j++)
                         potEnemyTeleportTimer = newTeleTimer;
                         potEnemyShootTimer = newShootTimer;
                         potEnemyIsShooting = newIsShooting;
+
+                        // --- ASSIGN ANIMATION ARRAYS ---
+                        potEnemyAnimFrame = newAnimFrame;
+                        potEnemyAnimCounter = newAnimCounter;
+
                         potEnemyCapacity = newCapacity;
 
-                        // Add new enemy - random type (1=ghost, 2=skeleton, 3=invisible, 4=chelnov)
-                       // Add new enemy - random type (1=ghost, 2=skeleton, 3=invisible, 4=chelnov)
-int enemyTypeToSpawn = 1 + (rand() % 4);
+                        // 6. Initialize New Enemy Logic
+                        int spawnDirection = rand() % 5;
 
-// Spawn in random direction (0=down, 1=left, 2=right, 3=up-left, 4=up-right)
-// Spawn in random direction with horizontal velocity
-int spawnDirection = rand() % 5;
+                        if (spawnDirection == 0) // DOWN
+                        {
+                            potEnemiesX[potEnemyCount] = potX + potWidth / 2 - 30;
+                            potEnemiesY[potEnemyCount] = potY + potHeight;
+                            potEnemyVelocityY[potEnemyCount] = 100.0f;
+                            potEnemyVelocityX[potEnemyCount] = 0.0f;
+                        }
+                        else if (spawnDirection == 1) // LEFT
+                        {
+                            potEnemiesX[potEnemyCount] = potX - 50;
+                            potEnemiesY[potEnemyCount] = potY + potHeight / 2;
+                            potEnemyVelocityY[potEnemyCount] = -150.0f;
+                            potEnemyVelocityX[potEnemyCount] = -200.0f; 
+                        }
+                        else if (spawnDirection == 2) // RIGHT
+                        {
+                            potEnemiesX[potEnemyCount] = potX + potWidth + 50;
+                            potEnemiesY[potEnemyCount] = potY + potHeight / 2;
+                            potEnemyVelocityY[potEnemyCount] = -150.0f;
+                            potEnemyVelocityX[potEnemyCount] = 200.0f; 
+                        }
+                        else if (spawnDirection == 3) // UP-LEFT
+                        {
+                            potEnemiesX[potEnemyCount] = potX + potWidth / 4;
+                            potEnemiesY[potEnemyCount] = potY;
+                            potEnemyVelocityY[potEnemyCount] = -200.0f;
+                            potEnemyVelocityX[potEnemyCount] = -150.0f; 
+                        }
+                        else // UP-RIGHT
+                        {
+                            potEnemiesX[potEnemyCount] = potX + (potWidth * 3 / 4);
+                            potEnemiesY[potEnemyCount] = potY;
+                            potEnemyVelocityY[potEnemyCount] = -200.0f;
+                            potEnemyVelocityX[potEnemyCount] = 150.0f; 
+                        }
 
-if (spawnDirection == 0) // DOWN
-{
-    potEnemiesX[potEnemyCount] = potX + potWidth / 2 - 30;
-    potEnemiesY[potEnemyCount] = potY + potHeight;
-    potEnemyVelocityY[potEnemyCount] = 100.0f;
-    potEnemyVelocityX[potEnemyCount] = 0.0f;
-}
-else if (spawnDirection == 1) // LEFT
-{
-    potEnemiesX[potEnemyCount] = potX - 50;
-    potEnemiesY[potEnemyCount] = potY + potHeight / 2;
-    potEnemyVelocityY[potEnemyCount] = -150.0f;
-    potEnemyVelocityX[potEnemyCount] = -200.0f; // Move left
-}
-else if (spawnDirection == 2) // RIGHT
-{
-    potEnemiesX[potEnemyCount] = potX + potWidth + 50;
-    potEnemiesY[potEnemyCount] = potY + potHeight / 2;
-    potEnemyVelocityY[potEnemyCount] = -150.0f;
-    potEnemyVelocityX[potEnemyCount] = 200.0f; // Move right
-}
-else if (spawnDirection == 3) // UP-LEFT
-{
-    potEnemiesX[potEnemyCount] = potX + potWidth / 4;
-    potEnemiesY[potEnemyCount] = potY;
-    potEnemyVelocityY[potEnemyCount] = -200.0f;
-    potEnemyVelocityX[potEnemyCount] = -150.0f; // Move left
-}
-else // UP-RIGHT
-{
-    potEnemiesX[potEnemyCount] = potX + (potWidth * 3 / 4);
-    potEnemiesY[potEnemyCount] = potY;
-    potEnemyVelocityY[potEnemyCount] = -200.0f;
-    potEnemyVelocityX[potEnemyCount] = 150.0f; // Move right
-}
-
-potEnemySpeed[potEnemyCount] = 40.0f + (rand() % 30);
-potEnemyDirection[potEnemyCount] = (spawnDirection == 1 || spawnDirection == 3) ? -1 : 1;
+                        potEnemySpeed[potEnemyCount] = 40.0f + (rand() % 30);
+                        potEnemyDirection[potEnemyCount] = (spawnDirection == 1 || spawnDirection == 3) ? -1 : 1;
                         potEnemyOnGround[potEnemyCount] = false;
                         potEnemyIsCaught[potEnemyCount] = false;
                         potEnemyType[potEnemyCount] = enemyTypeToSpawn;
-                        // Initialize behavior values
+
+                        // Initialize behaviors
                         potEnemyJumpTimer[potEnemyCount] = 0.0f;
                         potEnemyShouldJump[potEnemyCount] = false;
                         potEnemyStableFrames[potEnemyCount] = 0;
-                        potEnemyIsVisible[potEnemyCount] = true; // Invisible man starts visible
+                        potEnemyIsVisible[potEnemyCount] = true;
                         potEnemyVisibilityTimer[potEnemyCount] = 0.0f;
                         potEnemyTeleportTimer[potEnemyCount] = 0.0f;
                         potEnemyShootTimer[potEnemyCount] = 0.0f;
                         potEnemyIsShooting[potEnemyCount] = false;
-                        potEnemyCount++;
 
-                        cout << "Pot spawned enemy type " << enemyTypeToSpawn << "! Total pot enemies: " << potEnemyCount << endl;
+                        // --- INITIALIZE ANIMATION ---
+                        potEnemyAnimFrame[potEnemyCount] = 0;
+                        potEnemyAnimCounter[potEnemyCount] = 0;
+
+                        potEnemyCount++;
+                        cout << "Pot spawned enemy type " << enemyTypeToSpawn << "! Total: " << potEnemyCount << endl;
                     }
 
                     // --- POT COLLISION WITH PLAYER ---
@@ -3243,6 +3250,10 @@ potEnemyDirection[potEnemyCount] = (spawnDirection == 1 || spawnDirection == 3) 
                                 potEnemyProjY[potEnemyProjCount] = potEnemiesY[pe] + enemyH / 2;
                                 potEnemyProjDirection[potEnemyProjCount] = potEnemyDirection[pe];
                                 potEnemyProjActive[potEnemyProjCount] = true;
+
+                                potEnemyProjAnimFrame[potEnemyProjCount] = 0;
+                                potEnemyProjAnimCounter[potEnemyProjCount] = 0;
+
                                 potEnemyProjCount++;
                             }
                         }
@@ -3258,21 +3269,20 @@ potEnemyDirection[potEnemyCount] = (spawnDirection == 1 || spawnDirection == 3) 
                     // ============================================================
                     // PHYSICS (gravity and floor collision)
                     // ============================================================
-                      
-                      
-                   // Apply horizontal velocity (initial launch momentum only)
-float absVelX = (potEnemyVelocityX[pe] < 0) ? -potEnemyVelocityX[pe] : potEnemyVelocityX[pe];
-if (absVelX > 1.0f) // Only if significant
-{
-    potEnemiesX[pe] += potEnemyVelocityX[pe] * dt;
-    // Friction - slow down horizontal movement over time
-    potEnemyVelocityX[pe] *= 0.95f;
-}
-else
-{
-    potEnemyVelocityX[pe] = 0; // Stop when too slow
-}
-                      
+
+                    // Apply horizontal velocity (initial launch momentum only)
+                    float absVelX = (potEnemyVelocityX[pe] < 0) ? -potEnemyVelocityX[pe] : potEnemyVelocityX[pe];
+                    if (absVelX > 1.0f) // Only if significant
+                    {
+                        potEnemiesX[pe] += potEnemyVelocityX[pe] * dt;
+                        // Friction - slow down horizontal movement over time
+                        potEnemyVelocityX[pe] *= 0.95f;
+                    }
+                    else
+                    {
+                        potEnemyVelocityX[pe] = 0; // Stop when too slow
+                    }
+
                     // Apply gravity
                     potEnemyVelocityY[pe] += gravity * dt;
                     if (potEnemyVelocityY[pe] > terminal_Velocity)
@@ -3281,141 +3291,146 @@ else
                     float newY = potEnemiesY[pe] + potEnemyVelocityY[pe] * dt;
 
                     // Floor collision
-                  // Platform collision detection for pot enemies
-bool potEnemyLanded = false;
+                    // Platform collision detection for pot enemies
+                    bool potEnemyLanded = false;
 
-// Check floor collision first
-if (newY + enemyH >= floorYForEnemies)
-{
-    newY = floorYForEnemies - enemyH;
-    potEnemyVelocityY[pe] = 0;
-    potEnemyOnGround[pe] = true;
-    potEnemyLanded = true;
-}
+                    // Check floor collision first
+                    if (newY + enemyH >= floorYForEnemies)
+                    {
+                        newY = floorYForEnemies - enemyH;
+                        potEnemyVelocityY[pe] = 0;
+                        potEnemyOnGround[pe] = true;
+                        potEnemyLanded = true;
+                    }
 
-// Check all platforms in boss level if not on floor
-if (!potEnemyLanded && potEnemyVelocityY[pe] >= 0)
-{
-    int feetRow = (int)(newY + enemyH) / level3CellSize;
-    int leftCol = (int)(potEnemiesX[pe]) / level3CellSize;
-    int rightCol = (int)(potEnemiesX[pe] + enemyW) / level3CellSize;
+                    // Check all platforms in boss level if not on floor
+                    if (!potEnemyLanded && potEnemyVelocityY[pe] >= 0)
+                    {
+                        int feetRow = (int)(newY + enemyH) / level3CellSize;
+                        int leftCol = (int)(potEnemiesX[pe]) / level3CellSize;
+                        int rightCol = (int)(potEnemiesX[pe] + enemyW) / level3CellSize;
 
-    // Check tiles under the enemy
-    for (int col = leftCol; col <= rightCol && col < level3Width; col++)
-    {
-        if (feetRow >= 0 && feetRow < level3Height)
-        {
-            char tileBelow = bossLvl[feetRow][col];
-            
-            // Check for platform '-' or solid block '#'
-            if (tileBelow == '-' || tileBelow == '#')
-            {
-                float platformTop = feetRow * level3CellSize;
-                
-                // Only land if crossing the platform from above
-                if (potEnemiesY[pe] + enemyH <= platformTop + 5 && newY + enemyH >= platformTop)
-                {
-                    newY = platformTop - enemyH;
-                    potEnemyVelocityY[pe] = 0;
-                    potEnemyOnGround[pe] = true;
-                    potEnemyLanded = true;
-                    break;
-                }
-            }
-        }
-    }
-}
+                        // Check tiles under the enemy
+                        for (int col = leftCol; col <= rightCol && col < level3Width; col++)
+                        {
+                            if (feetRow >= 0 && feetRow < level3Height)
+                            {
+                                char tileBelow = bossLvl[feetRow][col];
 
-// Cloud platform collision (when cloud is a platform)
-if (cloudIsPlatform && !potEnemyLanded && potEnemyVelocityY[pe] >= 0)
-{
-    if (potEnemiesX[pe] + enemyW > cloudX && potEnemiesX[pe] < cloudX + cloudWidth)
-    {
-        if (potEnemiesY[pe] + enemyH <= cloudY + 10 && newY + enemyH >= cloudY)
-        {
-            newY = cloudY - enemyH;
-            potEnemyVelocityY[pe] = 0;
-            potEnemyOnGround[pe] = true;
-            potEnemyLanded = true;
-        }
-    }
-}
+                                // Check for platform '-' or solid block '#'
+                                if (tileBelow == '-' || tileBelow == '#')
+                                {
+                                    float platformTop = feetRow * level3CellSize;
 
-// If no platform found, enemy is in air
-if (!potEnemyLanded)
-{
-    potEnemyOnGround[pe] = false;
-}
+                                    // Only land if crossing the platform from above
+                                    if (potEnemiesY[pe] + enemyH <= platformTop + 5 && newY + enemyH >= platformTop)
+                                    {
+                                        newY = platformTop - enemyH;
+                                        potEnemyVelocityY[pe] = 0;
+                                        potEnemyOnGround[pe] = true;
+                                        potEnemyLanded = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
 
-potEnemiesY[pe] = newY;
+                    // Cloud platform collision (when cloud is a platform)
+                    if (cloudIsPlatform && !potEnemyLanded && potEnemyVelocityY[pe] >= 0)
+                    {
+                        if (potEnemiesX[pe] + enemyW > cloudX && potEnemiesX[pe] < cloudX + cloudWidth)
+                        {
+                            if (potEnemiesY[pe] + enemyH <= cloudY + 10 && newY + enemyH >= cloudY)
+                            {
+                                newY = cloudY - enemyH;
+                                potEnemyVelocityY[pe] = 0;
+                                potEnemyOnGround[pe] = true;
+                                potEnemyLanded = true;
+                            }
+                        }
+                    }
+
+                    // If no platform found, enemy is in air
+                    if (!potEnemyLanded)
+                    {
+                        potEnemyOnGround[pe] = false;
+                    }
+
+                    potEnemiesY[pe] = newY;
 
                     // Horizontal movement when on ground
-      // Horizontal movement when on ground
-if (potEnemyOnGround[pe])
-{
-    int currentRow = (int)(potEnemiesY[pe] + enemyH) / level3CellSize;
+                    // Horizontal movement when on ground
+                    // Horizontal movement when on ground
+                    if (potEnemyOnGround[pe])
+                    {
+                        // FIX: Calculate distinct rows for Feet (Floor check) and Body (Wall check)
+                        // 'currentRow' is the tile BENEATH the feet (The Floor)
+                        int feetRow = (int)(potEnemiesY[pe] + enemyH + 1) / level3CellSize; 
+                        // 'bodyRow' is the tile containing the enemy center (The Wall)
+                        int bodyRow = (int)(potEnemiesY[pe] + enemyH / 2) / level3CellSize;
 
-    // "Bottom floor" = last 3 rows of map
-    bool onBottomFloor = (currentRow >= level3Height - 3);
+                        // "Bottom floor" check
+                        bool onBottomFloor = (feetRow >= level3Height - 3);
 
-    float newPotX = potEnemiesX[pe] + potEnemySpeed[pe] * potEnemyDirection[pe] * dt;
-    bool hitWall = false;
+                        float newPotX = potEnemiesX[pe] + potEnemySpeed[pe] * potEnemyDirection[pe] * dt;
+                        bool hitWall = false;
 
-    //
-    // 1. WALL CHECK
-    //
-    int checkCol = (potEnemyDirection[pe] == 1)
-        ? (int)(newPotX + enemyW) / level3CellSize
-        : (int)newPotX / level3CellSize;
+                        //
+                        // 1. WALL CHECK (Use bodyRow, NOT feetRow)
+                        //
+                        int checkCol = (potEnemyDirection[pe] == 1)
+                                           ? (int)(newPotX + enemyW) / level3CellSize
+                                           : (int)newPotX / level3CellSize;
 
-    if (currentRow >= 0 && currentRow < level3Height &&
-        checkCol >= 0 && checkCol < level3Width)
-    {
-        if (bossLvl[currentRow][checkCol] == '#')
-            hitWall = true;
-    }
+                        if (bodyRow >= 0 && bodyRow < level3Height &&
+                            checkCol >= 0 && checkCol < level3Width)
+                        {
+                            // If the body hits a wall '#'
+                            if (bossLvl[bodyRow][checkCol] == '#')
+                                hitWall = true;
+                        }
 
-    //
-    // 2. LEDGE CHECK (only if not bottom floor and not ghost)
-    //
-    if (!onBottomFloor && potEnemyType[pe] != 1)
-    {
-        int belowRow = currentRow + 1;
+                        //
+                        // 2. LEDGE CHECK (Use feetRow)
+                        //
+                        if (!onBottomFloor && potEnemyType[pe] != 1)
+                        {
+                            // Look ahead for the floor
+                            int edgeCheckCol = (potEnemyDirection[pe] == 1)
+                                                   ? (int)(newPotX + enemyW + 10) / level3CellSize
+                                                   : (int)(newPotX - 10) / level3CellSize;
 
-        int edgeCheckCol = (potEnemyDirection[pe] == 1)
-            ? (int)(newPotX + enemyW + 10) / level3CellSize
-            : (int)(newPotX - 10) / level3CellSize;
+                            if (feetRow < level3Height &&
+                                edgeCheckCol >= 0 && edgeCheckCol < level3Width)
+                            {
+                                char tileBelowNext = bossLvl[feetRow][edgeCheckCol];
+                                // Current tile is center of enemy at feet level
+                                char tileBelowCurr = bossLvl[feetRow][(int)(potEnemiesX[pe] + enemyW * 0.5f) / level3CellSize];
 
-        if (belowRow < level3Height &&
-            edgeCheckCol >= 0 && edgeCheckCol < level3Width)
-        {
-            char tileBelowNext = bossLvl[belowRow][edgeCheckCol];
-            char tileBelowCurr = bossLvl[belowRow]
-               [(int)(potEnemiesX[pe] + enemyW * 0.5f) / level3CellSize];
+                                bool currentHasFloor = (tileBelowCurr == '-' || tileBelowCurr == '#');
+                                bool nextHasNoFloor = !(tileBelowNext == '-' || tileBelowNext == '#');
 
-            bool currentHasFloor = (tileBelowCurr == '-' || tileBelowCurr == '#');
-            bool nextHasNoFloor  = !(tileBelowNext == '-' || tileBelowNext == '#');
+                                // Only turn if we are currently safe but about to walk off
+                                if (currentHasFloor && nextHasNoFloor)
+                                    hitWall = true;
+                            }
+                        }
 
-            if (currentHasFloor && nextHasNoFloor)
-                hitWall = true;
-        }
-    }
-
-    //
-    // 3. SCREEN EDGE LIMITS
-    //
-    if (hitWall ||
-        newPotX <= level3CellSize ||
-        newPotX + enemyW >= screen_x - level3CellSize)
-    {
-        potEnemyDirection[pe] *= -1;
-    }
-    else
-    {
-        potEnemiesX[pe] = newPotX;
-    }
-}
- 
+                        //
+                        // 3. SCREEN EDGE LIMITS
+                        //
+                        if (hitWall ||
+                            newPotX <= level3CellSize ||
+                            newPotX + enemyW >= screen_x - level3CellSize)
+                        {
+                            potEnemyDirection[pe] *= -1;
+                        }
+                        else
+                        {
+                            potEnemiesX[pe] = newPotX;
+                        }
+                    }
 
                     // --- POT ENEMY COLLISION WITH PLAYER ---
                     // Invisible man only damages when visible
@@ -4598,6 +4613,10 @@ if (potEnemyOnGround[pe])
                             chelnovProjY[chelnovProjCount] = chelnovsY[i] + ChelnovHeight / 2;
                             chelnovProjDirection[chelnovProjCount] = (player_x > chelnovsX[i]) ? 1 : -1;
                             chelnovProjActive[chelnovProjCount] = true;
+
+                            chelnovProjAnimFrame[chelnovProjCount] = 0;
+                            chelnovProjAnimCounter[chelnovProjCount] = 0;
+
                             chelnovProjCount++;
                         }
                     }
@@ -5437,97 +5456,97 @@ if (potEnemyOnGround[pe])
 
                                 // Create boss level map
 
-// Create boss level map with proper dimensions
-bossLvl = new char*[level3Height];
-for (int i = 0; i < level3Height; i++)
-{
-    bossLvl[i] = new char[level3Width];
-    for (int j = 0; j < level3Width; j++)
-        bossLvl[i][j] = ' ';
-}
+                                // Create boss level map with proper dimensions
+                                bossLvl = new char *[level3Height];
+                                for (int i = 0; i < level3Height; i++)
+                                {
+                                    bossLvl[i] = new char[level3Width];
+                                    for (int j = 0; j < level3Width; j++)
+                                        bossLvl[i][j] = ' ';
+                                }
 
-// Calculate floor row to ensure visibility
-int floorRow = level3Height - 3;  // Floor at third row from bottom
-float floorY = floorRow * level3CellSize;
+                                // Calculate floor row to ensure visibility
+                                int floorRow = level3Height - 3; // Floor at third row from bottom
+                                float floorY = floorRow * level3CellSize;
 
-// Debug information
-cout << "Creating Level 3 map..." << endl;
-cout << "Dimensions: " << level3Width << "x" << level3Height << endl;
-cout << "Cell size: " << level3CellSize << endl;
-cout << "Floor row: " << floorRow << " (Y position: " << floorY << ")" << endl;
-cout << "Screen size: " << screen_x << "x" << screen_y << endl;
+                                // Debug information
+                                cout << "Creating Level 3 map..." << endl;
+                                cout << "Dimensions: " << level3Width << "x" << level3Height << endl;
+                                cout << "Cell size: " << level3CellSize << endl;
+                                cout << "Floor row: " << floorRow << " (Y position: " << floorY << ")" << endl;
+                                cout << "Screen size: " << screen_x << "x" << screen_y << endl;
 
-// Create floor (ensure it's within screen bounds)
-for (int j = 0; j < level3Width; j++)
-{
-    if (floorRow * level3CellSize < screen_y)  // Only create if visible
-        bossLvl[floorRow][j] = '#';
-}
+                                // Create floor (ensure it's within screen bounds)
+                                for (int j = 0; j < level3Width; j++)
+                                {
+                                    if (floorRow * level3CellSize < screen_y) // Only create if visible
+                                        bossLvl[floorRow][j] = '#';
+                                }
 
-// Create side walls (ensure right wall is within screen bounds)
-for (int i = 0; i < level3Height; i++)
-{
-    // Left wall
-    bossLvl[i][0] = '#';
+                                // Create side walls (ensure right wall is within screen bounds)
+                                for (int i = 0; i < level3Height; i++)
+                                {
+                                    // Left wall
+                                    bossLvl[i][0] = '#';
 
-    // Right wall (only create if visible)
-    if ((level3Width - 1) * level3CellSize < screen_x)
-        bossLvl[i][level3Width - 1] = '#';
-}
+                                    // Right wall (only create if visible)
+                                    if ((level3Width - 1) * level3CellSize < screen_x)
+                                        bossLvl[i][level3Width - 1] = '#';
+                                }
 
-// Create platforms with proper positioning
-// Bottom left platform (row 16)
-int platformRow1 = floorRow - 5;
-for (int j = 2; j < 8; j++)
-{
-    if (platformRow1 * level3CellSize < screen_y)
-        bossLvl[platformRow1][j] = '-';
-}
+                                // Create platforms with proper positioning
+                                // Bottom left platform (row 16)
+                                int platformRow1 = floorRow - 5;
+                                for (int j = 2; j < 8; j++)
+                                {
+                                    if (platformRow1 * level3CellSize < screen_y)
+                                        bossLvl[platformRow1][j] = '-';
+                                }
 
-// Bottom right platform (row 16)
-for (int j = level3Width - 8; j < level3Width - 2; j++)
-{
-    if (platformRow1 * level3CellSize < screen_y)
-        bossLvl[platformRow1][j] = '-';
-}
+                                // Bottom right platform (row 16)
+                                for (int j = level3Width - 8; j < level3Width - 2; j++)
+                                {
+                                    if (platformRow1 * level3CellSize < screen_y)
+                                        bossLvl[platformRow1][j] = '-';
+                                }
 
-// Middle platform (row 14)
-int platformRow2 = floorRow - 7;
-for (int j = 12; j < 18; j++)
-{
-    if (platformRow2 * level3CellSize < screen_y)
-        bossLvl[platformRow2][j] = '-';
-}
+                                // Middle platform (row 14)
+                                int platformRow2 = floorRow - 7;
+                                for (int j = 12; j < 18; j++)
+                                {
+                                    if (platformRow2 * level3CellSize < screen_y)
+                                        bossLvl[platformRow2][j] = '-';
+                                }
 
-// Upper left platform (row 10)
-int platformRow3 = floorRow - 11;
-for (int j = 3; j < 9; j++)
-{
-    if (platformRow3 * level3CellSize < screen_y)
-        bossLvl[platformRow3][j] = '-';
-}
+                                // Upper left platform (row 10)
+                                int platformRow3 = floorRow - 11;
+                                for (int j = 3; j < 9; j++)
+                                {
+                                    if (platformRow3 * level3CellSize < screen_y)
+                                        bossLvl[platformRow3][j] = '-';
+                                }
 
-// Upper right platform (row 10)
-for (int j = level3Width - 9; j < level3Width - 3; j++)
-{
-    if (platformRow3 * level3CellSize < screen_y)
-        bossLvl[platformRow3][j] = '-';
-}
+                                // Upper right platform (row 10)
+                                for (int j = level3Width - 9; j < level3Width - 3; j++)
+                                {
+                                    if (platformRow3 * level3CellSize < screen_y)
+                                        bossLvl[platformRow3][j] = '-';
+                                }
 
-// Top middle platform (row 7)
-int platformRow4 = floorRow - 14;
-for (int j = 11; j < 19; j++)
-{
-    if (platformRow4 * level3CellSize < screen_y)
-        bossLvl[platformRow4][j] = '-';
-}
+                                // Top middle platform (row 7)
+                                int platformRow4 = floorRow - 14;
+                                for (int j = 11; j < 19; j++)
+                                {
+                                    if (platformRow4 * level3CellSize < screen_y)
+                                        bossLvl[platformRow4][j] = '-';
+                                }
 
-// Player starting position
-player_x = screen_x / 2 - PlayerWidth / 2;
-player_y = floorY - PlayerHeight - 5;  // Place player just above floor
+                                // Player starting position
+                                player_x = screen_x / 2 - PlayerWidth / 2;
+                                player_y = floorY - PlayerHeight - 5; // Place player just above floor
 
-cout << "Level 3 map created successfully!" << endl;
-cout << "Player starting position: (" << player_x << ", " << player_y << ")" << endl;
+                                cout << "Level 3 map created successfully!" << endl;
+                                cout << "Player starting position: (" << player_x << ", " << player_y << ")" << endl;
 
                                 // Initialize boss
                                 bossX = screen_x / 2 - bossWidth / 2;
@@ -5542,7 +5561,7 @@ cout << "Player starting position: (" << player_x << ", " << player_y << ")" << 
                                 // Player position
                                 // Player starting position for boss level
                                 player_x = screen_x / 2 - PlayerWidth / 2;
-                                player_y = floorY - PlayerHeight - 5;  // Place player just above floor
+                                player_y = floorY - PlayerHeight - 5; // Place player just above floor
 
                                 velocityY = 0;
                                 onGround = false;
@@ -5742,25 +5761,22 @@ cout << "Player starting position: (" << player_x << ", " << player_y << ")" << 
                 // Draw boss level tiles
                 jumpStrength = -180.f;
                 // Draw boss level tiles
-// Draw boss level tiles
-// Draw boss level tiles
-for (int i = 0; i < level3Height; i++)
-{
-    for (int j = 0; j < level3Width; j++)
-    {
-        if (bossLvl[i][j] == '#' || bossLvl[i][j] == '-')
-        {
-            blockSprite3.setPosition(j * level3CellSize, i * level3CellSize);
-            // Scale block to fit smaller cell size
-            float blockScale = (float)level3CellSize / 64.0f;
-            blockSprite3.setScale(blockScale, blockScale);
-            window.draw(blockSprite3);
-        }
-    }
-}
-
-
-
+                // Draw boss level tiles
+                // Draw boss level tiles
+                for (int i = 0; i < level3Height; i++)
+                {
+                    for (int j = 0; j < level3Width; j++)
+                    {
+                        if (bossLvl[i][j] == '#' || bossLvl[i][j] == '-')
+                        {
+                            blockSprite3.setPosition(j * level3CellSize, i * level3CellSize);
+                            // Scale block to fit smaller cell size
+                            float blockScale = (float)level3CellSize / 64.0f;
+                            blockSprite3.setScale(blockScale, blockScale);
+                            window.draw(blockSprite3);
+                        }
+                    }
+                }
 
                 // ============================================================================
                 // DRAW CLOUD (always visible - becomes platform after pot destroyed)
@@ -5836,31 +5852,50 @@ for (int i = 0; i < level3Height; i++)
                 // DRAW POT ENEMIES (Animated)
                 for (int pe = 0; pe < potEnemyCount; pe++)
                 {
+                    // Default to Ghost
                     Texture *currentWalk = ghostWalkTex;
                     Texture *currentSuck = ghostSuckTex;
                     Sprite *s = &EnemySprite;
-                    
-                    // 1. Select Texture & Logical Hitbox Size
-                    int hW = EnemyWidth; 
-int hH = EnemyHeight;
+                    int hW = EnemyWidth;
+                    int hH = EnemyHeight;
 
-if (potEnemyType[pe] == 2) { hW = SkeletonWidth; hH = SkeletonHeight; }
-else if (potEnemyType[pe] == 3) { hW = InvisibleWidth; hH = InvisibleHeight; }
-else if (potEnemyType[pe] == 4) { hW = ChelnovWidth; hH = ChelnovHeight; }
+                    // --- FIX: ASSIGN TEXTURES BASED ON TYPE ---
+                    if (potEnemyType[pe] == 2) // Skeleton
+                    {
+                        currentWalk = skeletonWalkTex; 
+                        currentSuck = skeletonSuckTex;
+                        s = &SkeletonSprite;
+                        hW = SkeletonWidth;
+                        hH = SkeletonHeight;
+                    }
+                    else if (potEnemyType[pe] == 3) // Invisible Man
+                    {
+                        currentWalk = invisibleWalkTex;
+                        currentSuck = invisibleSuckTex;
+                        s = &InvisibleSprite;
+                        hW = InvisibleWidth;
+                        hH = InvisibleHeight;
+                    }
+                    else if (potEnemyType[pe] == 4) // Chelnov
+                    {
+                        currentWalk = chelnovWalkTex;
+                        currentSuck = chelnovSuckTex;
+                        s = &ChelnovSprite;
+                        hW = ChelnovWidth;
+                        hH = ChelnovHeight;
+                    }
+                    // ------------------------------------------
 
-if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
-{
+                    if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
+                    {
+                        updateEnemyAnimation(*s, dt, currentWalk, currentSuck,
+                                             potEnemyAnimFrame[pe], potEnemyAnimCounter[pe], 8,
+                                             potEnemyDirection[pe], potEnemyIsCaught[pe],
+                                             potEnemiesX[pe], potEnemiesY[pe], 2.0f,
+                                             hW, hH);
 
-	int dummyFrame = 0;
-                int dummyCounter = 0;
-    updateEnemyAnimation(*s, dt, currentWalk, currentSuck,
-            dummyFrame, dummyCounter, 8,
-            potEnemyDirection[pe], potEnemyIsCaught[pe],
-            potEnemiesX[pe], potEnemiesY[pe], 2.0f,
-            hW, hH); // <--- Pass selected dimensions
-            
-    window.draw(*s);
-}
+                        window.draw(*s);
+                    }
                 }
 
                 // ============================================================================
@@ -5870,7 +5905,20 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                 {
                     if (!potEnemyProjActive[pp])
                         continue;
+                    
+                    // 1. Update Animation
+                    potEnemyProjAnimCounter[pp]++;
+                    if (potEnemyProjAnimCounter[pp] >= 5) 
+                    {
+                        potEnemyProjAnimCounter[pp] = 0;
+                        potEnemyProjAnimFrame[pp]++;
+                        if (potEnemyProjAnimFrame[pp] >= 4) potEnemyProjAnimFrame[pp] = 0;
+                    }
 
+                    // 2. Set Texture (Reuse the same texture array)
+                    chelnovProjSprite.setTexture(chelnovProjTex[potEnemyProjAnimFrame[pp]]);
+
+                    // 3. Draw
                     chelnovProjSprite.setPosition(potEnemyProjX[pp], potEnemyProjY[pp]);
                     window.draw(chelnovProjSprite);
                 }
@@ -6013,12 +6061,12 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
             // Draw ghosts (Animated)
             for (int i = 0; i < enemyCount; i++)
             {
-                updateEnemyAnimation(EnemySprite, dt, 
-        ghostWalkTex, ghostSuckTex,
-        ghostAnimFrame[i], ghostAnimCounter[i], 8,
-        enemyDirection[i], enemyIsCaught[i],
-        enemiesX[i], enemiesY[i], 2.0f,
-        EnemyWidth, EnemyHeight); // <--- Pass Ghost Dimensions
+                updateEnemyAnimation(EnemySprite, dt,
+                                     ghostWalkTex, ghostSuckTex,
+                                     ghostAnimFrame[i], ghostAnimCounter[i], 8,
+                                     enemyDirection[i], enemyIsCaught[i],
+                                     enemiesX[i], enemiesY[i], 2.0f,
+                                     EnemyWidth, EnemyHeight); // <--- Pass Ghost Dimensions
 
                 window.draw(EnemySprite);
             }
@@ -6027,12 +6075,12 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
             // Draw skeletons (Animated)
             for (int i = 0; i < skeletonCount; i++)
             {
-                updateEnemyAnimation(SkeletonSprite, dt, 
-        skeletonWalkTex, skeletonSuckTex,
-        skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
-        skeletonDirection[i], skeletonIsCaught[i],
-        skeletonsX[i], skeletonsY[i], 2.0f,
-        SkeletonWidth, SkeletonHeight); // <--- Pass Skeleton Dimensions (92px)
+                updateEnemyAnimation(SkeletonSprite, dt,
+                                     skeletonWalkTex, skeletonSuckTex,
+                                     skeletonAnimFrame[i], skeletonAnimCounter[i], 8,
+                                     skeletonDirection[i], skeletonIsCaught[i],
+                                     skeletonsX[i], skeletonsY[i], 2.0f,
+                                     SkeletonWidth, SkeletonHeight); // <--- Pass Skeleton Dimensions (92px)
 
                 window.draw(SkeletonSprite);
             }
@@ -6046,12 +6094,12 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                 {
                     if (invisibleIsVisible[i])
                     {
-                     	updateEnemyAnimation(InvisibleSprite, dt,
-        invisibleWalkTex, invisibleSuckTex,
-        invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
-        invisibleDirection[i], invisibleIsCaught[i],
-        invisiblesX[i], invisiblesY[i], 2.0f,
-        InvisibleWidth, InvisibleHeight);
+                        updateEnemyAnimation(InvisibleSprite, dt,
+                                             invisibleWalkTex, invisibleSuckTex,
+                                             invisibleAnimFrame[i], invisibleAnimCounter[i], 8,
+                                             invisibleDirection[i], invisibleIsCaught[i],
+                                             invisiblesX[i], invisiblesY[i], 2.0f,
+                                             InvisibleWidth, InvisibleHeight);
 
                         window.draw(InvisibleSprite);
                     }
@@ -6061,11 +6109,11 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                 for (int i = 0; i < chelnovCount; i++)
                 {
                     updateEnemyAnimation(ChelnovSprite, dt,
-        chelnovWalkTex, chelnovSuckTex,
-        chelnovAnimFrame[i], chelnovAnimCounter[i], 8,
-        chelnovDirection[i], chelnovIsCaught[i],
-        chelnovsX[i], chelnovsY[i], 2.0f,
-        ChelnovWidth, ChelnovHeight);
+                                         chelnovWalkTex, chelnovSuckTex,
+                                         chelnovAnimFrame[i], chelnovAnimCounter[i], 8,
+                                         chelnovDirection[i], chelnovIsCaught[i],
+                                         chelnovsX[i], chelnovsY[i], 2.0f,
+                                         ChelnovWidth, ChelnovHeight);
 
                     window.draw(ChelnovSprite);
                 }
@@ -6074,6 +6122,19 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
                 {
                     if (chelnovProjActive[i])
                     {
+                        // 1. Update Animation
+                        chelnovProjAnimCounter[i]++;
+                        if (chelnovProjAnimCounter[i] >= 5) // Speed 5
+                        {
+                            chelnovProjAnimCounter[i] = 0;
+                            chelnovProjAnimFrame[i]++;
+                            if (chelnovProjAnimFrame[i] >= 4) chelnovProjAnimFrame[i] = 0;
+                        }
+
+                        // 2. Set Texture
+                        chelnovProjSprite.setTexture(chelnovProjTex[chelnovProjAnimFrame[i]]);
+                        
+                        // 3. Draw
                         chelnovProjSprite.setPosition(chelnovProjX[i], chelnovProjY[i]);
                         window.draw(chelnovProjSprite);
                     }
@@ -6348,10 +6409,10 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
             potEnemyVelocityY = NULL;
         }
         if (potEnemyVelocityX != NULL)
-{
-    delete[] potEnemyVelocityX;
-    potEnemyVelocityX = NULL;
-}
+        {
+            delete[] potEnemyVelocityX;
+            potEnemyVelocityX = NULL;
+        }
         if (potEnemyOnGround != NULL)
         {
             delete[] potEnemyOnGround;
@@ -6414,6 +6475,23 @@ if (potEnemyType[pe] != 3 || potEnemyIsVisible[pe])
         {
             delete[] dynamicCapturedEnemies;
             dynamicCapturedEnemies = NULL;
+        }
+        if (potEnemyType != NULL)
+        {
+            delete[] potEnemyType;
+            potEnemyType = NULL;
+        }
+
+        // --- ADD CLEANUP ---
+        if (potEnemyAnimFrame != NULL)
+        {
+            delete[] potEnemyAnimFrame;
+            potEnemyAnimFrame = NULL;
+        }
+        if (potEnemyAnimCounter != NULL)
+        {
+            delete[] potEnemyAnimCounter;
+            potEnemyAnimCounter = NULL;
         }
 
     } // End of playagain loop
